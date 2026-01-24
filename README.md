@@ -161,8 +161,9 @@ nano .env
 POSTGRES_PASSWORD=your_secure_password_here
 
 # Optional: Admin account
+# Test environment default admin password: 123456 (change for production)
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your_admin_password
+ADMIN_PASSWORD=123456
 
 # Optional: Custom port
 SERVER_PORT=8080

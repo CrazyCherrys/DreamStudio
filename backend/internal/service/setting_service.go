@@ -71,6 +71,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyDocURL,
 		SettingKeyHomeContent,
 		SettingKeyHideCcsImportButton,
+		SettingKeyUserCustomKeyEnabled,
 		SettingKeyLinuxDoConnectEnabled,
 	}
 
@@ -100,6 +101,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		DocURL:              settings[SettingKeyDocURL],
 		HomeContent:         settings[SettingKeyHomeContent],
 		HideCcsImportButton: settings[SettingKeyHideCcsImportButton] == "true",
+		UserCustomKeyEnabled: !isFalseSettingValue(settings[SettingKeyUserCustomKeyEnabled]),
 		LinuxDoOAuthEnabled: linuxDoEnabled,
 	}, nil
 }
@@ -138,6 +140,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		DocURL              string `json:"doc_url,omitempty"`
 		HomeContent         string `json:"home_content,omitempty"`
 		HideCcsImportButton bool   `json:"hide_ccs_import_button"`
+		UserCustomKeyEnabled bool  `json:"user_custom_key_enabled"`
 		LinuxDoOAuthEnabled bool   `json:"linuxdo_oauth_enabled"`
 		Version             string `json:"version,omitempty"`
 	}{
@@ -154,6 +157,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		DocURL:              settings.DocURL,
 		HomeContent:         settings.HomeContent,
 		HideCcsImportButton: settings.HideCcsImportButton,
+		UserCustomKeyEnabled: settings.UserCustomKeyEnabled,
 		LinuxDoOAuthEnabled: settings.LinuxDoOAuthEnabled,
 		Version:             s.version,
 	}, nil
@@ -203,6 +207,22 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	updates[SettingKeyDocURL] = settings.DocURL
 	updates[SettingKeyHomeContent] = settings.HomeContent
 	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
+	updates[SettingKeyUserCustomKeyEnabled] = strconv.FormatBool(settings.UserCustomKeyEnabled)
+
+	// 存储设置
+	updates[SettingKeyStorageS3Enabled] = strconv.FormatBool(settings.StorageS3Enabled)
+	updates[SettingKeyStorageS3Endpoint] = settings.StorageS3Endpoint
+	updates[SettingKeyStorageS3Region] = settings.StorageS3Region
+	updates[SettingKeyStorageS3Bucket] = settings.StorageS3Bucket
+	updates[SettingKeyStorageS3PublicURL] = settings.StorageS3PublicURL
+	updates[SettingKeyStorageS3UseSSL] = strconv.FormatBool(settings.StorageS3UseSSL)
+	updates[SettingKeyStorageS3PathStyle] = strconv.FormatBool(settings.StorageS3PathStyle)
+	if settings.StorageS3AccessKey != "" {
+		updates[SettingKeyStorageS3AccessKey] = settings.StorageS3AccessKey
+	}
+	if settings.StorageS3SecretKey != "" {
+		updates[SettingKeyStorageS3SecretKey] = settings.StorageS3SecretKey
+	}
 
 	// 默认配置
 	updates[SettingKeyDefaultConcurrency] = strconv.Itoa(settings.DefaultConcurrency)
@@ -218,6 +238,8 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	// Identity patch configuration (Claude -> Gemini)
 	updates[SettingKeyEnableIdentityPatch] = strconv.FormatBool(settings.EnableIdentityPatch)
 	updates[SettingKeyIdentityPatchPrompt] = settings.IdentityPatchPrompt
+	updates[SettingKeyPromptOptimizeModel] = strings.TrimSpace(settings.PromptOptimizeModel)
+	updates[SettingKeyPromptOptimizePrompt] = strings.TrimSpace(settings.PromptOptimizePrompt)
 
 	// Ops monitoring (vNext)
 	updates[SettingKeyOpsMonitoringEnabled] = strconv.FormatBool(settings.OpsMonitoringEnabled)
@@ -260,6 +282,15 @@ func (s *SettingService) IsPromoCodeEnabled(ctx context.Context) bool {
 		return true // 默认启用
 	}
 	return value != "false"
+}
+
+// IsUserCustomKeyEnabled 检查是否允许用户自定义 API Key
+func (s *SettingService) IsUserCustomKeyEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyUserCustomKeyEnabled)
+	if err != nil {
+		return true // 默认启用
+	}
+	return !isFalseSettingValue(value)
 }
 
 // GetSiteName 获取网站名称
@@ -318,6 +349,11 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyDefaultBalance:      strconv.FormatFloat(s.cfg.Default.UserBalance, 'f', 8, 64),
 		SettingKeySMTPPort:            "587",
 		SettingKeySMTPUseTLS:          "false",
+		SettingKeyNewAPIBaseURL:       DefaultNewAPIBaseURL,
+		SettingKeyStorageS3Enabled:    "false",
+		SettingKeyStorageS3UseSSL:     "true",
+		SettingKeyStorageS3PathStyle:  "false",
+		SettingKeyUserCustomKeyEnabled: "true",
 		// Model fallback defaults
 		SettingKeyEnableModelFallback:      "false",
 		SettingKeyFallbackModelAnthropic:   "claude-3-5-sonnet-20241022",
@@ -361,6 +397,18 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		DocURL:                       settings[SettingKeyDocURL],
 		HomeContent:                  settings[SettingKeyHomeContent],
 		HideCcsImportButton:          settings[SettingKeyHideCcsImportButton] == "true",
+		UserCustomKeyEnabled:         !isFalseSettingValue(settings[SettingKeyUserCustomKeyEnabled]),
+		StorageS3Enabled:             settings[SettingKeyStorageS3Enabled] == "true",
+		StorageS3Endpoint:            settings[SettingKeyStorageS3Endpoint],
+		StorageS3Region:              settings[SettingKeyStorageS3Region],
+		StorageS3Bucket:              settings[SettingKeyStorageS3Bucket],
+		StorageS3AccessKey:           settings[SettingKeyStorageS3AccessKey],
+		StorageS3SecretKey:           settings[SettingKeyStorageS3SecretKey],
+		StorageS3AccessKeyConfigured: settings[SettingKeyStorageS3AccessKey] != "",
+		StorageS3SecretKeyConfigured: settings[SettingKeyStorageS3SecretKey] != "",
+		StorageS3PublicURL:           settings[SettingKeyStorageS3PublicURL],
+		StorageS3UseSSL:              settings[SettingKeyStorageS3UseSSL] != "false",
+		StorageS3PathStyle:           settings[SettingKeyStorageS3PathStyle] == "true",
 	}
 
 	// 解析整数类型
@@ -434,6 +482,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 	result.IdentityPatchPrompt = settings[SettingKeyIdentityPatchPrompt]
 
+	result.PromptOptimizeModel = strings.TrimSpace(settings[SettingKeyPromptOptimizeModel])
+	result.PromptOptimizePrompt = strings.TrimSpace(settings[SettingKeyPromptOptimizePrompt])
+
 	// Ops monitoring settings (default: enabled, fail-open)
 	result.OpsMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsMonitoringEnabled])
 	result.OpsRealtimeMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsRealtimeMonitoringEnabled])
@@ -506,6 +557,21 @@ func (s *SettingService) GetIdentityPatchPrompt(ctx context.Context) string {
 		return ""
 	}
 	return value
+}
+
+func (s *SettingService) GetPromptOptimizationSettings(ctx context.Context) (*PromptOptimizationSettings, error) {
+	keys := []string{
+		SettingKeyPromptOptimizeModel,
+		SettingKeyPromptOptimizePrompt,
+	}
+	settings, err := s.settingRepo.GetMultiple(ctx, keys)
+	if err != nil {
+		return nil, fmt.Errorf("get prompt optimization settings: %w", err)
+	}
+	return &PromptOptimizationSettings{
+		Model:  strings.TrimSpace(settings[SettingKeyPromptOptimizeModel]),
+		Prompt: strings.TrimSpace(settings[SettingKeyPromptOptimizePrompt]),
+	}, nil
 }
 
 // GenerateAdminAPIKey 生成新的管理员 API Key

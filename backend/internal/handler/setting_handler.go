@@ -45,6 +45,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		DocURL:              settings.DocURL,
 		HomeContent:         settings.HomeContent,
 		HideCcsImportButton: settings.HideCcsImportButton,
+		UserCustomKeyEnabled: settings.UserCustomKeyEnabled,
 		LinuxDoOAuthEnabled: settings.LinuxDoOAuthEnabled,
 		Version:             h.version,
 	})

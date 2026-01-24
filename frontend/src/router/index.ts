@@ -35,6 +35,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/gallery',
+    name: 'Gallery',
+    component: () => import('@/views/GalleryView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Gallery'
+    }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/auth/LoginView.vue'),
@@ -109,6 +118,18 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'profile.description'
     }
   },
+  {
+    path: '/model-settings',
+    name: 'ModelSettings',
+    component: () => import('@/views/user/ModelSettingsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Model Settings',
+      titleKey: 'modelSettings.title',
+      descriptionKey: 'modelSettings.description'
+    }
+  },
 
   // ==================== Admin Routes ====================
   {
@@ -161,6 +182,30 @@ const routes: RouteRecordRaw[] = [
       title: 'System Settings',
       titleKey: 'admin.settings.title',
       descriptionKey: 'admin.settings.description'
+    }
+  },
+  {
+    path: '/admin/api-settings',
+    name: 'AdminApiSettings',
+    component: () => import('@/views/admin/ApiSettingsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'API Settings',
+      titleKey: 'admin.apiSettings.title',
+      descriptionKey: 'admin.apiSettings.description'
+    }
+  },
+  {
+    path: '/admin/inspiration',
+    name: 'AdminInspiration',
+    component: () => import('@/views/admin/InspirationView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Inspiration Review',
+      titleKey: 'admin.inspiration.title',
+      descriptionKey: 'admin.inspiration.description'
     }
   },
 

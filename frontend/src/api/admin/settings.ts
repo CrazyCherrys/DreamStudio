@@ -25,6 +25,18 @@ export interface SystemSettings {
   doc_url: string
   home_content: string
   hide_ccs_import_button: boolean
+  user_custom_key_enabled: boolean
+
+  // Storage (S3) settings
+  storage_s3_enabled: boolean
+  storage_s3_endpoint: string
+  storage_s3_region: string
+  storage_s3_bucket: string
+  storage_s3_access_key_configured: boolean
+  storage_s3_secret_key_configured: boolean
+  storage_s3_public_url: string
+  storage_s3_use_ssl: boolean
+  storage_s3_path_style: boolean
   // SMTP settings
   smtp_host: string
   smtp_port: number
@@ -55,6 +67,9 @@ export interface SystemSettings {
   enable_identity_patch: boolean
   identity_patch_prompt: string
 
+  prompt_optimize_model: string
+  prompt_optimize_prompt: string
+
   // Ops Monitoring (vNext)
   ops_monitoring_enabled: boolean
   ops_realtime_monitoring_enabled: boolean
@@ -76,6 +91,16 @@ export interface UpdateSettingsRequest {
   doc_url?: string
   home_content?: string
   hide_ccs_import_button?: boolean
+  user_custom_key_enabled?: boolean
+  storage_s3_enabled?: boolean
+  storage_s3_endpoint?: string
+  storage_s3_region?: string
+  storage_s3_bucket?: string
+  storage_s3_access_key?: string
+  storage_s3_secret_key?: string
+  storage_s3_public_url?: string
+  storage_s3_use_ssl?: boolean
+  storage_s3_path_style?: boolean
   smtp_host?: string
   smtp_port?: number
   smtp_username?: string
@@ -97,6 +122,8 @@ export interface UpdateSettingsRequest {
   fallback_model_antigravity?: string
   enable_identity_patch?: boolean
   identity_patch_prompt?: string
+  prompt_optimize_model?: string
+  prompt_optimize_prompt?: string
   ops_monitoring_enabled?: boolean
   ops_realtime_monitoring_enabled?: boolean
   ops_query_mode_default?: 'auto' | 'raw' | 'preagg' | string

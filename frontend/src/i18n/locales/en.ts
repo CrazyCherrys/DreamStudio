@@ -36,8 +36,147 @@ export default {
       antigravity: 'Antigravity',
       more: 'More'
     },
+    studio: {
+      kicker: 'DreamStudio'
+    },
+    generator: {
+      title: 'Image Studio',
+      subtitle: 'Choose a model, craft a prompt, and set ratio and resolution',
+      modeImage: 'AI Image',
+      modeVideo: 'AI Video',
+      modelLabel: 'Model',
+      modelPlaceholder: 'Select a model',
+      modelEmpty: 'No models available',
+      modelLoadFailed: 'Failed to load models',
+      promptLabel: 'Describe your idea',
+      promptPlaceholder: 'Describe your idea...',
+      promptHint: 'Add style, lighting, material, and mood keywords',
+      promptClear: 'Clear prompt',
+      optimizePrompt: 'AI Optimize',
+      optimizePrompting: 'Optimizing...',
+      optimizeSuccess: 'Prompt optimized',
+      optimizeFailed: 'Failed to optimize prompt',
+      imageLabel: 'Reference Image',
+      imageHint: 'Drag or click to upload a reference',
+      imageSubHint: 'PNG/JPG supported',
+      imageUpload: 'Upload image',
+      imageReplace: 'Replace image',
+      imageRemove: 'Remove',
+      ratioLabel: 'Aspect Ratio',
+      ratioPlaceholder: 'Select ratio',
+      ratioEmpty: 'No ratios available',
+      resolutionLabel: 'Resolution',
+      resolutionPlaceholder: 'Select resolution',
+      resolutionEmpty: 'No resolutions available',
+      imageCount: 'Count',
+      imageCountPlaceholder: 'Default 1',
+      videoDuration: 'Duration (seconds)',
+      videoDurationPlaceholder: 'e.g. 5',
+      videoFps: 'Frame rate (FPS)',
+      videoFpsPlaceholder: 'e.g. 24',
+      videoWidth: 'Video width',
+      videoWidthPlaceholder: 'e.g. 1024',
+      videoHeight: 'Video height',
+      videoHeightPlaceholder: 'e.g. 576',
+      videoSeed: 'Seed',
+      videoSeedPlaceholder: 'Optional',
+      videoCount: 'Count',
+      videoCountPlaceholder: 'Default 1',
+      modelSettingsHint: 'Configure ratios and resolutions in Model Settings.',
+      generate: 'Generate',
+      generating: 'Generating...',
+      generateSuccess: 'Queued for generation',
+      generateFailed: 'Failed to generate image',
+      generatePartial: 'Queued {success}/{total} generations',
+      generateVideoSuccess: 'Video queued for generation',
+      generateVideoFailed: 'Failed to generate video',
+      resultTitle: 'Latest results',
+      generatedImageAlt: 'Generated image',
+      loginHint: 'Log in to load models and generate',
+      modelRequired: 'Please select a model',
+      promptRequired: 'Please describe your idea',
+      invalidImage: 'Please upload an image file',
+      comingSoon: 'Generation is not wired up yet.'
+    },
+    panel: {
+      history: 'History',
+      creative: 'Creative'
+    },
+    history: {
+      title: 'No generations yet',
+      description: 'Completed generations will appear here.',
+      filterStatus: 'Status',
+      filterModel: 'Model',
+      filterTime: 'Time',
+      clearFilters: 'Clear filters',
+      rangeAll: 'All time',
+      range24h: 'Last 24h',
+      range7d: 'Last 7 days',
+      range30d: 'Last 30 days',
+      statusPending: 'Pending',
+      statusRunning: 'Running',
+      statusSucceeded: 'Succeeded',
+      statusFailed: 'Generation failed',
+      statusRetrying: 'Retrying',
+      nextRetryAt: 'Next retry',
+      loadFailed: 'Failed to load history',
+      refreshing: 'Refreshing history...',
+      downloadVideo: 'Download video',
+      detailTitle: 'Generation details',
+      detailStatus: 'Status',
+      detailNextRetryAt: 'Next retry',
+      detailModel: 'Model',
+      detailDisplayName: 'Display name',
+      detailCreatedAt: 'Created',
+      detailCompletedAt: 'Completed',
+      detailSubmission: 'Submission',
+      detailPublic: 'Public',
+      detailLoadFailed: 'Failed to load details',
+      showPrompt: 'Show prompt',
+      usePrompt: 'Use this prompt',
+      submissionNone: 'Not submitted',
+      submissionPending: 'Pending review',
+      submissionApproved: 'Approved',
+      submissionRejected: 'Rejected',
+      submitToInspiration: 'Submit to inspiration',
+      submitPending: 'Submitted for review',
+      submitApproved: 'Already approved',
+      submitRejected: 'Rejected',
+      submitFailed: 'Failed to submit',
+      submitUnavailable: 'Image not available yet',
+      withdraw: 'Withdraw submission',
+      withdrawSuccess: 'Submission withdrawn',
+      withdrawFailed: 'Failed to withdraw submission',
+      unpublish: 'Unpublish',
+      unpublishSuccess: 'Unpublished',
+      unpublishFailed: 'Failed to unpublish',
+      delete: 'Delete record',
+      deleteConfirm: 'Delete this record?',
+      deleteSuccess: 'Record deleted',
+      deleteFailed: 'Failed to delete record'
+    },
     footer: {
       allRightsReserved: 'All rights reserved.'
+    }
+  },
+
+  // Gallery
+  gallery: {
+    kicker: 'Gallery',
+    title: 'Works Gallery',
+    subtitle: 'Public images shared by the community.',
+    emptyTitle: 'No public works yet',
+    emptyDescription: 'When users choose to make their images public, they will appear here.',
+    promptFallback: 'Untitled',
+    modelFallback: 'Community',
+    loadFailed: 'Failed to load gallery',
+    nav: {
+      home: 'Home',
+      gallery: 'Gallery'
+    },
+    actions: {
+      copyPrompt: 'Copy prompt',
+      downloadImage: 'Download image'
     }
   },
 
@@ -189,6 +328,9 @@ export default {
     ops: 'Ops',
     promoCodes: 'Promo Codes',
     settings: 'Settings',
+    apiSettings: 'API Settings',
+    inspiration: 'Inspiration',
+    modelSettings: 'Model Settings',
     myAccount: 'My Account',
     lightMode: 'Light Mode',
     darkMode: 'Dark Mode',
@@ -400,7 +542,8 @@ export default {
     },
     customKeyLabel: 'Custom Key',
     customKeyPlaceholder: 'Enter your custom key (min 16 chars)',
-    customKeyHint: 'Only letters, numbers, underscores and hyphens allowed. Minimum 16 characters.',
+    customKeyHint: 'Only letters, numbers, underscores and hyphens allowed. Minimum 16 characters. Base URL and models remain admin-controlled.',
+    customKeyDisabled: 'Custom keys are disabled by the administrator.',
     customKeyTooShort: 'Custom key must be at least 16 characters',
     customKeyInvalidChars: 'Custom key can only contain letters, numbers, underscores, and hyphens',
     customKeyRequired: 'Please enter a custom key',
@@ -551,6 +694,55 @@ export default {
     passwordChangeFailed: 'Failed to change password'
   },
 
+  // Model Settings
+  modelSettings: {
+    title: 'Model Settings',
+    description: 'Manage image/video models, request endpoints, resolutions, and aspect ratios',
+    loadFailed: 'Failed to load model settings',
+    saveSuccess: 'Model settings saved',
+    saveFailed: 'Failed to save model settings',
+    saving: 'Saving...',
+    groups: {
+      image: 'Image Models',
+      video: 'Video Models',
+      emptyImage: 'No image models',
+      emptyVideo: 'No video models'
+    },
+    models: {
+      refresh: 'Refresh',
+      loading: 'Loading...',
+      empty: 'No models available',
+      loadFailed: 'Failed to load models',
+      hint: 'Models are loaded from the configured NewAPI',
+      count: '{count} models',
+      unavailable: 'Unavailable',
+      remove: 'Remove',
+      removeConfirmTitle: 'Remove model',
+      removeConfirmMessage: 'Remove {name} from your model settings?',
+      removeSuccess: 'Model removed',
+      removeFailed: 'Failed to remove model'
+    },
+    sections: {
+      modelType: 'Model Type',
+      displayName: 'Display Name',
+      requestEndpoint: 'Request Endpoint',
+      resolutions: 'Resolutions',
+      aspectRatios: 'Aspect Ratios'
+    },
+    modelTypes: {
+      image: 'AI Image',
+      video: 'AI Video'
+    },
+    displayNamePlaceholder: 'Optional. Leave blank to use the model name',
+    displayNameHint: 'Only affects display, does not change the request model',
+    requestEndpoints: {
+      openai: 'OpenAI',
+      gemini: 'Gemini',
+      openaiMod: 'OpenAI Modified'
+    },
+    selectedCount: '{count} selected'
+  },
+
   // Empty States
   empty: {
     noData: 'No data found'
@@ -645,6 +837,38 @@ export default {
       noDataAvailable: 'No data available',
       recentUsage: 'Recent Usage',
       failedToLoad: 'Failed to load dashboard statistics'
+    },
+
+    inspiration: {
+      title: 'Inspiration Review',
+      description: 'Review user submissions for the public gallery',
+      previewTitle: 'Preview submission',
+      loadFailed: 'Failed to load submissions',
+      updateFailed: 'Failed to update submission',
+      approveSuccess: 'Submission approved',
+      rejectSuccess: 'Submission rejected',
+      confirmApproveTitle: 'Approve submission',
+      confirmApproveMessage: 'Approve this submission and make it public?',
+      confirmRejectTitle: 'Reject submission',
+      confirmRejectMessage: 'Reject this submission and keep it private?',
+      status: {
+        pending: 'Pending',
+        approved: 'Approved',
+        rejected: 'Rejected',
+        none: 'Not submitted',
+        all: 'All'
+      },
+      columns: {
+        preview: 'Preview',
+        prompt: 'Prompt',
+        status: 'Status',
+        submittedAt: 'Submitted',
+        actions: 'Actions'
+      },
+      actions: {
+        approve: 'Approve',
+        reject: 'Reject'
+      }
     },
 
     // Users
@@ -2769,6 +2993,16 @@ export default {
         defaultConcurrency: 'Default Concurrency',
         defaultConcurrencyHint: 'Maximum concurrent requests for new users'
       },
+      promptOptimize: {
+        title: 'Prompt Optimization',
+        description: 'Configure the model and system prompt for AI prompt optimization',
+        modelLabel: 'Optimization model',
+        modelPlaceholder: 'e.g. gpt-4o',
+        modelHint: 'Model ID used to rewrite prompts',
+        promptLabel: 'Optimization prompt',
+        promptPlaceholder: 'Rewrite the user prompt to be clearer and more specific. Return only the optimized prompt.',
+        promptHint: 'Used as the system prompt; leave empty to send only user content.'
+      },
       site: {
         title: 'Site Settings',
         description: 'Customize site branding',
@@ -2800,7 +3034,42 @@ export default {
         homeContentHint: 'Customize the home page content. Supports Markdown/HTML. If you enter a URL (starting with http:// or https://), it will be used as an iframe src to embed an external page. When set, the default status information will no longer be displayed.',
         homeContentIframeWarning: '⚠️ iframe mode note: Some websites have X-Frame-Options or CSP security policies that prevent embedding in iframes. If the page appears blank or shows an error, please verify the target website allows embedding, or consider using HTML mode to build your own content.',
         hideCcsImportButton: 'Hide CCS Import Button',
-        hideCcsImportButtonHint: 'When enabled, the "Import to CCS" button will be hidden on the API Keys page'
+        hideCcsImportButtonHint: 'When enabled, the "Import to CCS" button will be hidden on the API Keys page',
+        userCustomKey: 'Allow User Custom Keys',
+        userCustomKeyHint: 'Allow users to set custom API key values (base URL and models remain admin-controlled)'
+      },
+      storage: {
+        title: 'Storage Settings',
+        description: 'Choose local storage or configure S3-compatible storage',
+        enableS3: 'Enable S3 Storage',
+        enableS3Hint: 'When enabled, generated images will be stored in S3',
+        localHint: 'Local storage is used when S3 is disabled.',
+        s3Endpoint: 'S3 Endpoint',
+        s3EndpointPlaceholder: 'https://s3.amazonaws.com',
+        s3EndpointHint: 'S3-compatible endpoint. Supports http(s) or host:port.',
+        s3Bucket: 'Bucket',
+        s3BucketPlaceholder: 'dreamstudio-images',
+        s3BucketHint: 'Bucket name for storing images.',
+        s3Region: 'Region',
+        s3RegionPlaceholder: 'us-east-1',
+        s3RegionHint: 'Optional region, required by some providers.',
+        s3PublicUrl: 'Public Base URL',
+        s3PublicUrlPlaceholder: 'https://cdn.example.com',
+        s3PublicUrlHint: 'Optional public URL used to build image links.',
+        s3AccessKey: 'Access Key',
+        s3AccessKeyPlaceholder: 'Access key',
+        s3AccessKeyConfiguredPlaceholder: '********',
+        s3AccessKeyHint: 'Access key for S3 credentials.',
+        s3AccessKeyConfiguredHint: 'Access key configured. Leave empty to keep the current value.',
+        s3SecretKey: 'Secret Key',
+        s3SecretKeyPlaceholder: 'Secret key',
+        s3SecretKeyConfiguredPlaceholder: '********',
+        s3SecretKeyHint: 'Secret key for S3 credentials.',
+        s3SecretKeyConfiguredHint: 'Secret key configured. Leave empty to keep the current value.',
+        s3UseSsl: 'Use SSL',
+        s3UseSslHint: 'Use HTTPS to connect to the S3 endpoint.',
+        s3PathStyle: 'Path-style Access',
+        s3PathStyleHint: 'Use path-style URLs instead of virtual-hosted style.'
       },
       smtp: {
         title: 'SMTP Settings',
@@ -2903,6 +3172,36 @@ export default {
       failedToSave: 'Failed to save settings',
       failedToTestSmtp: 'SMTP connection test failed',
       failedToSendTestEmail: 'Failed to send test email'
+    },
+
+    apiSettings: {
+      title: 'API Settings',
+      description: 'Configure NewAPI endpoint, access key, and default image model',
+      loadFailed: 'Failed to load API settings',
+      saveSuccess: 'API settings saved',
+      saveFailed: 'Failed to save API settings',
+      saving: 'Saving...',
+      form: {
+        baseUrlLabel: 'NewAPI Base URL',
+        baseUrlHint: 'Default: https://api.haokun.de',
+        accessKeyLabel: 'NewAPI Access Key',
+        accessKeyHint: 'Leave empty to keep the current key',
+        accessKeyPlaceholder: 'Enter access key',
+        accessKeyConfiguredHint: 'Access key configured. Leave empty to keep it.',
+        defaultModelLabel: 'Default Image Model',
+        defaultModelHint: 'Used when users do not select a model',
+        defaultModelPlaceholder: 'Select or enter a model'
+      },
+      models: {
+        title: 'Available Models',
+        description: 'Fetch models from NewAPI with current settings',
+        refresh: 'Refresh',
+        loading: 'Loading...',
+        missingConfig: 'Configure base URL and access key to load models',
+        empty: 'No models available',
+        loadFailed: 'Failed to load models',
+        defaultMissing: 'Default model is not in the current model list'
+      }
     }
   },
 

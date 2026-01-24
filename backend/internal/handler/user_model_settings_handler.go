@@ -1,0 +1,108 @@
+package handler
+
+import (
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/gin-gonic/gin"
+)
+
+type UserModelSettingsHandler struct {
+	settingService *service.SettingService
+	httpClient     *http.Client
+}
+
+func NewUserModelSettingsHandler(settingService *service.SettingService) *UserModelSettingsHandler {
+	return &UserModelSettingsHandler{
+		settingService: settingService,
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+		},
+	}
+}
+
+type UserModelSettingsResponse struct {
+	Items []service.UserModelSetting `json:"items"`
+}
+
+type UpdateUserModelSettingsRequest struct {
+	Items []service.UserModelSetting `json:"items"`
+}
+
+// GetModelSettings 获取用户模型设置
+// GET /api/v1/user/model-settings
+func (h *UserModelSettingsHandler) GetModelSettings(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	items, err := h.settingService.GetUserModelSettings(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, UserModelSettingsResponse{Items: items})
+}
+
+// UpdateModelSettings 更新用户模型设置
+// PUT /api/v1/user/model-settings
+func (h *UserModelSettingsHandler) UpdateModelSettings(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	var req UpdateUserModelSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	items, err := h.settingService.UpdateUserModelSettings(c.Request.Context(), subject.UserID, req.Items)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, UserModelSettingsResponse{Items: items})
+}
+
+// ListNewAPIModels 获取 NewAPI 模型列表
+// GET /api/v1/user/newapi/models
+func (h *UserModelSettingsHandler) ListNewAPIModels(c *gin.Context) {
+	settings, err := h.settingService.GetNewAPISettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	if strings.TrimSpace(settings.BaseURL) == "" {
+		response.BadRequest(c, "NewAPI Base URL is required")
+		return
+	}
+	if !settings.AccessKeyConfigured {
+		response.BadRequest(c, "NewAPI access key is not configured")
+		return
+	}
+
+	models, err := service.FetchNewAPIModels(
+		c.Request.Context(),
+		settings.BaseURL,
+		settings.AccessKey,
+		h.httpClient,
+	)
+	if err != nil {
+		response.Error(c, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	response.Success(c, models)
+}

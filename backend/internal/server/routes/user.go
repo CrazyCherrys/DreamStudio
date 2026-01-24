@@ -22,6 +22,9 @@ func RegisterUserRoutes(
 			user.GET("/profile", h.User.GetProfile)
 			user.PUT("/password", h.User.ChangePassword)
 			user.PUT("", h.User.UpdateProfile)
+			user.GET("/model-settings", h.UserModel.GetModelSettings)
+			user.PUT("/model-settings", h.UserModel.UpdateModelSettings)
+			user.GET("/newapi/models", h.UserModel.ListNewAPIModels)
 		}
 
 		// 用户可用分组（非管理员接口）

@@ -1,3 +1,5 @@
+@import './styles/studio.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -688,6 +690,57 @@
   /* 表头固定时添加底部阴影，增强视觉层次 */
   .table-wrapper thead.sticky {
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  }
+
+  /* Creative gallery swap animation */
+  .creative-swap {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .creative-swap-overlay {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    opacity: 0;
+    clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+    animation: creative-swap 9s ease-in-out infinite;
+    pointer-events: none;
+    will-change: clip-path, opacity;
+  }
+
+  @keyframes creative-swap {
+    0%,
+    20% {
+      opacity: 0;
+      clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+    }
+    35% {
+      opacity: 1;
+      clip-path: polygon(0 100%, 100% 100%, 100% 40%, 0 70%);
+    }
+    50%,
+    70% {
+      opacity: 1;
+      clip-path: polygon(0 100%, 100% 100%, 100% 0, 0 0);
+    }
+    85% {
+      opacity: 1;
+      clip-path: polygon(0 100%, 100% 100%, 100% 70%, 0 40%);
+    }
+    100% {
+      opacity: 0;
+      clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .creative-swap-overlay {
+      animation: none;
+      opacity: 0;
+    }
   }
 }
 

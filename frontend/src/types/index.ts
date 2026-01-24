@@ -81,8 +81,85 @@ export interface PublicSettings {
   doc_url: string
   home_content: string
   hide_ccs_import_button: boolean
+  user_custom_key_enabled: boolean
   linuxdo_oauth_enabled: boolean
   version: string
+}
+
+// ==================== Gallery Types ====================
+
+export interface GalleryImage {
+  id: number
+  image_url: string
+  thumbnail_url?: string | null
+  reference_image_url?: string | null
+  prompt?: string | null
+  model?: string | null
+  width?: number | null
+  height?: number | null
+  is_public: boolean
+  submission_status: 'none' | 'pending' | 'approved' | 'rejected'
+  submitted_at?: string | null
+  reviewed_at?: string | null
+  reviewed_by?: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ImageHistoryImage {
+  image_url: string
+  gallery?: GalleryImage | null
+}
+
+export interface ImageGenerationTask {
+  id: number
+  status: 'pending' | 'running' | 'succeeded' | 'failed'
+  prompt: string
+  model: string
+  resolution?: string | null
+  aspect_ratio?: string | null
+  attempts?: number
+  last_error?: string | null
+  next_attempt_at?: string | null
+  image_urls?: string[] | null
+  error_message?: string | null
+  primary_image?: ImageHistoryImage | null
+  created_at: string
+  updated_at: string
+  completed_at?: string | null
+}
+
+export interface ImageGenerationTaskDetail extends ImageGenerationTask {
+  images: ImageHistoryImage[]
+}
+
+export interface VideoHistoryVideo {
+  video_url: string
+}
+
+export interface VideoGenerationTask {
+  id: number
+  status: 'pending' | 'running' | 'succeeded' | 'failed'
+  prompt: string
+  model: string
+  duration?: number | null
+  width?: number | null
+  height?: number | null
+  fps?: number | null
+  seed?: number | null
+  attempts?: number
+  last_error?: string | null
+  next_attempt_at?: string | null
+  video_urls?: string[] | null
+  error_message?: string | null
+  primary_video?: VideoHistoryVideo | null
+  created_at: string
+  updated_at: string
+  completed_at?: string | null
+}
+
+export interface VideoGenerationTaskDetail extends VideoGenerationTask {
+  videos: VideoHistoryVideo[]
 }
 
 export interface AuthResponse {

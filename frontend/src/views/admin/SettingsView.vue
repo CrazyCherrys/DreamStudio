@@ -561,6 +561,49 @@
           </div>
         </div>
 
+        <!-- Prompt Optimization Settings -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.promptOptimize.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.promptOptimize.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div>
+              <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t('admin.settings.promptOptimize.modelLabel') }}
+              </label>
+              <input
+                v-model="form.prompt_optimize_model"
+                type="text"
+                class="input w-full"
+                :placeholder="t('admin.settings.promptOptimize.modelPlaceholder')"
+              />
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.settings.promptOptimize.modelHint') }}
+              </p>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t('admin.settings.promptOptimize.promptLabel') }}
+              </label>
+              <textarea
+                v-model="form.prompt_optimize_prompt"
+                rows="4"
+                class="input font-mono text-sm"
+                :placeholder="t('admin.settings.promptOptimize.promptPlaceholder')"
+              ></textarea>
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.settings.promptOptimize.promptHint') }}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Site Settings -->
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -749,6 +792,193 @@
                 </p>
               </div>
               <Toggle v-model="form.hide_ccs_import_button" />
+            </div>
+
+            <div
+              class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t('admin.settings.site.userCustomKey')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.site.userCustomKeyHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.user_custom_key_enabled" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Storage Settings -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.storage.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.storage.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t('admin.settings.storage.enableS3')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.storage.enableS3Hint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.storage_s3_enabled" />
+            </div>
+            <p v-if="!form.storage_s3_enabled" class="text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.storage.localHint') }}
+            </p>
+
+            <div
+              v-if="form.storage_s3_enabled"
+              class="border-t border-gray-100 pt-4 dark:border-dark-700"
+            >
+              <div class="space-y-4">
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.storage.s3Endpoint') }}
+                    </label>
+                    <input
+                      v-model="form.storage_s3_endpoint"
+                      type="text"
+                      class="input font-mono text-sm"
+                      :placeholder="t('admin.settings.storage.s3EndpointPlaceholder')"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.storage.s3EndpointHint') }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.storage.s3Bucket') }}
+                    </label>
+                    <input
+                      v-model="form.storage_s3_bucket"
+                      type="text"
+                      class="input font-mono text-sm"
+                      :placeholder="t('admin.settings.storage.s3BucketPlaceholder')"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.storage.s3BucketHint') }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.storage.s3Region') }}
+                    </label>
+                    <input
+                      v-model="form.storage_s3_region"
+                      type="text"
+                      class="input font-mono text-sm"
+                      :placeholder="t('admin.settings.storage.s3RegionPlaceholder')"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.storage.s3RegionHint') }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.storage.s3PublicUrl') }}
+                    </label>
+                    <input
+                      v-model="form.storage_s3_public_url"
+                      type="text"
+                      class="input font-mono text-sm"
+                      :placeholder="t('admin.settings.storage.s3PublicUrlPlaceholder')"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.storage.s3PublicUrlHint') }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.storage.s3AccessKey') }}
+                    </label>
+                    <input
+                      v-model="form.storage_s3_access_key"
+                      type="password"
+                      class="input font-mono text-sm"
+                      :placeholder="
+                        form.storage_s3_access_key_configured
+                          ? t('admin.settings.storage.s3AccessKeyConfiguredPlaceholder')
+                          : t('admin.settings.storage.s3AccessKeyPlaceholder')
+                      "
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        form.storage_s3_access_key_configured
+                          ? t('admin.settings.storage.s3AccessKeyConfiguredHint')
+                          : t('admin.settings.storage.s3AccessKeyHint')
+                      }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.storage.s3SecretKey') }}
+                    </label>
+                    <input
+                      v-model="form.storage_s3_secret_key"
+                      type="password"
+                      class="input font-mono text-sm"
+                      :placeholder="
+                        form.storage_s3_secret_key_configured
+                          ? t('admin.settings.storage.s3SecretKeyConfiguredPlaceholder')
+                          : t('admin.settings.storage.s3SecretKeyPlaceholder')
+                      "
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        form.storage_s3_secret_key_configured
+                          ? t('admin.settings.storage.s3SecretKeyConfiguredHint')
+                          : t('admin.settings.storage.s3SecretKeyHint')
+                      }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 dark:border-dark-700">
+                    <div>
+                      <label class="font-medium text-gray-900 dark:text-white">{{
+                        t('admin.settings.storage.s3UseSsl')
+                      }}</label>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{ t('admin.settings.storage.s3UseSslHint') }}
+                      </p>
+                    </div>
+                    <Toggle v-model="form.storage_s3_use_ssl" />
+                  </div>
+
+                  <div class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 dark:border-dark-700">
+                    <div>
+                      <label class="font-medium text-gray-900 dark:text-white">{{
+                        t('admin.settings.storage.s3PathStyle')
+                      }}</label>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{ t('admin.settings.storage.s3PathStyleHint') }}
+                      </p>
+                    </div>
+                    <Toggle v-model="form.storage_s3_path_style" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1023,6 +1253,8 @@ type SettingsForm = SystemSettings & {
   smtp_password: string
   turnstile_secret_key: string
   linuxdo_connect_client_secret: string
+  storage_s3_access_key: string
+  storage_s3_secret_key: string
 }
 
 const form = reactive<SettingsForm>({
@@ -1039,6 +1271,18 @@ const form = reactive<SettingsForm>({
   doc_url: '',
   home_content: '',
   hide_ccs_import_button: false,
+  user_custom_key_enabled: true,
+  storage_s3_enabled: false,
+  storage_s3_endpoint: '',
+  storage_s3_region: '',
+  storage_s3_bucket: '',
+  storage_s3_access_key: '',
+  storage_s3_secret_key: '',
+  storage_s3_access_key_configured: false,
+  storage_s3_secret_key_configured: false,
+  storage_s3_public_url: '',
+  storage_s3_use_ssl: true,
+  storage_s3_path_style: false,
   smtp_host: '',
   smtp_port: 587,
   smtp_username: '',
@@ -1067,6 +1311,8 @@ const form = reactive<SettingsForm>({
   // Identity patch (Claude -> Gemini)
   enable_identity_patch: true,
   identity_patch_prompt: '',
+  prompt_optimize_model: '',
+  prompt_optimize_prompt: '',
   // Ops monitoring (vNext)
   ops_monitoring_enabled: true,
   ops_realtime_monitoring_enabled: true,
@@ -1136,6 +1382,8 @@ async function loadSettings() {
     form.smtp_password = ''
     form.turnstile_secret_key = ''
     form.linuxdo_connect_client_secret = ''
+    form.storage_s3_access_key = ''
+    form.storage_s3_secret_key = ''
   } catch (error: any) {
     appStore.showError(
       t('admin.settings.failedToLoad') + ': ' + (error.message || t('common.unknownError'))
@@ -1162,6 +1410,16 @@ async function saveSettings() {
       doc_url: form.doc_url,
       home_content: form.home_content,
       hide_ccs_import_button: form.hide_ccs_import_button,
+      user_custom_key_enabled: form.user_custom_key_enabled,
+      storage_s3_enabled: form.storage_s3_enabled,
+      storage_s3_endpoint: form.storage_s3_endpoint,
+      storage_s3_region: form.storage_s3_region,
+      storage_s3_bucket: form.storage_s3_bucket,
+      storage_s3_access_key: form.storage_s3_access_key || undefined,
+      storage_s3_secret_key: form.storage_s3_secret_key || undefined,
+      storage_s3_public_url: form.storage_s3_public_url,
+      storage_s3_use_ssl: form.storage_s3_use_ssl,
+      storage_s3_path_style: form.storage_s3_path_style,
       smtp_host: form.smtp_host,
       smtp_port: form.smtp_port,
       smtp_username: form.smtp_username,
@@ -1182,13 +1440,17 @@ async function saveSettings() {
       fallback_model_gemini: form.fallback_model_gemini,
       fallback_model_antigravity: form.fallback_model_antigravity,
       enable_identity_patch: form.enable_identity_patch,
-      identity_patch_prompt: form.identity_patch_prompt
+      identity_patch_prompt: form.identity_patch_prompt,
+      prompt_optimize_model: form.prompt_optimize_model,
+      prompt_optimize_prompt: form.prompt_optimize_prompt
     }
     const updated = await adminAPI.settings.updateSettings(payload)
     Object.assign(form, updated)
     form.smtp_password = ''
     form.turnstile_secret_key = ''
     form.linuxdo_connect_client_secret = ''
+    form.storage_s3_access_key = ''
+    form.storage_s3_secret_key = ''
     // Refresh cached public settings so sidebar/header update immediately
     await appStore.fetchPublicSettings(true)
     appStore.showSuccess(t('admin.settings.settingsSaved'))

@@ -249,35 +249,40 @@
 
         <!-- Custom Key Section (only for create) -->
         <div v-if="!showEditModal" class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('keys.customKeyLabel') }}</label>
-            <button
-              type="button"
-              @click="formData.use_custom_key = !formData.use_custom_key"
-              :class="[
-                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                formData.use_custom_key ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-              ]"
-            >
-              <span
+          <template v-if="allowCustomKey">
+            <div class="flex items-center justify-between">
+              <label class="input-label mb-0">{{ t('keys.customKeyLabel') }}</label>
+              <button
+                type="button"
+                @click="formData.use_custom_key = !formData.use_custom_key"
                 :class="[
-                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  formData.use_custom_key ? 'translate-x-4' : 'translate-x-0'
+                  'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  formData.use_custom_key ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
                 ]"
+              >
+                <span
+                  :class="[
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                    formData.use_custom_key ? 'translate-x-4' : 'translate-x-0'
+                  ]"
+                />
+              </button>
+            </div>
+            <div v-if="formData.use_custom_key">
+              <input
+                v-model="formData.custom_key"
+                type="text"
+                class="input font-mono"
+                :placeholder="t('keys.customKeyPlaceholder')"
+                :class="{ 'border-red-500 dark:border-red-500': customKeyError }"
               />
-            </button>
-          </div>
-          <div v-if="formData.use_custom_key">
-            <input
-              v-model="formData.custom_key"
-              type="text"
-              class="input font-mono"
-              :placeholder="t('keys.customKeyPlaceholder')"
-              :class="{ 'border-red-500 dark:border-red-500': customKeyError }"
-            />
-            <p v-if="customKeyError" class="mt-1 text-sm text-red-500">{{ customKeyError }}</p>
-            <p v-else class="input-hint">{{ t('keys.customKeyHint') }}</p>
-          </div>
+              <p v-if="customKeyError" class="mt-1 text-sm text-red-500">{{ customKeyError }}</p>
+              <p v-else class="input-hint">{{ t('keys.customKeyHint') }}</p>
+            </div>
+          </template>
+          <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+            {{ t('keys.customKeyDisabled') }}
+          </p>
         </div>
 
         <div v-if="showEditModal">
@@ -489,7 +494,7 @@
 </template>
 
 <script setup lang="ts">
-	import { ref, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+	import { ref, computed, onMounted, onUnmounted, watch, type ComponentPublicInstance } from 'vue'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
@@ -560,6 +565,7 @@ const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
+const allowCustomKey = computed(() => publicSettings.value?.user_custom_key_enabled ?? true)
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
@@ -589,6 +595,13 @@ const formData = ref({
   ip_whitelist: '',
   ip_blacklist: ''
 })
+
+watch(allowCustomKey, (enabled) => {
+  if (!enabled) {
+    formData.value.use_custom_key = false
+    formData.value.custom_key = ''
+  }
+}, { immediate: true })
 
 // 自定义Key验证
 const customKeyError = computed(() => {

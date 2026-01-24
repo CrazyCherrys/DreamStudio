@@ -34,6 +34,19 @@ type SystemSettings struct {
 	DocURL              string
 	HomeContent         string
 	HideCcsImportButton bool
+	UserCustomKeyEnabled bool
+
+	StorageS3Enabled             bool
+	StorageS3Endpoint            string
+	StorageS3Region              string
+	StorageS3Bucket              string
+	StorageS3AccessKey           string
+	StorageS3SecretKey           string
+	StorageS3AccessKeyConfigured bool
+	StorageS3SecretKeyConfigured bool
+	StorageS3PublicURL           string
+	StorageS3UseSSL              bool
+	StorageS3PathStyle           bool
 
 	DefaultConcurrency int
 	DefaultBalance     float64
@@ -48,6 +61,9 @@ type SystemSettings struct {
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
+
+	PromptOptimizeModel  string `json:"prompt_optimize_model"`
+	PromptOptimizePrompt string `json:"prompt_optimize_prompt"`
 
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         bool
@@ -70,8 +86,14 @@ type PublicSettings struct {
 	DocURL              string
 	HomeContent         string
 	HideCcsImportButton bool
+	UserCustomKeyEnabled bool
 	LinuxDoOAuthEnabled bool
 	Version             string
+}
+
+type PromptOptimizationSettings struct {
+	Model  string
+	Prompt string
 }
 
 // StreamTimeoutSettings 流超时处理配置（仅控制超时后的处理方式，超时判定由网关配置控制）

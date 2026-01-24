@@ -31,6 +31,17 @@ type SystemSettings struct {
 	DocURL              string `json:"doc_url"`
 	HomeContent         string `json:"home_content"`
 	HideCcsImportButton bool   `json:"hide_ccs_import_button"`
+	UserCustomKeyEnabled bool  `json:"user_custom_key_enabled"`
+
+	StorageS3Enabled             bool   `json:"storage_s3_enabled"`
+	StorageS3Endpoint            string `json:"storage_s3_endpoint"`
+	StorageS3Region              string `json:"storage_s3_region"`
+	StorageS3Bucket              string `json:"storage_s3_bucket"`
+	StorageS3AccessKeyConfigured bool   `json:"storage_s3_access_key_configured"`
+	StorageS3SecretKeyConfigured bool   `json:"storage_s3_secret_key_configured"`
+	StorageS3PublicURL           string `json:"storage_s3_public_url"`
+	StorageS3UseSSL              bool   `json:"storage_s3_use_ssl"`
+	StorageS3PathStyle           bool   `json:"storage_s3_path_style"`
 
 	DefaultConcurrency int     `json:"default_concurrency"`
 	DefaultBalance     float64 `json:"default_balance"`
@@ -45,6 +56,9 @@ type SystemSettings struct {
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
+
+	PromptOptimizeModel  string `json:"prompt_optimize_model"`
+	PromptOptimizePrompt string `json:"prompt_optimize_prompt"`
 
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         bool   `json:"ops_monitoring_enabled"`
@@ -67,6 +81,7 @@ type PublicSettings struct {
 	DocURL              string `json:"doc_url"`
 	HomeContent         string `json:"home_content"`
 	HideCcsImportButton bool   `json:"hide_ccs_import_button"`
+	UserCustomKeyEnabled bool  `json:"user_custom_key_enabled"`
 	LinuxDoOAuthEnabled bool   `json:"linuxdo_oauth_enabled"`
 	Version             string `json:"version"`
 }

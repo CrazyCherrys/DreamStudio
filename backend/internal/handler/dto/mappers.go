@@ -207,6 +207,76 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 	return out
 }
 
+func GalleryImageFromService(image *service.GalleryImage) *GalleryImage {
+	if image == nil {
+		return nil
+	}
+	return &GalleryImage{
+		ID:               image.ID,
+		ImageURL:         image.ImageURL,
+		ThumbnailURL:     image.ThumbnailURL,
+		ReferenceImageURL: image.ReferenceImageURL,
+		Prompt:           image.Prompt,
+		Model:            image.Model,
+		Width:            image.Width,
+		Height:           image.Height,
+		IsPublic:         image.IsPublic,
+		SubmissionStatus: image.SubmissionStatus,
+		SubmittedAt:      image.SubmittedAt,
+		ReviewedAt:       image.ReviewedAt,
+		ReviewedBy:       image.ReviewedBy,
+		CreatedAt:        image.CreatedAt,
+		UpdatedAt:        image.UpdatedAt,
+	}
+}
+
+func ImageGenerationTaskFromService(task *service.ImageGenerationTask) *ImageGenerationTask {
+	if task == nil {
+		return nil
+	}
+	return &ImageGenerationTask{
+		ID:            task.ID,
+		Status:        task.Status,
+		Prompt:        task.Prompt,
+		Model:         task.ModelID,
+		Resolution:    task.Resolution,
+		AspectRatio:   task.AspectRatio,
+		Attempts:      task.Attempts,
+		ErrorMessage:  task.ErrorMessage,
+		LastError:     task.LastError,
+		NextAttemptAt: task.NextAttemptAt,
+		ImageURLs:     task.ImageURLs,
+		CreatedAt:     task.CreatedAt,
+		UpdatedAt:     task.UpdatedAt,
+		CompletedAt:   task.CompletedAt,
+	}
+}
+
+func VideoGenerationTaskFromService(task *service.VideoGenerationTask) *VideoGenerationTask {
+	if task == nil {
+		return nil
+	}
+	return &VideoGenerationTask{
+		ID:            task.ID,
+		Status:        task.Status,
+		Prompt:        task.Prompt,
+		Model:         task.ModelID,
+		Duration:      task.Duration,
+		Width:         task.Width,
+		Height:        task.Height,
+		FPS:           task.FPS,
+		Seed:          task.Seed,
+		Attempts:      task.Attempts,
+		ErrorMessage:  task.ErrorMessage,
+		LastError:     task.LastError,
+		NextAttemptAt: task.NextAttemptAt,
+		VideoURLs:     task.VideoURLs,
+		CreatedAt:     task.CreatedAt,
+		UpdatedAt:     task.UpdatedAt,
+		CompletedAt:   task.CompletedAt,
+	}
+}
+
 func AccountFromService(a *service.Account) *Account {
 	if a == nil {
 		return nil

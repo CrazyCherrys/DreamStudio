@@ -1,0 +1,164 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+const (
+	userModelSettingsKeyPrefix = "user_model_settings:"
+	requestEndpointOpenAI      = "openai"
+	requestEndpointGemini      = "gemini"
+	requestEndpointOpenAIMod   = "openai_mod"
+	modelTypeImage             = "image"
+	modelTypeVideo             = "video"
+)
+
+type UserModelSetting struct {
+	ModelID         string   `json:"model_id"`
+	Resolutions     []string `json:"resolutions"`
+	AspectRatios    []string `json:"aspect_ratios"`
+	RequestEndpoint string   `json:"request_endpoint"`
+	ModelType       string   `json:"model_type"`
+	DisplayName     string   `json:"display_name"`
+}
+
+func (s *SettingService) GetUserModelSettings(ctx context.Context, userID int64) ([]UserModelSetting, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user id")
+	}
+
+	key := userModelSettingsKey(userID)
+	raw, err := s.settingRepo.GetValue(ctx, key)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return []UserModelSetting{}, nil
+		}
+		return nil, fmt.Errorf("get user model settings: %w", err)
+	}
+
+	if strings.TrimSpace(raw) == "" {
+		return []UserModelSetting{}, nil
+	}
+
+	var items []UserModelSetting
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return nil, fmt.Errorf("parse user model settings: %w", err)
+	}
+
+	return normalizeUserModelSettings(items), nil
+}
+
+func (s *SettingService) UpdateUserModelSettings(ctx context.Context, userID int64, items []UserModelSetting) ([]UserModelSetting, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user id")
+	}
+
+	normalized := normalizeUserModelSettings(items)
+	payload, err := json.Marshal(normalized)
+	if err != nil {
+		return nil, fmt.Errorf("encode user model settings: %w", err)
+	}
+
+	if err := s.settingRepo.Set(ctx, userModelSettingsKey(userID), string(payload)); err != nil {
+		return nil, fmt.Errorf("update user model settings: %w", err)
+	}
+
+	return normalized, nil
+}
+
+func userModelSettingsKey(userID int64) string {
+	return userModelSettingsKeyPrefix + strconv.FormatInt(userID, 10)
+}
+
+func normalizeUserModelSettings(items []UserModelSetting) []UserModelSetting {
+	if len(items) == 0 {
+		return []UserModelSetting{}
+	}
+
+	seen := make(map[string]UserModelSetting, len(items))
+	order := make([]string, 0, len(items))
+
+	for _, item := range items {
+		modelID := strings.TrimSpace(item.ModelID)
+		if modelID == "" {
+			continue
+		}
+		resolutions := normalizeStringList(item.Resolutions)
+		aspectRatios := normalizeStringList(item.AspectRatios)
+		requestEndpoint := normalizeRequestEndpoint(item.RequestEndpoint)
+		modelType := normalizeModelType(item.ModelType)
+		displayName := normalizeDisplayName(item.DisplayName)
+		if _, exists := seen[modelID]; !exists {
+			order = append(order, modelID)
+		}
+		seen[modelID] = UserModelSetting{
+			ModelID:         modelID,
+			Resolutions:     resolutions,
+			AspectRatios:    aspectRatios,
+			RequestEndpoint: requestEndpoint,
+			ModelType:       modelType,
+			DisplayName:     displayName,
+		}
+	}
+
+	result := make([]UserModelSetting, 0, len(order))
+	for _, modelID := range order {
+		if item, ok := seen[modelID]; ok {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func normalizeStringList(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+	return result
+}
+
+func normalizeRequestEndpoint(value string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+	switch trimmed {
+	case requestEndpointOpenAI, requestEndpointGemini, requestEndpointOpenAIMod:
+		return trimmed
+	default:
+		return ""
+	}
+}
+
+func normalizeModelType(value string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+	switch trimmed {
+	case modelTypeImage, modelTypeVideo:
+		return trimmed
+	default:
+		return ""
+	}
+}
+
+func normalizeDisplayName(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	return trimmed
+}

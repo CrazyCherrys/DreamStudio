@@ -33,8 +33,147 @@ export default {
       antigravity: 'Antigravity',
       more: '更多'
     },
+    studio: {
+      kicker: 'DreamStudio'
+    },
+    generator: {
+      title: '图像生成工作台',
+      subtitle: '选择模型、输入提示词并设置比例与分辨率',
+      modeImage: 'AI图片',
+      modeVideo: 'AI视频',
+      modelLabel: '模型',
+      modelPlaceholder: '选择模型',
+      modelEmpty: '暂无可用模型',
+      modelLoadFailed: '模型列表加载失败',
+      promptLabel: '描述您的创意',
+      promptPlaceholder: '描述您的创意...',
+      promptHint: '可以加入风格、光线、材质等关键词',
+      promptClear: '清空提示词',
+      optimizePrompt: 'AI优化',
+      optimizePrompting: '优化中...',
+      optimizeSuccess: '提示词已优化',
+      optimizeFailed: '优化提示词失败',
+      imageLabel: '参考图像',
+      imageHint: '拖拽或点击上传参考图',
+      imageSubHint: '支持 PNG/JPG 格式',
+      imageUpload: '上传图片',
+      imageReplace: '更换图片',
+      imageRemove: '移除',
+      ratioLabel: '生成比例',
+      ratioPlaceholder: '选择比例',
+      ratioEmpty: '暂无比例',
+      resolutionLabel: '分辨率',
+      resolutionPlaceholder: '选择分辨率',
+      resolutionEmpty: '暂无分辨率',
+      imageCount: '生成数量',
+      imageCountPlaceholder: '默认 1',
+      videoDuration: '视频时长（秒）',
+      videoDurationPlaceholder: '例如 5',
+      videoFps: '帧率（FPS）',
+      videoFpsPlaceholder: '例如 24',
+      videoWidth: '视频宽度',
+      videoWidthPlaceholder: '例如 1024',
+      videoHeight: '视频高度',
+      videoHeightPlaceholder: '例如 576',
+      videoSeed: '随机种子',
+      videoSeedPlaceholder: '可选',
+      videoCount: '生成数量',
+      videoCountPlaceholder: '默认 1',
+      modelSettingsHint: '可在模型设置中配置可选比例与分辨率。',
+      generate: '生成',
+      generating: '生成中...',
+      generateSuccess: '已加入生成队列',
+      generateFailed: '图片生成失败',
+      generatePartial: '已加入 {success}/{total} 项生成任务',
+      generateVideoSuccess: '视频已加入生成队列',
+      generateVideoFailed: '视频生成失败',
+      resultTitle: '最新结果',
+      generatedImageAlt: '生成图片',
+      loginHint: '登录后可加载模型与生成服务',
+      modelRequired: '请先选择模型',
+      promptRequired: '请描述您的创意',
+      invalidImage: '请上传图片文件',
+      comingSoon: '生成服务尚未接入，界面已就绪。'
+    },
+    panel: {
+      history: '生成记录',
+      creative: '创意'
+    },
+    history: {
+      title: '暂无生成记录',
+      description: '完成一次生成后，这里会保留你的历史记录。',
+      filterStatus: '状态',
+      filterModel: '模型',
+      filterTime: '时间',
+      clearFilters: '清除筛选',
+      rangeAll: '全部',
+      range24h: '近24小时',
+      range7d: '近7天',
+      range30d: '近30天',
+      statusPending: '排队中',
+      statusRunning: '生成中',
+      statusSucceeded: '已完成',
+      statusFailed: '生成失败',
+      statusRetrying: '重试中',
+      nextRetryAt: '下次重试',
+      loadFailed: '加载历史记录失败',
+      refreshing: '正在刷新历史记录...',
+      downloadVideo: '下载视频',
+      detailTitle: '生成详情',
+      detailStatus: '状态',
+      detailNextRetryAt: '下次重试',
+      detailModel: '模型',
+      detailDisplayName: '显示名称',
+      detailCreatedAt: '创建时间',
+      detailCompletedAt: '完成时间',
+      detailSubmission: '投稿状态',
+      detailPublic: '是否公开',
+      detailLoadFailed: '详情加载失败',
+      showPrompt: '查看提示词',
+      usePrompt: '使用该提示词',
+      submissionNone: '未投稿',
+      submissionPending: '审核中',
+      submissionApproved: '已通过',
+      submissionRejected: '已拒绝',
+      submitToInspiration: '提交到灵感',
+      submitPending: '已提交审核',
+      submitApproved: '已审核通过',
+      submitRejected: '已拒绝',
+      submitFailed: '提交失败',
+      submitUnavailable: '图片尚未生成',
+      withdraw: '撤回投稿',
+      withdrawSuccess: '已撤回投稿',
+      withdrawFailed: '撤回失败',
+      unpublish: '取消公开',
+      unpublishSuccess: '已取消公开',
+      unpublishFailed: '取消公开失败',
+      delete: '删除记录',
+      deleteConfirm: '确认删除该记录？',
+      deleteSuccess: '记录已删除',
+      deleteFailed: '删除失败'
+    },
     footer: {
       allRightsReserved: '保留所有权利。'
+    }
+  },
+
+  // Gallery
+  gallery: {
+    kicker: '作品广场',
+    title: '作品广场',
+    subtitle: '用户公开的图片将在这里展示。',
+    emptyTitle: '暂无公开作品',
+    emptyDescription: '当用户选择公开图片后，会展示在此处。',
+    promptFallback: '未命名',
+    modelFallback: '社区',
+    loadFailed: '加载作品失败',
+    nav: {
+      home: '首页',
+      gallery: '作品广场'
+    },
+    actions: {
+      copyPrompt: '复制提示词',
+      downloadImage: '下载图片'
     }
   },
 
@@ -186,6 +325,9 @@ export default {
     ops: '运维监控',
     promoCodes: '优惠码',
     settings: '系统设置',
+    apiSettings: 'API 设置',
+    inspiration: '灵感审核',
+    modelSettings: '模型设置',
     myAccount: '我的账户',
     lightMode: '浅色模式',
     darkMode: '深色模式',
@@ -396,7 +538,8 @@ export default {
     },
     customKeyLabel: '自定义密钥',
     customKeyPlaceholder: '输入自定义密钥（至少16个字符）',
-    customKeyHint: '仅允许字母、数字、下划线和连字符，最少16个字符。',
+    customKeyHint: '仅允许字母、数字、下划线和连字符，最少16个字符。API 地址和模型仍由管理员控制。',
+    customKeyDisabled: '管理员已关闭自定义密钥',
     customKeyTooShort: '自定义密钥至少需要16个字符',
     customKeyInvalidChars: '自定义密钥只能包含字母、数字、下划线和连字符',
     customKeyRequired: '请输入自定义密钥',
@@ -547,6 +690,55 @@ export default {
     passwordChangeFailed: '密码修改失败'
   },
 
+  // Model Settings
+  modelSettings: {
+    title: '模型设置',
+    description: '为图片/视频模型选择请求端点、分辨率与宽高比例',
+    loadFailed: '模型设置加载失败',
+    saveSuccess: '模型设置已保存',
+    saveFailed: '模型设置保存失败',
+    saving: '保存中...',
+    groups: {
+      image: '图片模型',
+      video: '视频模型',
+      emptyImage: '暂无图片模型',
+      emptyVideo: '暂无视频模型'
+    },
+    models: {
+      refresh: '刷新',
+      loading: '加载中...',
+      empty: '暂无可用模型',
+      loadFailed: '模型列表加载失败',
+      hint: '模型列表来源于当前 NewAPI 配置',
+      count: '{count} 个模型',
+      unavailable: '不可用',
+      remove: '删除',
+      removeConfirmTitle: '删除模型',
+      removeConfirmMessage: '确认从模型设置中移除 {name}？',
+      removeSuccess: '模型已删除',
+      removeFailed: '模型删除失败'
+    },
+    sections: {
+      modelType: '模型类型',
+      displayName: '显示名称',
+      requestEndpoint: '请求端点',
+      resolutions: '分辨率',
+      aspectRatios: '宽高比'
+    },
+    modelTypes: {
+      image: 'AI图片',
+      video: 'AI视频'
+    },
+    displayNamePlaceholder: '可选，留空使用模型名称',
+    displayNameHint: '仅影响前端展示，不影响实际请求模型',
+    requestEndpoints: {
+      openai: 'OpenAI',
+      gemini: 'Gemini',
+      openaiMod: 'OpenAI魔改'
+    },
+    selectedCount: '已选 {count} 个'
+  },
+
   // Empty States
   empty: {
     noData: '暂无数据'
@@ -658,6 +850,38 @@ export default {
       systemSettings: '系统设置',
       configureSystem: '配置系统设置',
       failedToLoad: '加载仪表盘数据失败'
+    },
+
+    inspiration: {
+      title: '灵感审核',
+      description: '审核用户提交的公开图片',
+      previewTitle: '预览图片',
+      loadFailed: '加载提交记录失败',
+      updateFailed: '更新提交状态失败',
+      approveSuccess: '已通过审核',
+      rejectSuccess: '已拒绝提交',
+      confirmApproveTitle: '通过审核',
+      confirmApproveMessage: '确认通过该图片并公开展示？',
+      confirmRejectTitle: '拒绝提交',
+      confirmRejectMessage: '确认拒绝该图片并保持私有？',
+      status: {
+        pending: '待审核',
+        approved: '已通过',
+        rejected: '已拒绝',
+        none: '未提交',
+        all: '全部'
+      },
+      columns: {
+        preview: '预览',
+        prompt: '提示词',
+        status: '状态',
+        submittedAt: '提交时间',
+        actions: '操作'
+      },
+      actions: {
+        approve: '通过',
+        reject: '拒绝'
+      }
     },
 
     // Users Management
@@ -2921,6 +3145,16 @@ export default {
         defaultConcurrency: '默认并发数',
         defaultConcurrencyHint: '新用户的最大并发请求数'
       },
+      promptOptimize: {
+        title: 'AI 优化设置',
+        description: '配置提示词优化所使用的模型与系统提示词',
+        modelLabel: '优化模型',
+        modelPlaceholder: '例如：gpt-4o',
+        modelHint: '用于提示词优化的模型 ID',
+        promptLabel: '优化提示词',
+        promptPlaceholder: '请将以下提示词优化为更清晰、更具体的图像描述，只返回优化后的提示词。',
+        promptHint: '作为系统提示词使用，留空则仅发送用户内容。'
+      },
       site: {
         title: '站点设置',
         description: '自定义站点品牌',
@@ -2951,7 +3185,42 @@ export default {
         homeContentHint: '自定义首页内容，支持 Markdown/HTML。如果输入的是链接（以 http:// 或 https:// 开头），则会使用该链接作为 iframe 的 src 属性，这允许你设置任意网页作为首页。设置后首页的状态信息将不再显示。',
         homeContentIframeWarning: '⚠️ iframe 模式提示：部分网站设置了 X-Frame-Options 或 CSP 安全策略，禁止被嵌入到 iframe 中。如果页面显示空白或报错，请确认目标网站允许被嵌入，或考虑使用 HTML 模式自行构建页面内容。',
         hideCcsImportButton: '隐藏 CCS 导入按钮',
-        hideCcsImportButtonHint: '启用后将在 API Keys 页面隐藏"导入 CCS"按钮'
+        hideCcsImportButtonHint: '启用后将在 API Keys 页面隐藏"导入 CCS"按钮',
+        userCustomKey: '允许用户自定义密钥',
+        userCustomKeyHint: '启用后用户可自定义 API Key 值（不可自定义 API 地址或模型）'
+      },
+      storage: {
+        title: '存储设置',
+        description: '选择本地存储或配置 S3 兼容对象存储',
+        enableS3: '启用 S3 存储',
+        enableS3Hint: '启用后生成图片将存储到 S3',
+        localHint: '未启用 S3 时使用本地存储。',
+        s3Endpoint: 'S3 Endpoint',
+        s3EndpointPlaceholder: 'https://s3.amazonaws.com',
+        s3EndpointHint: 'S3 兼容服务端点，支持 http(s) 或 host:port。',
+        s3Bucket: 'Bucket',
+        s3BucketPlaceholder: 'dreamstudio-images',
+        s3BucketHint: '用于存放图片的桶名称。',
+        s3Region: 'Region',
+        s3RegionPlaceholder: 'us-east-1',
+        s3RegionHint: '可选区域，有些服务要求填写。',
+        s3PublicUrl: '公开访问地址',
+        s3PublicUrlPlaceholder: 'https://cdn.example.com',
+        s3PublicUrlHint: '可选，用于生成图片访问链接的公共前缀。',
+        s3AccessKey: 'Access Key',
+        s3AccessKeyPlaceholder: 'Access key',
+        s3AccessKeyConfiguredPlaceholder: '********',
+        s3AccessKeyHint: 'S3 访问密钥。',
+        s3AccessKeyConfiguredHint: 'Access key 已配置，留空将保留当前值。',
+        s3SecretKey: 'Secret Key',
+        s3SecretKeyPlaceholder: 'Secret key',
+        s3SecretKeyConfiguredPlaceholder: '********',
+        s3SecretKeyHint: 'S3 密钥。',
+        s3SecretKeyConfiguredHint: 'Secret key 已配置，留空将保留当前值。',
+        s3UseSsl: '启用 SSL',
+        s3UseSslHint: '使用 HTTPS 连接 S3 端点。',
+        s3PathStyle: 'Path-style 访问',
+        s3PathStyleHint: '使用路径风格 URL 而不是虚拟主机风格。'
       },
       smtp: {
         title: 'SMTP 设置',
@@ -3053,6 +3322,36 @@ export default {
       failedToSave: '保存设置失败',
       failedToTestSmtp: 'SMTP 连接测试失败',
       failedToSendTestEmail: '发送测试邮件失败'
+    },
+
+    apiSettings: {
+      title: 'API 设置',
+      description: '配置图片生成所用的 NewAPI 地址、访问密钥与默认模型',
+      loadFailed: '加载 API 设置失败',
+      saveSuccess: 'API 设置已保存',
+      saveFailed: '保存 API 设置失败',
+      saving: '保存中...',
+      form: {
+        baseUrlLabel: 'NewAPI 地址',
+        baseUrlHint: '默认：https://api.haokun.de',
+        accessKeyLabel: '访问密钥',
+        accessKeyHint: '留空将保留现有密钥',
+        accessKeyPlaceholder: '请输入访问密钥',
+        accessKeyConfiguredHint: '已配置访问密钥，留空不变',
+        defaultModelLabel: '默认模型',
+        defaultModelHint: '用户未选择模型时使用',
+        defaultModelPlaceholder: '请选择或输入模型'
+      },
+      models: {
+        title: '可用模型',
+        description: '使用当前配置从 NewAPI 获取模型列表',
+        refresh: '刷新',
+        loading: '加载中...',
+        missingConfig: '请先配置 NewAPI 地址与访问密钥',
+        empty: '暂无可用模型',
+        loadFailed: '模型列表加载失败',
+        defaultMissing: '默认模型不在当前可用列表中'
+      }
     }
   },
 

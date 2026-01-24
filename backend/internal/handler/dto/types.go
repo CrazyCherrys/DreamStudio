@@ -258,6 +258,82 @@ type UsageLog struct {
 	Subscription *UserSubscription `json:"subscription,omitempty"`
 }
 
+type GalleryImage struct {
+	ID               int64      `json:"id"`
+	ImageURL         string     `json:"image_url"`
+	ThumbnailURL     *string    `json:"thumbnail_url,omitempty"`
+	ReferenceImageURL *string    `json:"reference_image_url,omitempty"`
+	Prompt           *string    `json:"prompt,omitempty"`
+	Model            *string    `json:"model,omitempty"`
+	Width            *int       `json:"width,omitempty"`
+	Height           *int       `json:"height,omitempty"`
+	IsPublic         bool       `json:"is_public"`
+	SubmissionStatus string     `json:"submission_status"`
+	SubmittedAt      *time.Time `json:"submitted_at,omitempty"`
+	ReviewedAt       *time.Time `json:"reviewed_at,omitempty"`
+	ReviewedBy       *int64     `json:"reviewed_by,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
+type ImageHistoryImage struct {
+	ImageURL string       `json:"image_url"`
+	Gallery  *GalleryImage `json:"gallery,omitempty"`
+}
+
+type ImageGenerationTask struct {
+	ID            int64              `json:"id"`
+	Status        string             `json:"status"`
+	Prompt        string             `json:"prompt"`
+	Model         string             `json:"model"`
+	Resolution    string             `json:"resolution,omitempty"`
+	AspectRatio   string             `json:"aspect_ratio,omitempty"`
+	Attempts      int                `json:"attempts"`
+	ErrorMessage  *string            `json:"error_message,omitempty"`
+	LastError     *string            `json:"last_error,omitempty"`
+	NextAttemptAt *time.Time         `json:"next_attempt_at,omitempty"`
+	ImageURLs     []string           `json:"image_urls,omitempty"`
+	PrimaryImage  *ImageHistoryImage `json:"primary_image,omitempty"`
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+	CompletedAt   *time.Time         `json:"completed_at,omitempty"`
+}
+
+type ImageGenerationTaskDetail struct {
+	ImageGenerationTask
+	Images []ImageHistoryImage `json:"images"`
+}
+
+type VideoHistoryVideo struct {
+	VideoURL string `json:"video_url"`
+}
+
+type VideoGenerationTask struct {
+	ID            int64       `json:"id"`
+	Status        string      `json:"status"`
+	Prompt        string      `json:"prompt"`
+	Model         string      `json:"model"`
+	Duration      int         `json:"duration,omitempty"`
+	Width         int         `json:"width,omitempty"`
+	Height        int         `json:"height,omitempty"`
+	FPS           int         `json:"fps,omitempty"`
+	Seed          int         `json:"seed,omitempty"`
+	Attempts      int         `json:"attempts"`
+	ErrorMessage  *string     `json:"error_message,omitempty"`
+	LastError     *string     `json:"last_error,omitempty"`
+	NextAttemptAt *time.Time  `json:"next_attempt_at,omitempty"`
+	VideoURLs     []string    `json:"video_urls,omitempty"`
+	PrimaryVideo  *VideoHistoryVideo `json:"primary_video,omitempty"`
+	CreatedAt     time.Time   `json:"created_at"`
+	UpdatedAt     time.Time   `json:"updated_at"`
+	CompletedAt   *time.Time  `json:"completed_at,omitempty"`
+}
+
+type VideoGenerationTaskDetail struct {
+	VideoGenerationTask
+	Videos []VideoHistoryVideo `json:"videos"`
+}
+
 // AdminUsageLog 是管理员接口使用的 usage log DTO（包含管理员字段）。
 type AdminUsageLog struct {
 	UsageLog

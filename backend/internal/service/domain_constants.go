@@ -102,6 +102,23 @@ const (
 	SettingKeyDocURL              = "doc_url"                // 文档链接
 	SettingKeyHomeContent         = "home_content"           // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
 	SettingKeyHideCcsImportButton = "hide_ccs_import_button" // 是否隐藏 API Keys 页面的导入 CCS 按钮
+	SettingKeyUserCustomKeyEnabled = "user_custom_key_enabled" // 是否允许用户自定义 API Key
+
+	// DreamStudio NewAPI 设置
+	SettingKeyNewAPIBaseURL      = "newapi_base_url"      // NewAPI Base URL
+	SettingKeyNewAPIAccessKey    = "newapi_access_key"    // NewAPI 访问密钥（明文）
+	SettingKeyNewAPIDefaultModel = "newapi_default_model" // NewAPI 默认模型
+
+	// DreamStudio Storage 设置
+	SettingKeyStorageS3Enabled    = "storage_s3_enabled"
+	SettingKeyStorageS3Endpoint   = "storage_s3_endpoint"
+	SettingKeyStorageS3Region     = "storage_s3_region"
+	SettingKeyStorageS3Bucket     = "storage_s3_bucket"
+	SettingKeyStorageS3AccessKey  = "storage_s3_access_key"
+	SettingKeyStorageS3SecretKey  = "storage_s3_secret_key"
+	SettingKeyStorageS3PublicURL  = "storage_s3_public_url"
+	SettingKeyStorageS3UseSSL     = "storage_s3_use_ssl"
+	SettingKeyStorageS3PathStyle  = "storage_s3_path_style"
 
 	// 默认配置
 	SettingKeyDefaultConcurrency = "default_concurrency" // 新用户默认并发量
@@ -123,6 +140,9 @@ const (
 	// Request identity patch (Claude -> Gemini systemInstruction injection)
 	SettingKeyEnableIdentityPatch = "enable_identity_patch"
 	SettingKeyIdentityPatchPrompt = "identity_patch_prompt"
+
+	SettingKeyPromptOptimizeModel  = "prompt_optimize_model"
+	SettingKeyPromptOptimizePrompt = "prompt_optimize_prompt"
 
 	// =========================
 	// Ops Monitoring (vNext)

@@ -11,6 +11,7 @@ import proxiesAPI from './proxies'
 import redeemAPI from './redeem'
 import promoAPI from './promo'
 import settingsAPI from './settings'
+import newAPI from './newapi'
 import systemAPI from './system'
 import subscriptionsAPI from './subscriptions'
 import usageAPI from './usage'
@@ -18,6 +19,7 @@ import geminiAPI from './gemini'
 import antigravityAPI from './antigravity'
 import userAttributesAPI from './userAttributes'
 import opsAPI from './ops'
+import inspirationAPI from './inspiration'
 
 /**
  * Unified admin API object for convenient access
@@ -31,13 +33,15 @@ export const adminAPI = {
   redeem: redeemAPI,
   promo: promoAPI,
   settings: settingsAPI,
+  newapi: newAPI,
   system: systemAPI,
   subscriptions: subscriptionsAPI,
   usage: usageAPI,
   gemini: geminiAPI,
   antigravity: antigravityAPI,
   userAttributes: userAttributesAPI,
-  ops: opsAPI
+  ops: opsAPI,
+  inspiration: inspirationAPI
 }
 
 export {
@@ -49,13 +53,15 @@ export {
   redeemAPI,
   promoAPI,
   settingsAPI,
+  newAPI,
   systemAPI,
   subscriptionsAPI,
   usageAPI,
   geminiAPI,
   antigravityAPI,
   userAttributesAPI,
-  opsAPI
+  opsAPI,
+  inspirationAPI
 }
 
 export default adminAPI

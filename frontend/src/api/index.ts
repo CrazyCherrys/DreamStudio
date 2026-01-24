@@ -15,6 +15,9 @@ export { usageAPI } from './usage'
 export { userAPI } from './user'
 export { redeemAPI, type RedeemHistoryItem } from './redeem'
 export { userGroupsAPI } from './groups'
+export { default as modelSettingsAPI } from './modelSettings'
+export { default as imagesAPI } from './images'
+export { default as videosAPI } from './videos'
 
 // Admin APIs
 export { adminAPI } from './admin'

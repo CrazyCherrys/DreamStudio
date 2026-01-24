@@ -70,6 +70,16 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		DocURL:                               settings.DocURL,
 		HomeContent:                          settings.HomeContent,
 		HideCcsImportButton:                  settings.HideCcsImportButton,
+		UserCustomKeyEnabled:                 settings.UserCustomKeyEnabled,
+		StorageS3Enabled:                     settings.StorageS3Enabled,
+		StorageS3Endpoint:                    settings.StorageS3Endpoint,
+		StorageS3Region:                      settings.StorageS3Region,
+		StorageS3Bucket:                      settings.StorageS3Bucket,
+		StorageS3AccessKeyConfigured:         settings.StorageS3AccessKeyConfigured,
+		StorageS3SecretKeyConfigured:         settings.StorageS3SecretKeyConfigured,
+		StorageS3PublicURL:                   settings.StorageS3PublicURL,
+		StorageS3UseSSL:                      settings.StorageS3UseSSL,
+		StorageS3PathStyle:                   settings.StorageS3PathStyle,
 		DefaultConcurrency:                   settings.DefaultConcurrency,
 		DefaultBalance:                       settings.DefaultBalance,
 		EnableModelFallback:                  settings.EnableModelFallback,
@@ -79,6 +89,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		FallbackModelAntigravity:             settings.FallbackModelAntigravity,
 		EnableIdentityPatch:                  settings.EnableIdentityPatch,
 		IdentityPatchPrompt:                  settings.IdentityPatchPrompt,
+		PromptOptimizeModel:                  settings.PromptOptimizeModel,
+		PromptOptimizePrompt:                 settings.PromptOptimizePrompt,
 		OpsMonitoringEnabled:                 opsEnabled && settings.OpsMonitoringEnabled,
 		OpsRealtimeMonitoringEnabled:         settings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                  settings.OpsQueryModeDefault,
@@ -122,6 +134,18 @@ type UpdateSettingsRequest struct {
 	DocURL              string `json:"doc_url"`
 	HomeContent         string `json:"home_content"`
 	HideCcsImportButton bool   `json:"hide_ccs_import_button"`
+	UserCustomKeyEnabled bool  `json:"user_custom_key_enabled"`
+
+	// 存储设置
+	StorageS3Enabled   bool   `json:"storage_s3_enabled"`
+	StorageS3Endpoint  string `json:"storage_s3_endpoint"`
+	StorageS3Region    string `json:"storage_s3_region"`
+	StorageS3Bucket    string `json:"storage_s3_bucket"`
+	StorageS3AccessKey string `json:"storage_s3_access_key"`
+	StorageS3SecretKey string `json:"storage_s3_secret_key"`
+	StorageS3PublicURL string `json:"storage_s3_public_url"`
+	StorageS3UseSSL    bool   `json:"storage_s3_use_ssl"`
+	StorageS3PathStyle bool   `json:"storage_s3_path_style"`
 
 	// 默认配置
 	DefaultConcurrency int     `json:"default_concurrency"`
@@ -137,6 +161,9 @@ type UpdateSettingsRequest struct {
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
+
+	PromptOptimizeModel  string `json:"prompt_optimize_model"`
+	PromptOptimizePrompt string `json:"prompt_optimize_prompt"`
 
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         *bool   `json:"ops_monitoring_enabled"`
@@ -227,6 +254,52 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
+	// Storage (S3) 参数验证
+	req.StorageS3Endpoint = strings.TrimSpace(req.StorageS3Endpoint)
+	req.StorageS3Region = strings.TrimSpace(req.StorageS3Region)
+	req.StorageS3Bucket = strings.TrimSpace(req.StorageS3Bucket)
+	req.StorageS3AccessKey = strings.TrimSpace(req.StorageS3AccessKey)
+	req.StorageS3SecretKey = strings.TrimSpace(req.StorageS3SecretKey)
+	req.StorageS3PublicURL = strings.TrimSpace(req.StorageS3PublicURL)
+
+	if req.StorageS3Endpoint != "" && (strings.HasPrefix(req.StorageS3Endpoint, "http://") || strings.HasPrefix(req.StorageS3Endpoint, "https://")) {
+		if err := config.ValidateAbsoluteHTTPURL(req.StorageS3Endpoint); err != nil {
+			response.BadRequest(c, "S3 endpoint must be an absolute http(s) URL when scheme is provided")
+			return
+		}
+	}
+	if req.StorageS3PublicURL != "" {
+		if err := config.ValidateAbsoluteHTTPURL(req.StorageS3PublicURL); err != nil {
+			response.BadRequest(c, "S3 public URL must be an absolute http(s) URL")
+			return
+		}
+	}
+
+	if req.StorageS3Enabled {
+		if req.StorageS3Endpoint == "" {
+			response.BadRequest(c, "S3 endpoint is required when S3 storage is enabled")
+			return
+		}
+		if req.StorageS3Bucket == "" {
+			response.BadRequest(c, "S3 bucket is required when S3 storage is enabled")
+			return
+		}
+		if req.StorageS3AccessKey == "" {
+			if previousSettings.StorageS3AccessKey == "" {
+				response.BadRequest(c, "S3 access key is required when S3 storage is enabled")
+				return
+			}
+			req.StorageS3AccessKey = previousSettings.StorageS3AccessKey
+		}
+		if req.StorageS3SecretKey == "" {
+			if previousSettings.StorageS3SecretKey == "" {
+				response.BadRequest(c, "S3 secret key is required when S3 storage is enabled")
+				return
+			}
+			req.StorageS3SecretKey = previousSettings.StorageS3SecretKey
+		}
+	}
+
 	// Ops metrics collector interval validation (seconds).
 	if req.OpsMetricsIntervalSeconds != nil {
 		v := *req.OpsMetricsIntervalSeconds
@@ -265,6 +338,16 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		DocURL:                     req.DocURL,
 		HomeContent:                req.HomeContent,
 		HideCcsImportButton:        req.HideCcsImportButton,
+		UserCustomKeyEnabled:       req.UserCustomKeyEnabled,
+		StorageS3Enabled:           req.StorageS3Enabled,
+		StorageS3Endpoint:          req.StorageS3Endpoint,
+		StorageS3Region:            req.StorageS3Region,
+		StorageS3Bucket:            req.StorageS3Bucket,
+		StorageS3AccessKey:         req.StorageS3AccessKey,
+		StorageS3SecretKey:         req.StorageS3SecretKey,
+		StorageS3PublicURL:         req.StorageS3PublicURL,
+		StorageS3UseSSL:            req.StorageS3UseSSL,
+		StorageS3PathStyle:         req.StorageS3PathStyle,
 		DefaultConcurrency:         req.DefaultConcurrency,
 		DefaultBalance:             req.DefaultBalance,
 		EnableModelFallback:        req.EnableModelFallback,
@@ -274,6 +357,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		FallbackModelAntigravity:   req.FallbackModelAntigravity,
 		EnableIdentityPatch:        req.EnableIdentityPatch,
 		IdentityPatchPrompt:        req.IdentityPatchPrompt,
+		PromptOptimizeModel:        req.PromptOptimizeModel,
+		PromptOptimizePrompt:       req.PromptOptimizePrompt,
 		OpsMonitoringEnabled: func() bool {
 			if req.OpsMonitoringEnabled != nil {
 				return *req.OpsMonitoringEnabled
@@ -340,6 +425,16 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		DocURL:                               updatedSettings.DocURL,
 		HomeContent:                          updatedSettings.HomeContent,
 		HideCcsImportButton:                  updatedSettings.HideCcsImportButton,
+		UserCustomKeyEnabled:                 updatedSettings.UserCustomKeyEnabled,
+		StorageS3Enabled:                     updatedSettings.StorageS3Enabled,
+		StorageS3Endpoint:                    updatedSettings.StorageS3Endpoint,
+		StorageS3Region:                      updatedSettings.StorageS3Region,
+		StorageS3Bucket:                      updatedSettings.StorageS3Bucket,
+		StorageS3AccessKeyConfigured:         updatedSettings.StorageS3AccessKeyConfigured,
+		StorageS3SecretKeyConfigured:         updatedSettings.StorageS3SecretKeyConfigured,
+		StorageS3PublicURL:                   updatedSettings.StorageS3PublicURL,
+		StorageS3UseSSL:                      updatedSettings.StorageS3UseSSL,
+		StorageS3PathStyle:                   updatedSettings.StorageS3PathStyle,
 		DefaultConcurrency:                   updatedSettings.DefaultConcurrency,
 		DefaultBalance:                       updatedSettings.DefaultBalance,
 		EnableModelFallback:                  updatedSettings.EnableModelFallback,
@@ -349,6 +444,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		FallbackModelAntigravity:             updatedSettings.FallbackModelAntigravity,
 		EnableIdentityPatch:                  updatedSettings.EnableIdentityPatch,
 		IdentityPatchPrompt:                  updatedSettings.IdentityPatchPrompt,
+		PromptOptimizeModel:                  updatedSettings.PromptOptimizeModel,
+		PromptOptimizePrompt:                 updatedSettings.PromptOptimizePrompt,
 		OpsMonitoringEnabled:                 updatedSettings.OpsMonitoringEnabled,
 		OpsRealtimeMonitoringEnabled:         updatedSettings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                  updatedSettings.OpsQueryModeDefault,
@@ -435,6 +532,33 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.SiteSubtitle != after.SiteSubtitle {
 		changed = append(changed, "site_subtitle")
 	}
+	if before.StorageS3Enabled != after.StorageS3Enabled {
+		changed = append(changed, "storage_s3_enabled")
+	}
+	if before.StorageS3Endpoint != after.StorageS3Endpoint {
+		changed = append(changed, "storage_s3_endpoint")
+	}
+	if before.StorageS3Region != after.StorageS3Region {
+		changed = append(changed, "storage_s3_region")
+	}
+	if before.StorageS3Bucket != after.StorageS3Bucket {
+		changed = append(changed, "storage_s3_bucket")
+	}
+	if req.StorageS3AccessKey != "" {
+		changed = append(changed, "storage_s3_access_key")
+	}
+	if req.StorageS3SecretKey != "" {
+		changed = append(changed, "storage_s3_secret_key")
+	}
+	if before.StorageS3PublicURL != after.StorageS3PublicURL {
+		changed = append(changed, "storage_s3_public_url")
+	}
+	if before.StorageS3UseSSL != after.StorageS3UseSSL {
+		changed = append(changed, "storage_s3_use_ssl")
+	}
+	if before.StorageS3PathStyle != after.StorageS3PathStyle {
+		changed = append(changed, "storage_s3_path_style")
+	}
 	if before.APIBaseURL != after.APIBaseURL {
 		changed = append(changed, "api_base_url")
 	}
@@ -449,6 +573,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.HideCcsImportButton != after.HideCcsImportButton {
 		changed = append(changed, "hide_ccs_import_button")
+	}
+	if before.UserCustomKeyEnabled != after.UserCustomKeyEnabled {
+		changed = append(changed, "user_custom_key_enabled")
 	}
 	if before.DefaultConcurrency != after.DefaultConcurrency {
 		changed = append(changed, "default_concurrency")
@@ -476,6 +603,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.IdentityPatchPrompt != after.IdentityPatchPrompt {
 		changed = append(changed, "identity_patch_prompt")
+	}
+	if before.PromptOptimizeModel != after.PromptOptimizeModel {
+		changed = append(changed, "prompt_optimize_model")
+	}
+	if before.PromptOptimizePrompt != after.PromptOptimizePrompt {
+		changed = append(changed, "prompt_optimize_prompt")
 	}
 	if before.OpsMonitoringEnabled != after.OpsMonitoringEnabled {
 		changed = append(changed, "ops_monitoring_enabled")

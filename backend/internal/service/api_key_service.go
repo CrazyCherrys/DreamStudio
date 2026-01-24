@@ -22,6 +22,7 @@ var (
 	ErrAPIKeyExists       = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
 	ErrAPIKeyTooShort     = infraerrors.BadRequest("API_KEY_TOO_SHORT", "api key must be at least 16 characters")
 	ErrAPIKeyInvalidChars = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
+	ErrCustomKeyDisabled  = infraerrors.Forbidden("CUSTOM_KEY_DISABLED", "custom api key is disabled")
 	ErrAPIKeyRateLimited  = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
 	ErrInvalidIPPattern   = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
 )
@@ -104,6 +105,7 @@ type APIKeyService struct {
 	userSubRepo UserSubscriptionRepository
 	cache       APIKeyCache
 	cfg         *config.Config
+	settingService *SettingService
 	authCacheL1 *ristretto.Cache
 	authCfg     apiKeyAuthCacheConfig
 	authGroup   singleflight.Group
@@ -128,6 +130,18 @@ func NewAPIKeyService(
 	}
 	svc.initAuthCache(cfg)
 	return svc
+}
+
+// SetSettingService injects SettingService for runtime settings checks.
+func (s *APIKeyService) SetSettingService(settingService *SettingService) {
+	s.settingService = settingService
+}
+
+func (s *APIKeyService) isCustomKeyEnabled(ctx context.Context) bool {
+	if s.settingService == nil {
+		return true
+	}
+	return s.settingService.IsUserCustomKeyEnabled(ctx)
 }
 
 // GenerateKey 生成随机API Key
@@ -249,6 +263,9 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 判断是否使用自定义Key
 	if req.CustomKey != nil && *req.CustomKey != "" {
+		if !s.isCustomKeyEnabled(ctx) {
+			return nil, ErrCustomKeyDisabled
+		}
 		// 检查限流（仅对自定义key进行限流）
 		if err := s.checkAPIKeyRateLimit(ctx, userID); err != nil {
 			return nil, err

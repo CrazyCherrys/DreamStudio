@@ -35,6 +35,9 @@ func RegisterAdminRoutes(
 		// 系统设置
 		registerSettingsRoutes(admin, h)
 
+		// NewAPI 设置
+		registerNewAPIRoutes(admin, h)
+
 		// 运维监控（Ops）
 		registerOpsRoutes(admin, h)
 
@@ -43,6 +46,9 @@ func RegisterAdminRoutes(
 
 		// 用户属性管理
 		registerUserAttributeRoutes(admin, h)
+
+		// 创意提交管理
+		registerInspirationRoutes(admin, h)
 	}
 }
 
@@ -122,6 +128,23 @@ func registerOpsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		ops.GET("/dashboard/latency-histogram", h.Admin.Ops.GetDashboardLatencyHistogram)
 		ops.GET("/dashboard/error-trend", h.Admin.Ops.GetDashboardErrorTrend)
 		ops.GET("/dashboard/error-distribution", h.Admin.Ops.GetDashboardErrorDistribution)
+	}
+}
+
+func registerNewAPIRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	newapi := admin.Group("/newapi")
+	{
+		newapi.GET("/settings", h.Admin.NewAPI.GetSettings)
+		newapi.PUT("/settings", h.Admin.NewAPI.UpdateSettings)
+		newapi.GET("/models", h.Admin.NewAPI.ListModels)
+	}
+}
+
+func registerInspirationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	inspiration := admin.Group("/gallery")
+	{
+		inspiration.GET("/submissions", h.Admin.Inspiration.ListSubmissions)
+		inspiration.PUT("/submissions/:id/status", h.Admin.Inspiration.UpdateSubmissionStatus)
 	}
 }
 

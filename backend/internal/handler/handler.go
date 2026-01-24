@@ -18,19 +18,26 @@ type AdminHandlers struct {
 	Redeem           *admin.RedeemHandler
 	Promo            *admin.PromoHandler
 	Setting          *admin.SettingHandler
+	NewAPI           *admin.NewAPIHandler
 	Ops              *admin.OpsHandler
 	System           *admin.SystemHandler
 	Subscription     *admin.SubscriptionHandler
 	Usage            *admin.UsageHandler
 	UserAttribute    *admin.UserAttributeHandler
+	Inspiration      *admin.InspirationHandler
 }
 
 // Handlers contains all HTTP handlers
 type Handlers struct {
 	Auth          *AuthHandler
 	User          *UserHandler
+	UserModel     *UserModelSettingsHandler
+	Image         *ImageGenerationHandler
+	Video         *VideoGenerationHandler
 	APIKey        *APIKeyHandler
 	Usage         *UsageHandler
+	Gallery       *GalleryHandler
+	Storage       *StorageHandler
 	Redeem        *RedeemHandler
 	Subscription  *SubscriptionHandler
 	Admin         *AdminHandlers

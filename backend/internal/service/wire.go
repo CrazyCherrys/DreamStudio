@@ -202,12 +202,27 @@ func ProvideAPIKeyAuthCacheInvalidator(apiKeyService *APIKeyService) APIKeyAuthC
 	return apiKeyService
 }
 
+// ProvideAPIKeyService creates APIKeyService with SettingService injection.
+func ProvideAPIKeyService(
+	apiKeyRepo APIKeyRepository,
+	userRepo UserRepository,
+	groupRepo GroupRepository,
+	userSubRepo UserSubscriptionRepository,
+	cache APIKeyCache,
+	cfg *config.Config,
+	settingService *SettingService,
+) *APIKeyService {
+	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, cache, cfg)
+	svc.SetSettingService(settingService)
+	return svc
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
 	NewAuthService,
 	NewUserService,
-	NewAPIKeyService,
+	ProvideAPIKeyService,
 	ProvideAPIKeyAuthCacheInvalidator,
 	NewGroupService,
 	NewAccountService,
@@ -215,6 +230,14 @@ var ProviderSet = wire.NewSet(
 	NewRedeemService,
 	NewPromoService,
 	NewUsageService,
+	NewGalleryService,
+	NewStorageService,
+	NewImageGenerationService,
+	NewImageTaskService,
+	ProvideImageTaskWorker,
+	NewVideoGenerationService,
+	NewVideoTaskService,
+	ProvideVideoTaskWorker,
 	NewDashboardService,
 	ProvidePricingService,
 	NewBillingService,

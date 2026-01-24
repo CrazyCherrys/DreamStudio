@@ -168,8 +168,9 @@ nano .env
 POSTGRES_PASSWORD=your_secure_password_here
 
 # 可选：管理员账号
+# 测试环境默认管理员密码：123456（生产环境务必修改）
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your_admin_password
+ADMIN_PASSWORD=123456
 
 # 可选：自定义端口
 SERVER_PORT=8080
@@ -298,6 +299,24 @@ default:
   user_balance: 0
   api_key_prefix: "sk-"
   rate_multiplier: 1.0
+```
+
+**本次部署使用的外部数据库/Redis 配置：**
+
+```yaml
+database:
+  host: "192.168.3.14"
+  port: 33090
+  user: "root"
+  password: "Swiss5Rebirth9suburbinapt"
+  dbname: "dreamstudio"
+  sslmode: "disable"
+
+redis:
+  host: "192.168.3.14"
+  port: 6379
+  password: ""
+  db: 0
 ```
 
 `config.yaml` 还支持以下安全相关配置：

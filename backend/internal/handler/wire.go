@@ -21,11 +21,13 @@ func ProvideAdminHandlers(
 	redeemHandler *admin.RedeemHandler,
 	promoHandler *admin.PromoHandler,
 	settingHandler *admin.SettingHandler,
+	newAPIHandler *admin.NewAPIHandler,
 	opsHandler *admin.OpsHandler,
 	systemHandler *admin.SystemHandler,
 	subscriptionHandler *admin.SubscriptionHandler,
 	usageHandler *admin.UsageHandler,
 	userAttributeHandler *admin.UserAttributeHandler,
+	inspirationHandler *admin.InspirationHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:        dashboardHandler,
@@ -40,11 +42,13 @@ func ProvideAdminHandlers(
 		Redeem:           redeemHandler,
 		Promo:            promoHandler,
 		Setting:          settingHandler,
+		NewAPI:           newAPIHandler,
 		Ops:              opsHandler,
 		System:           systemHandler,
 		Subscription:     subscriptionHandler,
 		Usage:            usageHandler,
 		UserAttribute:    userAttributeHandler,
+		Inspiration:      inspirationHandler,
 	}
 }
 
@@ -62,8 +66,13 @@ func ProvideSettingHandler(settingService *service.SettingService, buildInfo Bui
 func ProvideHandlers(
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
+	userModelSettingsHandler *UserModelSettingsHandler,
+	imageGenerationHandler *ImageGenerationHandler,
+	videoGenerationHandler *VideoGenerationHandler,
 	apiKeyHandler *APIKeyHandler,
 	usageHandler *UsageHandler,
+	galleryHandler *GalleryHandler,
+	storageHandler *StorageHandler,
 	redeemHandler *RedeemHandler,
 	subscriptionHandler *SubscriptionHandler,
 	adminHandlers *AdminHandlers,
@@ -74,8 +83,13 @@ func ProvideHandlers(
 	return &Handlers{
 		Auth:          authHandler,
 		User:          userHandler,
+		UserModel:     userModelSettingsHandler,
+		Image:         imageGenerationHandler,
+		Video:         videoGenerationHandler,
 		APIKey:        apiKeyHandler,
 		Usage:         usageHandler,
+		Gallery:       galleryHandler,
+		Storage:       storageHandler,
 		Redeem:        redeemHandler,
 		Subscription:  subscriptionHandler,
 		Admin:         adminHandlers,
@@ -90,8 +104,13 @@ var ProviderSet = wire.NewSet(
 	// Top-level handlers
 	NewAuthHandler,
 	NewUserHandler,
+	NewUserModelSettingsHandler,
+	NewImageGenerationHandler,
+	NewVideoGenerationHandler,
 	NewAPIKeyHandler,
 	NewUsageHandler,
+	NewGalleryHandler,
+	NewStorageHandler,
 	NewRedeemHandler,
 	NewSubscriptionHandler,
 	NewGatewayHandler,
@@ -111,11 +130,13 @@ var ProviderSet = wire.NewSet(
 	admin.NewRedeemHandler,
 	admin.NewPromoHandler,
 	admin.NewSettingHandler,
+	admin.NewNewAPIHandler,
 	admin.NewOpsHandler,
 	ProvideSystemHandler,
 	admin.NewSubscriptionHandler,
 	admin.NewUsageHandler,
 	admin.NewUserAttributeHandler,
+	admin.NewInspirationHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,
