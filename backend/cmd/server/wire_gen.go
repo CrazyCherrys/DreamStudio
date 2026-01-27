@@ -52,11 +52,17 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	imageTaskRepository := repository.NewImageTaskRepository(db)
 	imageTaskService := service.NewImageTaskService(imageTaskRepository, imageGenerationService)
 	imageTaskService = service.ProvideImageTaskWorker(imageTaskService)
+	redinkRepository := repository.NewRedInkRepository(db)
+	redinkService := service.NewRedInkService(redinkRepository, settingService, storageService)
+	redinkTaskService := service.NewRedInkTaskService(redinkRepository, imageGenerationService, settingService)
+	redinkTaskService = service.ProvideRedInkWorker(redinkTaskService)
 	videoGenerationService := service.NewVideoGenerationService(settingService, storageService)
 	videoTaskRepository := repository.NewVideoTaskRepository(db)
 	videoTaskService := service.NewVideoTaskService(videoTaskRepository, videoGenerationService)
 	videoTaskService = service.ProvideVideoTaskWorker(videoTaskService)
 	redisClient := repository.ProvideRedis(configConfig)
+	modelRPMCache := repository.NewModelRPMCache(redisClient)
+	modelRPMService := service.NewModelRPMService(modelRPMCache, settingService)
 	emailCache := repository.NewEmailCache(redisClient)
 	emailService := service.NewEmailService(settingRepository, emailCache)
 	turnstileVerifier := repository.NewTurnstileVerifier()
@@ -78,8 +84,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	authHandler := handler.NewAuthHandler(configConfig, authService, userService, settingService, promoService)
 	userHandler := handler.NewUserHandler(userService)
 	userModelSettingsHandler := handler.NewUserModelSettingsHandler(settingService)
-	imageGenerationHandler := handler.NewImageGenerationHandler(imageGenerationService, imageTaskService, galleryService, storageService)
-	videoGenerationHandler := handler.NewVideoGenerationHandler(videoTaskService, storageService)
+	userAPISettingsHandler := handler.NewUserAPISettingsHandler(settingService)
+	imageGenerationHandler := handler.NewImageGenerationHandler(imageGenerationService, imageTaskService, galleryService, storageService, modelRPMService)
+	redinkHandler := handler.NewRedInkHandler(redinkService)
+	videoGenerationHandler := handler.NewVideoGenerationHandler(videoTaskService, storageService, modelRPMService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageLogRepository := repository.NewUsageLogRepository(client, db)
 	usageService := service.NewUsageService(usageLogRepository, userRepository, client, apiKeyAuthCacheInvalidator)
@@ -181,10 +189,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	userAttributeHandler := admin.NewUserAttributeHandler(userAttributeService)
 	inspirationHandler := admin.NewInspirationHandler(galleryService)
 	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, newAPIHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, inspirationHandler)
-	gatewayHandler := handler.NewGatewayHandler(gatewayService, geminiMessagesCompatService, antigravityGatewayService, userService, concurrencyService, billingCacheService, configConfig)
-	openAIGatewayHandler := handler.NewOpenAIGatewayHandler(openAIGatewayService, concurrencyService, billingCacheService, configConfig)
+	gatewayHandler := handler.NewGatewayHandler(gatewayService, geminiMessagesCompatService, antigravityGatewayService, userService, concurrencyService, modelRPMService, billingCacheService, configConfig)
+	openAIGatewayHandler := handler.NewOpenAIGatewayHandler(openAIGatewayService, concurrencyService, modelRPMService, billingCacheService, configConfig)
 	handlerSettingHandler := handler.ProvideSettingHandler(settingService, buildInfo)
-	handlers := handler.ProvideHandlers(authHandler, userHandler, userModelSettingsHandler, imageGenerationHandler, videoGenerationHandler, apiKeyHandler, usageHandler, galleryHandler, storageHandler, redeemHandler, subscriptionHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler)
+	handlers := handler.ProvideHandlers(authHandler, userHandler, userModelSettingsHandler, userAPISettingsHandler, imageGenerationHandler, redinkHandler, videoGenerationHandler, apiKeyHandler, usageHandler, galleryHandler, storageHandler, redeemHandler, subscriptionHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler)
 	jwtAuthMiddleware := middleware.NewJWTAuthMiddleware(authService, userService)
 	adminAuthMiddleware := middleware.NewAdminAuthMiddleware(authService, userService, settingService)
 	apiKeyAuthMiddleware := middleware.NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, configConfig)
@@ -197,7 +205,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	opsScheduledReportService := service.ProvideOpsScheduledReportService(opsService, userService, emailService, redisClient, configConfig)
 	tokenRefreshService := service.ProvideTokenRefreshService(accountRepository, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, compositeTokenCacheInvalidator, configConfig)
 	accountExpiryService := service.ProvideAccountExpiryService(accountRepository)
-	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, schedulerSnapshotService, tokenRefreshService, accountExpiryService, usageCleanupService, pricingService, emailQueueService, billingCacheService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService)
+	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, schedulerSnapshotService, redinkTaskService, tokenRefreshService, accountExpiryService, usageCleanupService, pricingService, emailQueueService, billingCacheService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService)
 	application := &Application{
 		Server:  httpServer,
 		Cleanup: v,
@@ -228,6 +236,7 @@ func provideCleanup(
 	opsCleanup *service.OpsCleanupService,
 	opsScheduledReport *service.OpsScheduledReportService,
 	schedulerSnapshot *service.SchedulerSnapshotService,
+	redinkTaskService *service.RedInkTaskService,
 	tokenRefresh *service.TokenRefreshService,
 	accountExpiry *service.AccountExpiryService,
 	usageCleanup *service.UsageCleanupService,
@@ -274,6 +283,12 @@ func provideCleanup(
 			{"OpsMetricsCollector", func() error {
 				if opsMetricsCollector != nil {
 					opsMetricsCollector.Stop()
+				}
+				return nil
+			}},
+			{"RedInkTaskService", func() error {
+				if redinkTaskService != nil {
+					redinkTaskService.Stop()
 				}
 				return nil
 			}},

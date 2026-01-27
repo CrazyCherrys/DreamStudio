@@ -1,4 +1,4 @@
-# Sub2API
+# DreamStudio
 
 <div align="center">
 
@@ -24,11 +24,11 @@
 
 | 邮箱 | 密码 |
 |------|------|
-| admin@sub2api.com | admin123 |
+| admin@dreamstudio.local | admin123 |
 
 ## 项目概述
 
-Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅（如 Claude Code $200/月）的 API 配额。用户通过平台生成的 API Key 调用上游 AI 服务，平台负责鉴权、计费、负载均衡和请求转发。
+DreamStudio 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅（如 Claude Code $200/月）的 API 配额。用户通过平台生成的 API Key 调用上游 AI 服务，平台负责鉴权、计费、负载均衡和请求转发。
 
 ## 核心功能
 
@@ -80,7 +80,7 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅（
 #### 安装步骤
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy/install.sh | sudo bash
 ```
 
 脚本会自动：
@@ -89,6 +89,8 @@ curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install
 3. 安装二进制文件到 `/opt/sub2api`
 4. 创建 systemd 服务
 5. 配置系统用户和权限
+
+注意：当前安装脚本仍沿用 `sub2api` 的服务/二进制命名以保持兼容，所以下方命令继续使用 `sub2api`。
 
 #### 安装后配置
 
@@ -130,7 +132,7 @@ sudo journalctl -u sub2api -f
 sudo systemctl restart sub2api
 
 # 卸载
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
+curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy/install.sh | sudo bash -s -- uninstall -y
 ```
 
 ---
@@ -148,8 +150,8 @@ curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api
+git clone https://github.com/CrazyCherrys/DreamStudio.git
+cd DreamStudio
 
 # 2. 进入 deploy 目录
 cd deploy
@@ -245,8 +247,8 @@ docker-compose logs -f
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api
+git clone https://github.com/CrazyCherrys/DreamStudio.git
+cd DreamStudio
 
 # 2. 安装 pnpm（如果还没有安装）
 npm install -g pnpm
@@ -259,7 +261,7 @@ pnpm run build
 
 # 4. 编译后端（嵌入前端）
 cd ../backend
-go build -tags embed -o sub2api ./cmd/server
+go build -tags embed -o dreamstudio ./cmd/server
 
 # 5. 创建配置文件
 cp ../deploy/config.example.yaml ./config.yaml
@@ -283,7 +285,7 @@ database:
   port: 5432
   user: "postgres"
   password: "your_password"
-  dbname: "sub2api"
+  dbname: "dreamstudio"
 
 redis:
   host: "localhost"
@@ -374,7 +376,7 @@ Invalid base URL: invalid url scheme: http
 
 ```bash
 # 6. 运行应用
-./sub2api
+./dreamstudio
 ```
 
 #### 开发模式
@@ -413,7 +415,7 @@ go generate ./cmd/server
 
 ## Antigravity 使用说明
 
-Sub2API 支持 [Antigravity](https://antigravity.so/) 账户，授权后可通过专用端点访问 Claude 和 Gemini 模型。
+DreamStudio 支持 [Antigravity](https://antigravity.so/) 账户，授权后可通过专用端点访问 Claude 和 Gemini 模型。
 
 ### 专用端点
 
@@ -444,7 +446,7 @@ Antigravity 账户支持可选的**混合调度**功能。开启后，通用端�
 ## 项目结构
 
 ```
-sub2api/
+DreamStudio/
 ├── backend/                  # Go 后端服务
 │   ├── cmd/server/           # 应用入口
 │   ├── internal/             # 内部模块

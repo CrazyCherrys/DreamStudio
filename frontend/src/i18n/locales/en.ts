@@ -160,6 +160,190 @@ export default {
     }
   },
 
+  // Landing
+  landing: {
+    nav: {
+      userCenter: 'User Center'
+    },
+    hero: {
+      kicker: 'DreamStudio',
+      titleLine1: 'Illuminate the next wave of ideas',
+      titleLine2Prefix: 'Create with AI ',
+      titleLine2Highlight: 'Videos',
+      titleLine2Suffix: ' that spark every moment',
+      subtitle: 'Design images, videos, and Xiaohongshu posts in one streamlined studio.',
+      inputPlaceholder: 'Describe an image or video idea to get started',
+      ctaPrimary: 'Start Creating',
+      ctaSecondary: 'Explore Gallery'
+    },
+    explore: {
+      title: 'Explore trending creations',
+      subtitle: 'Jump into popular prompts or refine them with your own twist.',
+      tags: [
+        'Futuristic city skyline',
+        'Cozy cafe illustration',
+        'Autumn travel diary',
+        'Minimal product poster',
+        'Studio portrait lighting',
+        'Storybook watercolor'
+      ]
+    }
+  },
+
+  // RedInk
+  redink: {
+    title: 'Xiaohongshu Post Generator',
+    subtitle: 'Generate multi-page Xiaohongshu content from a topic.',
+    actions: {
+      refresh: 'Refresh',
+      generateOutline: 'Generate Outline',
+      generatingOutline: 'Generating...',
+      generateContent: 'Generate Content',
+      generatingContent: 'Generating...',
+      createRecord: 'Create Record',
+      creatingRecord: 'Creating...',
+      startGeneration: 'Start Generation',
+      startingGeneration: 'Starting...',
+      retryFailed: 'Retry Failed',
+      retryPage: 'Retry Page',
+      deleteRecord: 'Delete Record',
+      backToTopic: 'Back to Edit'
+    },
+    steps: {
+      input: 'Input Topic',
+      preview: 'Preview'
+    },
+    creator: {
+      title: 'Create a Xiaohongshu Post',
+      description: 'Describe your topic and let AI craft the outline.',
+      hint: 'AI will generate an outline and preview from your topic.'
+    },
+    pageCount: {
+      label: 'Pages',
+      auto: 'Auto (AI decides)',
+      countLabel: '{count} pages'
+    },
+    topic: {
+      title: 'Topic',
+      description: 'Describe what you want to create for Xiaohongshu.',
+      label: 'Topic',
+      placeholder: 'Enter your topic...',
+      hint: 'Be specific for better outlines.'
+    },
+    images: {
+      title: 'Reference Images',
+      add: 'Add Images',
+      empty: 'No reference images yet.',
+      invalid: 'Please upload a valid image file.'
+    },
+    outline: {
+      title: 'Outline',
+      description: 'Review and adjust your outline before generating.',
+      raw: 'Outline Text',
+      placeholder: 'Outline will appear here after generation...',
+      pages: 'Pages',
+      addPage: 'Add Page',
+      removePage: 'Remove Page',
+      empty: 'No pages yet. Generate an outline to start.',
+      sync: 'Sync Outline',
+      pageLabel: 'Page {index}',
+      pagePlaceholder: 'Describe the content for this page...',
+      maxPages: 'Maximum {max} pages.'
+    },
+    content: {
+      title: 'Copywriting',
+      description: 'Generate titles, copywriting, and tags.',
+      titles: 'Titles',
+      addTitle: 'Add Title',
+      titlePlaceholder: 'Title {index}',
+      copywriting: 'Copywriting',
+      copywritingPlaceholder: 'Write the copywriting...',
+      tags: 'Tags',
+      addTag: 'Add Tag',
+      tagPlaceholder: 'Tag {index}'
+    },
+    settings: {
+      title: 'Generation Settings',
+      description: 'Choose models and image settings for Xiaohongshu.',
+      textModel: 'Text Model',
+      textModelPlaceholder: 'Select text model',
+      imageModel: 'Image Model',
+      imageModelPlaceholder: 'Select image model',
+      resolution: 'Resolution',
+      resolutionPlaceholder: 'Select resolution',
+      aspectRatio: 'Aspect Ratio',
+      aspectRatioPlaceholder: 'Select aspect ratio'
+    },
+    history: {
+      title: 'My Posts',
+      description: 'Review your Xiaohongshu projects and progress.',
+      empty: 'No records yet.',
+      loadMore: 'Load more',
+      untitled: 'Untitled'
+    },
+    record: {
+      title: 'Record Detail',
+      description: 'Review progress and results.',
+      pageProgress: '{completed}/{total} pages',
+      status: {
+        draft: 'Draft',
+        generating: 'Generating',
+        partial: 'Partial',
+        completed: 'Completed',
+        error: 'Error'
+      },
+      empty: 'Select a record to view details.',
+      pages: 'Pages',
+      noPages: 'No pages generated yet.',
+      copywriting: 'Copywriting',
+      emptyCopywriting: 'No copywriting.'
+    },
+    page: {
+      types: {
+        cover: 'Cover',
+        content: 'Content',
+        summary: 'Summary'
+      },
+      status: {
+        pending: 'Pending',
+        running: 'Running',
+        succeeded: 'Succeeded',
+        failed: 'Failed'
+      }
+    },
+    preview: {
+      title: 'Preview',
+      description: 'Select the pages to generate and choose an image model.',
+      selectAll: 'Select All',
+      clearSelection: 'Clear Selection',
+      selectedCount: '{selected}/{total} selected',
+      empty: 'No preview yet. Generate an outline first.',
+      generate: 'Generate',
+      generating: 'Generating...',
+      selectionRequired: 'Select at least one page to generate.'
+    },
+    outlineCard: {
+      generating: 'Generating',
+      ready: '{count} pages · Awaiting images'
+    },
+    outlineGenerated: 'Outline generated',
+    outlineFailed: 'Failed to generate outline',
+    contentGenerated: 'Content generated',
+    contentFailed: 'Failed to generate content',
+    recordCreated: 'Record created',
+    recordCreateFailed: 'Failed to create record',
+    generationStarted: 'Generation started',
+    generationFailed: 'Failed to start generation',
+    retryStarted: 'Retry started',
+    retryFailed: 'Retry failed',
+    recordDeleted: 'Record deleted',
+    recordDeleteFailed: 'Failed to delete record',
+    recordRequired: 'Please select a record first',
+    topicRequired: 'Please enter a topic',
+    outlineRequired: 'Outline is required',
+    outlinePagesRequired: 'At least one page is required'
+  },
+
   // Gallery
   gallery: {
     kicker: 'Gallery',
@@ -315,6 +499,8 @@ export default {
   // Navigation
   nav: {
     dashboard: 'Dashboard',
+    aiImage: 'AI Image',
+    aiVideo: 'AI Video',
     apiKeys: 'API Keys',
     usage: 'Usage',
     redeem: 'Redeem',
@@ -330,6 +516,7 @@ export default {
     settings: 'Settings',
     apiSettings: 'API Settings',
     inspiration: 'Inspiration',
+    redink: 'Xiaohongshu Posts',
     modelSettings: 'Model Settings',
     myAccount: 'My Account',
     lightMode: 'Light Mode',
@@ -566,6 +753,32 @@ export default {
     },
   },
 
+  userApiSettings: {
+    title: 'API Settings',
+    description: 'Use your own API key for image/video generation when enabled by the admin.',
+    status: {
+      label: 'Key status',
+      hint: 'Requests will use this key while base URL and models stay admin-controlled.',
+      configured: 'Configured',
+      notConfigured: 'Not configured',
+    },
+    form: {
+      label: 'Custom API Key',
+      placeholder: 'Enter your API key',
+      hint: 'Your key is only used for upstream requests, not for creating access tokens.',
+      keepHint: 'Key already configured. Enter a new key to replace it.',
+    },
+    saveSuccess: 'Custom API key saved successfully',
+    saveFailed: 'Failed to save custom API key',
+    loadFailed: 'Failed to load API key status',
+    clear: 'Remove key',
+    clearSuccess: 'Custom API key removed',
+    clearConfirmTitle: 'Remove API key',
+    clearConfirmMessage: 'Are you sure you want to remove your custom API key?',
+    clearConfirmAction: 'Remove',
+    saving: 'Saving...',
+  },
+
   // Usage
   usage: {
     title: 'Usage Records',
@@ -697,7 +910,7 @@ export default {
   // Model Settings
   modelSettings: {
     title: 'Model Settings',
-    description: 'Manage image/video models, request endpoints, resolutions, and aspect ratios',
+    description: 'Manage image, video, and text models, request endpoints, resolutions, aspect ratios, and durations',
     loadFailed: 'Failed to load model settings',
     saveSuccess: 'Model settings saved',
     saveFailed: 'Failed to save model settings',
@@ -705,15 +918,21 @@ export default {
     groups: {
       image: 'Image Models',
       video: 'Video Models',
+      text: 'Text Models',
       emptyImage: 'No image models',
-      emptyVideo: 'No video models'
+      emptyVideo: 'No video models',
+      emptyText: 'No text models'
+    },
+    filters: {
+      title: 'Filter by type',
+      all: 'All'
     },
     models: {
       refresh: 'Refresh',
       loading: 'Loading...',
-      empty: 'No models available',
+      empty: 'No models added yet',
       loadFailed: 'Failed to load models',
-      hint: 'Models are loaded from the configured NewAPI',
+      hint: 'Models are managed manually. Remember to save your changes.',
       count: '{count} models',
       unavailable: 'Unavailable',
       remove: 'Remove',
@@ -722,23 +941,47 @@ export default {
       removeSuccess: 'Model removed',
       removeFailed: 'Failed to remove model'
     },
+    addModel: {
+      modelIdLabel: 'Model ID',
+      modelIdPlaceholder: 'Enter request model ID',
+      modelNameLabel: 'Model Name',
+      modelNamePlaceholder: 'Optional display name',
+      modelTypeLabel: 'Model Type',
+      hint: 'Add models manually and click Save to apply.',
+      action: 'Add Model',
+      errors: {
+        idRequired: 'Model ID is required',
+        duplicate: 'Model ID already exists'
+      }
+    },
     sections: {
       modelType: 'Model Type',
-      displayName: 'Display Name',
+      modelId: 'Model ID',
+      displayName: 'Model Name',
       requestEndpoint: 'Request Endpoint',
+      rpm: 'RPM Limit',
       resolutions: 'Resolutions',
-      aspectRatios: 'Aspect Ratios'
+      aspectRatios: 'Aspect Ratios',
+      durations: 'Durations'
     },
     modelTypes: {
       image: 'AI Image',
-      video: 'AI Video'
+      video: 'AI Video',
+      text: 'AI Text'
     },
     displayNamePlaceholder: 'Optional. Leave blank to use the model name',
-    displayNameHint: 'Only affects display, does not change the request model',
+    displayNameHint: 'Only affects display, does not change the request model ID',
+    modelIdPlaceholder: 'Optional. Leave blank to use {id}',
+    modelIdHint: 'Used for requests. Leave blank to use the original model ID',
     requestEndpoints: {
       openai: 'OpenAI',
       gemini: 'Gemini',
       openaiMod: 'OpenAI Modified'
+    },
+    rpm: {
+      enable: 'Enable RPM limit',
+      placeholder: 'Requests per minute',
+      hint: 'Leave disabled for unlimited requests.'
     },
     selectedCount: '{count} selected'
   },
@@ -847,10 +1090,13 @@ export default {
       updateFailed: 'Failed to update submission',
       approveSuccess: 'Submission approved',
       rejectSuccess: 'Submission rejected',
+      revokeSuccess: 'Approval revoked',
       confirmApproveTitle: 'Approve submission',
       confirmApproveMessage: 'Approve this submission and make it public?',
       confirmRejectTitle: 'Reject submission',
       confirmRejectMessage: 'Reject this submission and keep it private?',
+      confirmRevokeTitle: 'Revoke approval',
+      confirmRevokeMessage: 'Revoke approval and move this submission back to pending?',
       status: {
         pending: 'Pending',
         approved: 'Approved',
@@ -867,7 +1113,8 @@ export default {
       },
       actions: {
         approve: 'Approve',
-        reject: 'Reject'
+        reject: 'Reject',
+        revoke: 'Revoke'
       }
     },
 
@@ -3176,15 +3423,15 @@ export default {
 
     apiSettings: {
       title: 'API Settings',
-      description: 'Configure NewAPI endpoint, access key, and default image model',
+      description: 'Configure API endpoint, access key, and default image model',
       loadFailed: 'Failed to load API settings',
       saveSuccess: 'API settings saved',
       saveFailed: 'Failed to save API settings',
       saving: 'Saving...',
       form: {
-        baseUrlLabel: 'NewAPI Base URL',
+        baseUrlLabel: 'API URL',
         baseUrlHint: 'Default: https://api.haokun.de',
-        accessKeyLabel: 'NewAPI Access Key',
+        accessKeyLabel: 'API Access Key',
         accessKeyHint: 'Leave empty to keep the current key',
         accessKeyPlaceholder: 'Enter access key',
         accessKeyConfiguredHint: 'Access key configured. Leave empty to keep it.',

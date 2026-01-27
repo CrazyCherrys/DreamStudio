@@ -7,15 +7,12 @@
     <AppSidebar />
 
     <!-- Main Content Area -->
-    <div
-      class="relative min-h-screen transition-all duration-300"
-      :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64']"
-    >
+    <div :class="contentClass">
       <!-- Header -->
       <AppHeader />
 
       <!-- Main Content -->
-      <main class="p-4 md:p-6 lg:p-8">
+      <main :class="mainClass">
         <slot />
       </main>
     </div>
@@ -32,10 +29,26 @@ import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
 
+const props = withDefaults(defineProps<{
+  fullBleed?: boolean
+}>(), {
+  fullBleed: false
+})
+
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const isAdmin = computed(() => authStore.user?.role === 'admin')
+const contentClass = computed(() => [
+  'relative flex flex-col transition-all duration-300',
+  props.fullBleed ? 'h-screen' : 'min-h-screen',
+  sidebarCollapsed.value ? 'lg:ml-[72px]' : 'lg:ml-56'
+])
+const mainClass = computed(() =>
+  props.fullBleed
+    ? 'flex-1 min-h-0 overflow-auto lg:overflow-hidden'
+    : 'flex-1 p-4 md:p-6 lg:p-8'
+)
 
 const { replayTour } = useOnboardingTour({
   storageKey: isAdmin.value ? 'admin_guide' : 'user_guide',

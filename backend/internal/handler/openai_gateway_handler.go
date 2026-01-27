@@ -25,6 +25,7 @@ type OpenAIGatewayHandler struct {
 	gatewayService      *service.OpenAIGatewayService
 	billingCacheService *service.BillingCacheService
 	concurrencyHelper   *ConcurrencyHelper
+	modelRPMHelper      *ModelRPMHelper
 	maxAccountSwitches  int
 }
 
@@ -32,6 +33,7 @@ type OpenAIGatewayHandler struct {
 func NewOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
 	concurrencyService *service.ConcurrencyService,
+	modelRPMService *service.ModelRPMService,
 	billingCacheService *service.BillingCacheService,
 	cfg *config.Config,
 ) *OpenAIGatewayHandler {
@@ -47,6 +49,7 @@ func NewOpenAIGatewayHandler(
 		gatewayService:      gatewayService,
 		billingCacheService: billingCacheService,
 		concurrencyHelper:   NewConcurrencyHelper(concurrencyService, SSEPingFormatComment, pingInterval),
+		modelRPMHelper:      NewModelRPMHelper(modelRPMService, SSEPingFormatComment, pingInterval),
 		maxAccountSwitches:  maxAccountSwitches,
 	}
 }
@@ -165,6 +168,17 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			h.concurrencyHelper.DecrementWaitCount(c.Request.Context(), subject.UserID)
 		}
 	}()
+
+	// 0.5 Enforce per-model RPM limit
+	if err := h.modelRPMHelper.WaitForModelRPM(c, subject.UserID, reqModel, reqStream, &streamStarted); err != nil {
+		log.Printf("Model RPM wait failed: %v", err)
+		if _, ok := err.(*ModelRPMError); ok {
+			h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Model RPM limit reached, please retry later", streamStarted)
+		} else {
+			h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Failed to apply model RPM limit", streamStarted)
+		}
+		return
+	}
 
 	// 1. First acquire user concurrency slot
 	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)

@@ -929,6 +929,81 @@ func (r *galleryRepository) UpdateReviewStatus(
 	return &image, nil
 }
 
+func (r *galleryRepository) ReopenSubmission(ctx context.Context, imageID int64) (*service.GalleryImage, error) {
+	const updateQuery = `
+		UPDATE gallery_images
+		SET submission_status = $1,
+			reviewed_at = NULL,
+			reviewed_by = NULL,
+			is_public = FALSE,
+			updated_at = NOW()
+		WHERE id = $2
+		RETURNING
+			id,
+			user_id,
+			image_url,
+			thumbnail_url,
+			reference_image_url,
+			prompt,
+			model,
+			width,
+			height,
+			is_public,
+			submission_status,
+			submitted_at,
+			reviewed_at,
+			reviewed_by,
+			created_at,
+			updated_at
+	`
+
+	var image service.GalleryImage
+	var thumbnailURL sql.NullString
+	var referenceImageURL sql.NullString
+	var prompt sql.NullString
+	var model sql.NullString
+	var width sql.NullInt64
+	var height sql.NullInt64
+	var submissionStatus string
+	var submittedAtValue sql.NullTime
+	var reviewedAtValue sql.NullTime
+	var reviewedByValue sql.NullInt64
+
+	if err := scanSingleRow(ctx, r.sql, updateQuery, []any{service.GallerySubmissionPending, imageID},
+		&image.ID,
+		&image.UserID,
+		&image.ImageURL,
+		&thumbnailURL,
+		&referenceImageURL,
+		&prompt,
+		&model,
+		&width,
+		&height,
+		&image.IsPublic,
+		&submissionStatus,
+		&submittedAtValue,
+		&reviewedAtValue,
+		&reviewedByValue,
+		&image.CreatedAt,
+		&image.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+
+	image.ThumbnailURL = nullStringPtr(thumbnailURL)
+	image.ReferenceImageURL = nullStringPtr(referenceImageURL)
+	image.Prompt = nullStringPtr(prompt)
+	image.Model = nullStringPtr(model)
+	image.Width = nullIntPtr(width)
+	image.Height = nullIntPtr(height)
+	image.SubmissionStatus = submissionStatus
+	image.SubmittedAt = nullTimePtr(submittedAtValue)
+	image.ReviewedAt = nullTimePtr(reviewedAtValue)
+	image.ReviewedBy = nullInt64Ptr(reviewedByValue)
+
+	return &image, nil
+}
+
 func nullStringPtr(value sql.NullString) *string {
 	if !value.Valid {
 		return nil

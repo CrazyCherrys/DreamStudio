@@ -325,7 +325,7 @@ func (s *VideoTaskService) pollTask(ctx context.Context, task *VideoGenerationTa
 		return
 	}
 
-	resp, err := s.videoService.GetStatus(ctx, videoID)
+	resp, err := s.videoService.GetStatus(ctx, task.UserID, videoID)
 	if err != nil {
 		s.handleTaskError(task, err)
 		return
@@ -351,7 +351,7 @@ func (s *VideoTaskService) pollTask(ctx context.Context, task *VideoGenerationTa
 }
 
 func (s *VideoTaskService) completeTask(ctx context.Context, task *VideoGenerationTask, videoID string) {
-	url, err := s.videoService.StoreContent(ctx, videoID)
+	url, err := s.videoService.StoreContent(ctx, task.UserID, videoID)
 	if err != nil {
 		s.handleTaskError(task, err)
 		return

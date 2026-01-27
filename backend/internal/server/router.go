@@ -76,6 +76,7 @@ func registerRoutes(
 	routes.RegisterGalleryRoutes(v1, h, jwtAuth)
 	routes.RegisterStorageRoutes(v1, h)
 	routes.RegisterImageRoutes(v1, h, jwtAuth)
+	routes.RegisterRedInkRoutes(v1, h, jwtAuth)
 	routes.RegisterVideoRoutes(v1, h, jwtAuth)
 	routes.RegisterUserRoutes(v1, h, jwtAuth)
 	routes.RegisterAdminRoutes(v1, h, adminAuth)

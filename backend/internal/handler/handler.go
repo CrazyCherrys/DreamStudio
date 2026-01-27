@@ -32,7 +32,9 @@ type Handlers struct {
 	Auth          *AuthHandler
 	User          *UserHandler
 	UserModel     *UserModelSettingsHandler
+	UserAPISettings *UserAPISettingsHandler
 	Image         *ImageGenerationHandler
+	RedInk        *RedInkHandler
 	Video         *VideoGenerationHandler
 	APIKey        *APIKeyHandler
 	Usage         *UsageHandler

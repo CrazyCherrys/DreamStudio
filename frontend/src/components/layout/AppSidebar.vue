@@ -2,7 +2,7 @@
   <aside
     class="sidebar"
     :class="[
-      sidebarCollapsed ? 'w-[72px]' : 'w-64',
+      sidebarCollapsed ? 'w-[72px]' : 'w-56',
       { '-translate-x-full lg:translate-x-0': !mobileOpen }
     ]"
   >
@@ -92,6 +92,11 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+      <!-- Language Switcher -->
+      <div class="sidebar-locale mb-2" :class="{ 'sidebar-locale-collapsed': sidebarCollapsed }">
+        <LocaleSwitcher />
+      </div>
+
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
@@ -138,6 +143,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore } from '@/stores'
 import VersionBadge from '@/components/common/VersionBadge.vue'
+import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 
 const { t } = useI18n()
 
@@ -162,6 +168,7 @@ type NavItem = {
 const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => appStore.siteLogo)
 const siteVersion = computed(() => appStore.siteVersion)
+const userCustomKeyEnabled = computed(() => appStore.cachedPublicSettings?.user_custom_key_enabled ?? false)
 
 // SVG Icon Components
 const DashboardIcon = {
@@ -174,6 +181,36 @@ const DashboardIcon = {
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
           d: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z'
+        })
+      ]
+    )
+}
+
+const SparklesIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z'
+        })
+      ]
+    )
+}
+
+const PlayIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z'
         })
       ]
     )
@@ -353,7 +390,12 @@ const ChevronDoubleRightIcon = {
 const userNavItems = computed(() => {
   const items: NavItem[] = [
     { path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
-    { path: '/model-settings', label: t('nav.modelSettings'), icon: ModelSettingsIcon },
+    { path: '/ai-image', label: t('nav.aiImage'), icon: SparklesIcon },
+    { path: '/ai-video', label: t('nav.aiVideo'), icon: PlayIcon },
+    { path: '/redink', label: t('nav.redink'), icon: LightbulbIcon },
+    ...(userCustomKeyEnabled.value
+      ? [{ path: '/api-settings', label: t('nav.apiSettings'), icon: KeyIcon }]
+      : []),
     { path: '/profile', label: t('nav.profile'), icon: UserIcon }
   ]
   return authStore.isSimpleMode ? items.filter(item => !item.hideInSimpleMode) : items
@@ -371,6 +413,9 @@ const personalNavItems = computed(() => {
 const adminNavItems = computed(() => {
   const baseItems: NavItem[] = [
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
+    { path: '/ai-image', label: t('nav.aiImage'), icon: SparklesIcon },
+    { path: '/ai-video', label: t('nav.aiVideo'), icon: PlayIcon },
+    { path: '/redink', label: t('nav.redink'), icon: LightbulbIcon },
     ...(adminSettingsStore.opsMonitoringEnabled
       ? [{ path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon }]
       : []),
@@ -446,6 +491,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.sidebar-locale :deep(button) {
+  width: 100%;
+  justify-content: center;
+}
+
+.sidebar-locale:not(.sidebar-locale-collapsed) :deep(button) {
+  justify-content: flex-start;
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;

@@ -87,11 +87,13 @@ func (s *VideoGenerationService) Create(ctx context.Context, input VideoGenerati
 	if err != nil {
 		return nil, fmt.Errorf("get newapi settings: %w", err)
 	}
-	if !settings.AccessKeyConfigured {
-		return nil, infraerrors.BadRequest("NEWAPI_ACCESS_KEY_MISSING", "newapi access key is not configured")
+
+	accessKey, err := s.settingService.ResolveUserNewAPIAccessKey(ctx, input.UserID, settings)
+	if err != nil {
+		return nil, err
 	}
 
-	req, err := buildSoraVideoRequest(ctx, settings.BaseURL, settings.AccessKey, input)
+	req, err := buildSoraVideoRequest(ctx, settings.BaseURL, accessKey, input)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +122,7 @@ func (s *VideoGenerationService) Create(ctx context.Context, input VideoGenerati
 	return result, nil
 }
 
-func (s *VideoGenerationService) GetStatus(ctx context.Context, videoID string) (*SoraVideoResponse, error) {
+func (s *VideoGenerationService) GetStatus(ctx context.Context, userID int64, videoID string) (*SoraVideoResponse, error) {
 	trimmedID := strings.TrimSpace(videoID)
 	if trimmedID == "" {
 		return nil, ErrVideoGenerationInvalid
@@ -130,8 +132,10 @@ func (s *VideoGenerationService) GetStatus(ctx context.Context, videoID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get newapi settings: %w", err)
 	}
-	if !settings.AccessKeyConfigured {
-		return nil, infraerrors.BadRequest("NEWAPI_ACCESS_KEY_MISSING", "newapi access key is not configured")
+
+	accessKey, err := s.settingService.ResolveUserNewAPIAccessKey(ctx, userID, settings)
+	if err != nil {
+		return nil, err
 	}
 
 	endpoint, err := buildOpenAIImageURL(settings.BaseURL, fmt.Sprintf("videos/%s", url.PathEscape(trimmedID)))
@@ -143,7 +147,7 @@ func (s *VideoGenerationService) GetStatus(ctx context.Context, videoID string) 
 	if err != nil {
 		return nil, fmt.Errorf("create video status request: %w", err)
 	}
-	applyNewAPIHeaders(req, settings.AccessKey)
+	applyNewAPIHeaders(req, accessKey)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -166,7 +170,7 @@ func (s *VideoGenerationService) GetStatus(ctx context.Context, videoID string) 
 	return result, nil
 }
 
-func (s *VideoGenerationService) StoreContent(ctx context.Context, videoID string) (string, error) {
+func (s *VideoGenerationService) StoreContent(ctx context.Context, userID int64, videoID string) (string, error) {
 	trimmedID := strings.TrimSpace(videoID)
 	if trimmedID == "" {
 		return "", ErrVideoGenerationInvalid
@@ -179,8 +183,10 @@ func (s *VideoGenerationService) StoreContent(ctx context.Context, videoID strin
 	if err != nil {
 		return "", fmt.Errorf("get newapi settings: %w", err)
 	}
-	if !settings.AccessKeyConfigured {
-		return "", infraerrors.BadRequest("NEWAPI_ACCESS_KEY_MISSING", "newapi access key is not configured")
+
+	accessKey, err := s.settingService.ResolveUserNewAPIAccessKey(ctx, userID, settings)
+	if err != nil {
+		return "", err
 	}
 
 	endpoint, err := buildOpenAIImageURL(settings.BaseURL, fmt.Sprintf("videos/%s/content", url.PathEscape(trimmedID)))
@@ -188,7 +194,7 @@ func (s *VideoGenerationService) StoreContent(ctx context.Context, videoID strin
 		return "", err
 	}
 
-	stored, err := s.storageService.StoreGeneratedImagesWithAuth(ctx, []GeneratedImage{{URL: endpoint}}, settings.AccessKey)
+	stored, err := s.storageService.StoreGeneratedImagesWithAuth(ctx, []GeneratedImage{{URL: endpoint}}, accessKey)
 	if err != nil {
 		return "", fmt.Errorf("store video content: %w", err)
 	}

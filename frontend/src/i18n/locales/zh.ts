@@ -39,7 +39,7 @@ export default {
     generator: {
       title: '图像生成工作台',
       subtitle: '选择模型、输入提示词并设置比例与分辨率',
-      modeImage: 'AI图片',
+      modeImage: 'AI绘画',
       modeVideo: 'AI视频',
       modelLabel: '模型',
       modelPlaceholder: '选择模型',
@@ -155,6 +155,190 @@ export default {
     footer: {
       allRightsReserved: '保留所有权利。'
     }
+  },
+
+  // Landing
+  landing: {
+    nav: {
+      userCenter: '用户中心'
+    },
+    hero: {
+      kicker: 'DreamStudio',
+      titleLine1: '点亮创意黎明',
+      titleLine2Prefix: '用 AI 创作 ',
+      titleLine2Highlight: 'Videos',
+      titleLine2Suffix: ' 点亮每个灵感',
+      subtitle: '在一个工作台完成 AI 绘画、视频与图文创作。',
+      inputPlaceholder: '在此输入即可开始创作',
+      ctaPrimary: '开始创作',
+      ctaSecondary: '探索作品广场'
+    },
+    explore: {
+      title: '探索热门创作',
+      subtitle: '从热门灵感出发，快速开启你的创作。',
+      tags: [
+        '未来城市天际线',
+        '夜色咖啡馆插画',
+        '秋日旅行照片',
+        '轻松生活方式封面',
+        '手绘健康餐盘',
+        '极简产品海报'
+      ]
+    }
+  },
+
+  // RedInk
+  redink: {
+    title: '小红书图文生成器',
+    subtitle: '从主题生成多页图文内容。',
+    actions: {
+      refresh: '刷新',
+      generateOutline: '生成大纲',
+      generatingOutline: '生成中...',
+      generateContent: '生成文案',
+      generatingContent: '生成中...',
+      createRecord: '创建记录',
+      creatingRecord: '创建中...',
+      startGeneration: '开始生成',
+      startingGeneration: '启动中...',
+      retryFailed: '重试失败页',
+      retryPage: '重试该页',
+      deleteRecord: '删除记录',
+      backToTopic: '返回编辑'
+    },
+    steps: {
+      input: '输入主题',
+      preview: '生成预览'
+    },
+    creator: {
+      title: '创建小红书图文',
+      description: '输入主题，AI 帮你生成小红书图文。',
+      hint: 'AI 将根据主题生成图文大纲与预览。'
+    },
+    pageCount: {
+      label: '页数',
+      auto: '自动（AI决定）',
+      countLabel: '{count} 页'
+    },
+    topic: {
+      title: '主题',
+      description: '描述你要创作的内容。',
+      label: '主题',
+      placeholder: '输入主题...',
+      hint: '越具体越容易生成好大纲。'
+    },
+    images: {
+      title: '参考图片',
+      add: '添加图片',
+      empty: '暂无参考图片',
+      invalid: '请上传有效的图片文件。'
+    },
+    outline: {
+      title: '大纲',
+      description: '生成后可在此调整大纲。',
+      raw: '大纲文本',
+      placeholder: '生成后显示大纲...',
+      pages: '页面',
+      addPage: '新增页面',
+      removePage: '移除页面',
+      empty: '暂无页面，请先生成大纲。',
+      sync: '同步大纲',
+      pageLabel: '第 {index} 页',
+      pagePlaceholder: '填写该页内容...',
+      maxPages: '最多 {max} 页。'
+    },
+    content: {
+      title: '文案',
+      description: '生成标题、正文和标签。',
+      titles: '标题',
+      addTitle: '添加标题',
+      titlePlaceholder: '标题 {index}',
+      copywriting: '正文',
+      copywritingPlaceholder: '填写正文...',
+      tags: '标签',
+      addTag: '添加标签',
+      tagPlaceholder: '标签 {index}'
+    },
+    settings: {
+      title: '生成设置',
+      description: '选择文本/图片模型和图片参数。',
+      textModel: '文本模型',
+      textModelPlaceholder: '选择文本模型',
+      imageModel: '图片模型',
+      imageModelPlaceholder: '选择图片模型',
+      resolution: '分辨率',
+      resolutionPlaceholder: '选择分辨率',
+      aspectRatio: '比例',
+      aspectRatioPlaceholder: '选择比例'
+    },
+    history: {
+      title: '我的图文项目',
+      description: '查看你的小红书项目与进度。',
+      empty: '暂无记录',
+      loadMore: '加载更多',
+      untitled: '未命名'
+    },
+    record: {
+      title: '记录详情',
+      description: '查看生成进度与结果。',
+      pageProgress: '{completed}/{total} 页',
+      status: {
+        draft: '草稿',
+        generating: '生成中',
+        partial: '部分完成',
+        completed: '已完成',
+        error: '失败'
+      },
+      empty: '请选择一条记录查看详情。',
+      pages: '页面',
+      noPages: '暂无生成页面。',
+      copywriting: '文案',
+      emptyCopywriting: '暂无文案。'
+    },
+    page: {
+      types: {
+        cover: '封面',
+        content: '内容',
+        summary: '总结'
+      },
+      status: {
+        pending: '待处理',
+        running: '生成中',
+        succeeded: '已完成',
+        failed: '失败'
+      }
+    },
+    preview: {
+      title: '生成预览',
+      description: '选择需要生成的页面并设置图片模型。',
+      selectAll: '全选',
+      clearSelection: '取消全选',
+      selectedCount: '已选择 {selected}/{total}',
+      empty: '暂无预览内容，请先生成大纲。',
+      generate: '生成',
+      generating: '生成中...',
+      selectionRequired: '请选择需要生成的页面'
+    },
+    outlineCard: {
+      generating: '生成中',
+      ready: '已生成 {count} 页 · 待生成图片'
+    },
+    outlineGenerated: '大纲已生成',
+    outlineFailed: '生成大纲失败',
+    contentGenerated: '文案已生成',
+    contentFailed: '生成文案失败',
+    recordCreated: '记录已创建',
+    recordCreateFailed: '创建记录失败',
+    generationStarted: '开始生成',
+    generationFailed: '启动生成失败',
+    retryStarted: '已开始重试',
+    retryFailed: '重试失败',
+    recordDeleted: '记录已删除',
+    recordDeleteFailed: '删除记录失败',
+    recordRequired: '请先选择记录',
+    topicRequired: '请输入主题',
+    outlineRequired: '需要先准备大纲',
+    outlinePagesRequired: '至少需要一页内容'
   },
 
   // Gallery
@@ -312,6 +496,8 @@ export default {
   // Navigation
   nav: {
     dashboard: '仪表盘',
+    aiImage: 'AI绘画',
+    aiVideo: 'AI视频',
     apiKeys: 'API 密钥',
     usage: '使用记录',
     redeem: '兑换',
@@ -327,6 +513,7 @@ export default {
     settings: '系统设置',
     apiSettings: 'API 设置',
     inspiration: '灵感审核',
+    redink: '小红书图文',
     modelSettings: '模型设置',
     myAccount: '我的账户',
     lightMode: '浅色模式',
@@ -562,6 +749,32 @@ export default {
     },
   },
 
+  userApiSettings: {
+    title: 'API 设置',
+    description: '管理员开启后，可使用你的自定义 API Key 进行图片/视频生成。',
+    status: {
+      label: '密钥状态',
+      hint: '请求会使用该密钥，API 地址与模型仍由管理员控制。',
+      configured: '已配置',
+      notConfigured: '未配置',
+    },
+    form: {
+      label: '自定义 API Key',
+      placeholder: '输入你的 API Key',
+      hint: '该密钥仅用于上游请求，不用于创建访问令牌。',
+      keepHint: '已配置密钥，如需替换请输入新的密钥。',
+    },
+    saveSuccess: '自定义 API Key 已保存',
+    saveFailed: '保存自定义 API Key 失败',
+    loadFailed: '加载密钥状态失败',
+    clear: '移除密钥',
+    clearSuccess: '自定义 API Key 已移除',
+    clearConfirmTitle: '移除密钥',
+    clearConfirmMessage: '确认移除你的自定义 API Key？',
+    clearConfirmAction: '移除',
+    saving: '保存中...',
+  },
+
   // Usage
   usage: {
     title: '使用记录',
@@ -693,7 +906,7 @@ export default {
   // Model Settings
   modelSettings: {
     title: '模型设置',
-    description: '为图片/视频模型选择请求端点、分辨率与宽高比例',
+    description: '为图片/视频/文本模型选择请求端点、分辨率、宽高比与时长',
     loadFailed: '模型设置加载失败',
     saveSuccess: '模型设置已保存',
     saveFailed: '模型设置保存失败',
@@ -701,15 +914,21 @@ export default {
     groups: {
       image: '图片模型',
       video: '视频模型',
+      text: '文本模型',
       emptyImage: '暂无图片模型',
-      emptyVideo: '暂无视频模型'
+      emptyVideo: '暂无视频模型',
+      emptyText: '暂无文本模型'
+    },
+    filters: {
+      title: '类型筛选',
+      all: '全部'
     },
     models: {
       refresh: '刷新',
       loading: '加载中...',
-      empty: '暂无可用模型',
+      empty: '尚未添加模型',
       loadFailed: '模型列表加载失败',
-      hint: '模型列表来源于当前 NewAPI 配置',
+      hint: '模型由你手动维护，记得保存设置。',
       count: '{count} 个模型',
       unavailable: '不可用',
       remove: '删除',
@@ -718,23 +937,47 @@ export default {
       removeSuccess: '模型已删除',
       removeFailed: '模型删除失败'
     },
+    addModel: {
+      modelIdLabel: '模型ID',
+      modelIdPlaceholder: '请输入请求模型ID',
+      modelNameLabel: '模型名称',
+      modelNamePlaceholder: '可选，显示名称',
+      modelTypeLabel: '模型类型',
+      hint: '模型需要手动添加，保存后生效。',
+      action: '添加模型',
+      errors: {
+        idRequired: '模型ID不能为空',
+        duplicate: '模型ID已存在'
+      }
+    },
     sections: {
       modelType: '模型类型',
-      displayName: '显示名称',
+      modelId: '模型ID',
+      displayName: '模型名称',
       requestEndpoint: '请求端点',
+      rpm: 'RPM限制',
       resolutions: '分辨率',
-      aspectRatios: '宽高比'
+      aspectRatios: '宽高比',
+      durations: '时长'
     },
     modelTypes: {
       image: 'AI图片',
-      video: 'AI视频'
+      video: 'AI视频',
+      text: '文本模型'
     },
     displayNamePlaceholder: '可选，留空使用模型名称',
-    displayNameHint: '仅影响前端展示，不影响实际请求模型',
+    displayNameHint: '仅影响前端展示，不影响实际请求模型ID',
+    modelIdPlaceholder: '可选，留空使用 {id}',
+    modelIdHint: '用于发送请求，留空将使用原模型ID',
     requestEndpoints: {
       openai: 'OpenAI',
       gemini: 'Gemini',
       openaiMod: 'OpenAI魔改'
+    },
+    rpm: {
+      enable: '启用RPM限制',
+      placeholder: '每分钟请求数',
+      hint: '关闭时为无限制。'
     },
     selectedCount: '已选 {count} 个'
   },
@@ -860,10 +1103,13 @@ export default {
       updateFailed: '更新提交状态失败',
       approveSuccess: '已通过审核',
       rejectSuccess: '已拒绝提交',
+      revokeSuccess: '已撤销通过',
       confirmApproveTitle: '通过审核',
       confirmApproveMessage: '确认通过该图片并公开展示？',
       confirmRejectTitle: '拒绝提交',
       confirmRejectMessage: '确认拒绝该图片并保持私有？',
+      confirmRevokeTitle: '撤销通过',
+      confirmRevokeMessage: '确认撤销通过状态并重新进入待审核？',
       status: {
         pending: '待审核',
         approved: '已通过',
@@ -880,7 +1126,8 @@ export default {
       },
       actions: {
         approve: '通过',
-        reject: '拒绝'
+        reject: '拒绝',
+        revoke: '撤销'
       }
     },
 
@@ -3326,13 +3573,13 @@ export default {
 
     apiSettings: {
       title: 'API 设置',
-      description: '配置图片生成所用的 NewAPI 地址、访问密钥与默认模型',
+      description: '配置图片生成所用的 API 地址、访问密钥与默认模型',
       loadFailed: '加载 API 设置失败',
       saveSuccess: 'API 设置已保存',
       saveFailed: '保存 API 设置失败',
       saving: '保存中...',
       form: {
-        baseUrlLabel: 'NewAPI 地址',
+        baseUrlLabel: 'API 地址',
         baseUrlHint: '默认：https://api.haokun.de',
         accessKeyLabel: '访问密钥',
         accessKeyHint: '留空将保留现有密钥',
@@ -3347,7 +3594,7 @@ export default {
         description: '使用当前配置从 NewAPI 获取模型列表',
         refresh: '刷新',
         loading: '加载中...',
-        missingConfig: '请先配置 NewAPI 地址与访问密钥',
+        missingConfig: '请先配置 API 地址与访问密钥',
         empty: '暂无可用模型',
         loadFailed: '模型列表加载失败',
         defaultMissing: '默认模型不在当前可用列表中'

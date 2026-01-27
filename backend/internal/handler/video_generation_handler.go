@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -17,15 +18,18 @@ import (
 type VideoGenerationHandler struct {
 	taskService    *service.VideoTaskService
 	storageService *service.StorageService
+	modelRPMHelper *ModelRPMHelper
 }
 
 func NewVideoGenerationHandler(
 	taskService *service.VideoTaskService,
 	storageService *service.StorageService,
+	modelRPMService *service.ModelRPMService,
 ) *VideoGenerationHandler {
 	return &VideoGenerationHandler{
 		taskService:    taskService,
 		storageService: storageService,
+		modelRPMHelper: NewModelRPMHelper(modelRPMService, SSEPingFormatNone, 0),
 	}
 }
 
@@ -52,6 +56,15 @@ func (h *VideoGenerationHandler) Generate(c *gin.Context) {
 	var req VideoGenerateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.modelRPMHelper.WaitForModelRPM(c, subject.UserID, req.ModelID, false, nil); err != nil {
+		if _, ok := err.(*ModelRPMError); ok {
+			response.Error(c, http.StatusTooManyRequests, "Model RPM limit reached, please retry later")
+		} else {
+			response.InternalError(c, "Failed to apply model RPM limit")
+		}
 		return
 	}
 

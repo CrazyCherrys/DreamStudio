@@ -120,6 +120,19 @@ const (
 	SettingKeyStorageS3UseSSL     = "storage_s3_use_ssl"
 	SettingKeyStorageS3PathStyle  = "storage_s3_path_style"
 
+	// RedInk settings
+	SettingKeyRedInkTextModel       = "redink_text_model"
+	SettingKeyRedInkImageModel      = "redink_image_model"
+	SettingKeyRedInkResolution      = "redink_resolution"
+	SettingKeyRedInkAspectRatio     = "redink_aspect_ratio"
+	SettingKeyRedInkMaxPages        = "redink_max_pages"
+	SettingKeyRedInkUseShortPrompt  = "redink_use_short_prompt"
+	SettingKeyRedInkHighConcurrency = "redink_high_concurrency"
+	SettingKeyRedInkOutlinePrompt   = "redink_outline_prompt"
+	SettingKeyRedInkContentPrompt   = "redink_content_prompt"
+	SettingKeyRedInkImagePrompt     = "redink_image_prompt"
+	SettingKeyRedInkImagePromptShort = "redink_image_prompt_short"
+
 	// 默认配置
 	SettingKeyDefaultConcurrency = "default_concurrency" // 新用户默认并发量
 	SettingKeyDefaultBalance     = "default_balance"     // 新用户默认余额

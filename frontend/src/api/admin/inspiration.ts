@@ -19,7 +19,7 @@ export async function listGallerySubmissions(
 
 export async function updateGallerySubmissionStatus(
   id: number,
-  status: 'approved' | 'rejected'
+  status: 'approved' | 'rejected' | 'pending'
 ): Promise<GalleryImage> {
   const { data } = await apiClient.put<GalleryImage>(
     `/admin/gallery/submissions/${id}/status`,

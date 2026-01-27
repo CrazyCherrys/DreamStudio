@@ -16,15 +16,20 @@ const (
 	requestEndpointOpenAIMod   = "openai_mod"
 	modelTypeImage             = "image"
 	modelTypeVideo             = "video"
+	modelTypeText              = "text"
 )
 
 type UserModelSetting struct {
 	ModelID         string   `json:"model_id"`
+	RequestModelID  string   `json:"request_model_id"`
 	Resolutions     []string `json:"resolutions"`
 	AspectRatios    []string `json:"aspect_ratios"`
+	Durations       []string `json:"durations"`
 	RequestEndpoint string   `json:"request_endpoint"`
 	ModelType       string   `json:"model_type"`
 	DisplayName     string   `json:"display_name"`
+	RPM             int      `json:"rpm"`
+	RPMEnabled      bool     `json:"rpm_enabled"`
 }
 
 func (s *SettingService) GetUserModelSettings(ctx context.Context, userID int64) ([]UserModelSetting, error) {
@@ -90,19 +95,27 @@ func normalizeUserModelSettings(items []UserModelSetting) []UserModelSetting {
 		}
 		resolutions := normalizeStringList(item.Resolutions)
 		aspectRatios := normalizeStringList(item.AspectRatios)
+		durations := normalizeStringList(item.Durations)
 		requestEndpoint := normalizeRequestEndpoint(item.RequestEndpoint)
 		modelType := normalizeModelType(item.ModelType)
+		requestModelID := normalizeRequestModelID(item.RequestModelID)
 		displayName := normalizeDisplayName(item.DisplayName)
+		rpm := normalizeRPM(item.RPM)
+		rpmEnabled := normalizeRPMEnabled(item.RPMEnabled, rpm)
 		if _, exists := seen[modelID]; !exists {
 			order = append(order, modelID)
 		}
 		seen[modelID] = UserModelSetting{
 			ModelID:         modelID,
+			RequestModelID:  requestModelID,
 			Resolutions:     resolutions,
 			AspectRatios:    aspectRatios,
+			Durations:       durations,
 			RequestEndpoint: requestEndpoint,
 			ModelType:       modelType,
 			DisplayName:     displayName,
+			RPM:             rpm,
+			RPMEnabled:      rpmEnabled,
 		}
 	}
 
@@ -148,11 +161,19 @@ func normalizeRequestEndpoint(value string) string {
 func normalizeModelType(value string) string {
 	trimmed := strings.TrimSpace(strings.ToLower(value))
 	switch trimmed {
-	case modelTypeImage, modelTypeVideo:
+	case modelTypeImage, modelTypeVideo, modelTypeText:
 		return trimmed
 	default:
 		return ""
 	}
+}
+
+func normalizeRequestModelID(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	return trimmed
 }
 
 func normalizeDisplayName(value string) string {
@@ -161,4 +182,15 @@ func normalizeDisplayName(value string) string {
 		return ""
 	}
 	return trimmed
+}
+
+func normalizeRPM(value int) int {
+	if value < 0 {
+		return 0
+	}
+	return value
+}
+
+func normalizeRPMEnabled(enabled bool, rpm int) bool {
+	return enabled && rpm > 0
 }

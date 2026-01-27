@@ -189,8 +189,18 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		}
 	}()
 
-	// 1) user concurrency slot
 	streamStarted := false
+	modelRPMHelper := NewModelRPMHelper(h.modelRPMService, SSEPingFormatNone, 0)
+	if err := modelRPMHelper.WaitForModelRPM(c, authSubject.UserID, modelName, stream, &streamStarted); err != nil {
+		if _, ok := err.(*ModelRPMError); ok {
+			googleError(c, http.StatusTooManyRequests, "Model RPM limit reached, please retry later")
+		} else {
+			googleError(c, http.StatusInternalServerError, "Failed to apply model RPM limit")
+		}
+		return
+	}
+
+	// 1) user concurrency slot
 	userReleaseFunc, err := geminiConcurrency.AcquireUserSlotWithWait(c, authSubject.UserID, authSubject.Concurrency, stream, &streamStarted)
 	if err != nil {
 		googleError(c, http.StatusTooManyRequests, err.Error())

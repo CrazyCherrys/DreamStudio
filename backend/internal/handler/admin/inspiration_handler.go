@@ -52,7 +52,7 @@ func (h *InspirationHandler) ListSubmissions(c *gin.Context) {
 	response.Paginated(c, out, result.Total, result.Page, result.PageSize)
 }
 
-// UpdateSubmissionStatus handles approving or rejecting a submission.
+// UpdateSubmissionStatus handles approving, rejecting, or reopening a submission.
 // PUT /api/v1/admin/gallery/submissions/:id/status
 func (h *InspirationHandler) UpdateSubmissionStatus(c *gin.Context) {
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
@@ -73,7 +73,19 @@ func (h *InspirationHandler) UpdateSubmissionStatus(c *gin.Context) {
 		return
 	}
 
-	image, err := h.galleryService.ReviewSubmission(c.Request.Context(), imageID, subject.UserID, req.Status)
+	normalizedStatus := strings.ToLower(strings.TrimSpace(req.Status))
+	var image *service.GalleryImage
+
+	switch normalizedStatus {
+	case service.GallerySubmissionApproved, service.GallerySubmissionRejected:
+		image, err = h.galleryService.ReviewSubmission(c.Request.Context(), imageID, subject.UserID, normalizedStatus)
+	case service.GallerySubmissionPending:
+		image, err = h.galleryService.ReopenSubmission(c.Request.Context(), imageID)
+	default:
+		response.BadRequest(c, "Invalid submission status")
+		return
+	}
+
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

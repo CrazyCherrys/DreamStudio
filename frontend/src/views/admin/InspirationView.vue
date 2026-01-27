@@ -58,25 +58,41 @@
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
-              <button
-                type="button"
-                class="rounded-lg p-1.5 text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-900/20"
-                :class="row.submission_status === 'pending' ? '' : 'pointer-events-none opacity-30'"
-                :title="t('admin.inspiration.actions.approve')"
-                @click="requestReview(row, 'approved')"
-              >
-                <Icon name="check" size="sm" />
-              </button>
-              <button
-                type="button"
-                class="rounded-lg p-1.5 text-red-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                :class="row.submission_status === 'pending' ? '' : 'pointer-events-none opacity-30'"
-                :title="t('admin.inspiration.actions.reject')"
-                @click="requestReview(row, 'rejected')"
-              >
-                <Icon name="x" size="sm" />
-              </button>
+            <div class="flex items-center gap-2">
+              <template v-if="row.submission_status === 'pending'">
+                <button
+                  type="button"
+                  class="btn btn-success btn-sm"
+                  :title="t('admin.inspiration.actions.approve')"
+                  @click="requestReview(row, 'approved')"
+                >
+                  <Icon name="check" size="sm" />
+                  <span>{{ t('admin.inspiration.actions.approve') }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-danger btn-sm"
+                  :title="t('admin.inspiration.actions.reject')"
+                  @click="requestReview(row, 'rejected')"
+                >
+                  <Icon name="x" size="sm" />
+                  <span>{{ t('admin.inspiration.actions.reject') }}</span>
+                </button>
+              </template>
+              <template v-else-if="row.submission_status === 'approved'">
+                <button
+                  type="button"
+                  class="btn btn-warning btn-sm"
+                  :title="t('admin.inspiration.actions.revoke')"
+                  @click="requestReview(row, 'pending')"
+                >
+                  <Icon name="sync" size="sm" />
+                  <span>{{ t('admin.inspiration.actions.revoke') }}</span>
+                </button>
+              </template>
+              <span v-else class="text-xs text-gray-400 dark:text-dark-500">
+                {{ t('common.none') }}
+              </span>
             </div>
           </template>
         </DataTable>
@@ -97,6 +113,7 @@
       :show="previewOpen"
       :title="t('admin.inspiration.previewTitle')"
       width="normal"
+      :close-on-click-outside="true"
       @close="closePreview"
     >
       <div class="flex items-center justify-center">
@@ -171,25 +188,46 @@ const previewOpen = ref(false)
 const previewUrl = ref('')
 const previewAlt = ref('')
 
-const reviewRequest = ref<{ image: GalleryImage; status: 'approved' | 'rejected' } | null>(null)
+const reviewRequest = ref<{ image: GalleryImage; status: 'approved' | 'rejected' | 'pending' } | null>(null)
 
-const reviewDialogTitle = computed(() =>
-  reviewRequest.value?.status === 'approved'
-    ? t('admin.inspiration.confirmApproveTitle')
-    : t('admin.inspiration.confirmRejectTitle')
-)
+const reviewDialogTitle = computed(() => {
+  switch (reviewRequest.value?.status) {
+    case 'approved':
+      return t('admin.inspiration.confirmApproveTitle')
+    case 'rejected':
+      return t('admin.inspiration.confirmRejectTitle')
+    case 'pending':
+      return t('admin.inspiration.confirmRevokeTitle')
+    default:
+      return ''
+  }
+})
 
-const reviewDialogMessage = computed(() =>
-  reviewRequest.value?.status === 'approved'
-    ? t('admin.inspiration.confirmApproveMessage')
-    : t('admin.inspiration.confirmRejectMessage')
-)
+const reviewDialogMessage = computed(() => {
+  switch (reviewRequest.value?.status) {
+    case 'approved':
+      return t('admin.inspiration.confirmApproveMessage')
+    case 'rejected':
+      return t('admin.inspiration.confirmRejectMessage')
+    case 'pending':
+      return t('admin.inspiration.confirmRevokeMessage')
+    default:
+      return ''
+  }
+})
 
-const reviewDialogConfirm = computed(() =>
-  reviewRequest.value?.status === 'approved'
-    ? t('admin.inspiration.actions.approve')
-    : t('admin.inspiration.actions.reject')
-)
+const reviewDialogConfirm = computed(() => {
+  switch (reviewRequest.value?.status) {
+    case 'approved':
+      return t('admin.inspiration.actions.approve')
+    case 'rejected':
+      return t('admin.inspiration.actions.reject')
+    case 'pending':
+      return t('admin.inspiration.actions.revoke')
+    default:
+      return ''
+  }
+})
 
 const promptText = (image: GalleryImage): string => {
   return image.prompt?.trim() || t('gallery.promptFallback')
@@ -263,8 +301,9 @@ function closePreview() {
   previewAlt.value = ''
 }
 
-function requestReview(image: GalleryImage, status: 'approved' | 'rejected') {
-  if (image.submission_status !== 'pending') return
+function requestReview(image: GalleryImage, status: 'approved' | 'rejected' | 'pending') {
+  if (status === 'pending' && image.submission_status !== 'approved') return
+  if (status !== 'pending' && image.submission_status !== 'pending') return
   reviewRequest.value = { image, status }
 }
 
@@ -277,11 +316,13 @@ async function confirmReview() {
   const { image, status } = reviewRequest.value
   try {
     await updateGallerySubmissionStatus(image.id, status)
-    appStore.showSuccess(
+    const successMessage =
       status === 'approved'
         ? t('admin.inspiration.approveSuccess')
-        : t('admin.inspiration.rejectSuccess')
-    )
+        : status === 'rejected'
+          ? t('admin.inspiration.rejectSuccess')
+          : t('admin.inspiration.revokeSuccess')
+    appStore.showSuccess(successMessage)
     reviewRequest.value = null
     await loadSubmissions()
   } catch (err: any) {

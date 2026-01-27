@@ -1,4 +1,4 @@
-# Sub2API
+# DreamStudio
 
 <div align="center">
 
@@ -18,17 +18,17 @@ English | [中文](README_CN.md)
 
 ## Demo
 
-Try Sub2API online: **https://v2.pincc.ai/**
+Try DreamStudio online: **https://v2.pincc.ai/**
 
 Demo credentials (shared demo environment; **not** created automatically for self-hosted installs):
 
 | Email | Password |
 |-------|----------|
-| admin@sub2api.com | admin123 |
+| admin@dreamstudio.local | admin123 |
 
 ## Overview
 
-Sub2API is an AI API gateway platform designed to distribute and manage API quotas from AI product subscriptions (like Claude Code $200/month). Users can access upstream AI services through platform-generated API Keys, while the platform handles authentication, billing, load balancing, and request forwarding.
+DreamStudio is an AI API gateway platform designed to distribute and manage API quotas from AI product subscriptions (like Claude Code $200/month). Users can access upstream AI services through platform-generated API Keys, while the platform handles authentication, billing, load balancing, and request forwarding.
 
 ## Features
 
@@ -73,7 +73,7 @@ One-click installation script that downloads pre-built binaries from GitHub Rele
 #### Installation Steps
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy/install.sh | sudo bash
 ```
 
 The script will:
@@ -82,6 +82,8 @@ The script will:
 3. Install binary to `/opt/sub2api`
 4. Create systemd service
 5. Configure system user and permissions
+
+Note: The current installer keeps legacy `sub2api` service/binary names for compatibility, so the commands below still use `sub2api`.
 
 #### Post-Installation
 
@@ -123,7 +125,7 @@ sudo journalctl -u sub2api -f
 sudo systemctl restart sub2api
 
 # Uninstall
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
+curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy/install.sh | sudo bash -s -- uninstall -y
 ```
 
 ---
@@ -141,8 +143,8 @@ Deploy with Docker Compose, including PostgreSQL and Redis containers.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api
+git clone https://github.com/CrazyCherrys/DreamStudio.git
+cd DreamStudio
 
 # 2. Enter the deploy directory
 cd deploy
@@ -238,8 +240,8 @@ Build and run from source code for development or customization.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api
+git clone https://github.com/CrazyCherrys/DreamStudio.git
+cd DreamStudio
 
 # 2. Install pnpm (if not already installed)
 npm install -g pnpm
@@ -252,7 +254,7 @@ pnpm run build
 
 # 4. Build backend with embedded frontend
 cd ../backend
-go build -tags embed -o sub2api ./cmd/server
+go build -tags embed -o dreamstudio ./cmd/server
 
 # 5. Create configuration file
 cp ../deploy/config.example.yaml ./config.yaml
@@ -276,7 +278,7 @@ database:
   port: 5432
   user: "postgres"
   password: "your_password"
-  dbname: "sub2api"
+  dbname: "dreamstudio"
 
 redis:
   host: "localhost"
@@ -349,7 +351,7 @@ If you disable URL validation or response header filtering, harden your network 
 
 ```bash
 # 6. Run the application
-./sub2api
+./dreamstudio
 ```
 
 #### Development Mode
@@ -388,7 +390,7 @@ Simple Mode is designed for individual developers or internal teams who want qui
 
 ## Antigravity Support
 
-Sub2API supports [Antigravity](https://antigravity.so/) accounts. After authorization, dedicated endpoints are available for Claude and Gemini models.
+DreamStudio supports [Antigravity](https://antigravity.so/) accounts. After authorization, dedicated endpoints are available for Claude and Gemini models.
 
 ### Dedicated Endpoints
 
@@ -421,7 +423,7 @@ In Claude Code, Plan Mode cannot exit automatically. (Normally when using the na
 ## Project Structure
 
 ```
-sub2api/
+DreamStudio/
 ├── backend/                  # Go backend service
 │   ├── cmd/server/           # Application entry
 │   ├── internal/             # Internal modules

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="homeContent" class="min-h-screen">
+  <div v-if="showHomeContent" :class="homeContentClass">
     <iframe
       v-if="isHomeContentUrl"
       :src="homeContent.trim()"
@@ -9,8 +9,8 @@
     <div v-else v-html="homeContent"></div>
   </div>
 
-  <div v-else class="studio-shell relative flex min-h-screen flex-col lg:h-screen lg:overflow-hidden">
-    <div class="pointer-events-none absolute inset-0">
+  <div v-else :class="shellClass">
+    <div v-if="showBackdrop" class="pointer-events-none absolute inset-0">
       <div
         class="absolute -right-40 -top-40 h-[480px] w-[480px] rounded-full bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.25),transparent_70%)] blur-3xl"
       ></div>
@@ -25,7 +25,7 @@
       ></div>
     </div>
 
-    <header class="relative z-20 shrink-0 px-6 py-4">
+    <header v-if="showHeader" class="relative z-20 shrink-0 px-6 py-4">
       <nav class="flex w-full items-center justify-between">
         <router-link to="/home" class="flex items-center gap-3">
           <div class="h-10 w-10 overflow-hidden rounded-xl shadow-md">
@@ -94,38 +94,48 @@
           <section class="space-y-6 lg:min-h-0 lg:h-full">
             <div
               ref="leftPanelRef"
-              class="studio-card p-6 md:p-8 animate-slide-up lg:flex lg:h-full lg:min-h-0 lg:flex-col"
-              :class="isVideoMode ? 'lg:overflow-auto' : 'lg:overflow-hidden'"
+              class="p-6 md:p-8 animate-slide-up lg:flex lg:h-full lg:min-h-0 lg:flex-col"
+              :class="[
+                isVideoMode ? 'lg:overflow-auto' : 'lg:overflow-hidden',
+                panelCardClass,
+                panelToneClassLeft
+              ]"
             >
               <div
                 ref="leftContentRef"
                 class="flex min-h-full flex-col lg:origin-top-left lg:transition-transform"
                 :style="scaleStyle"
               >
-                <div class="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    class="studio-tab"
-                    :class="{ 'studio-tab-active': activeMode === 'image' }"
-                    :aria-pressed="activeMode === 'image'"
-                    @click="activeMode = 'image'"
-                  >
-                    <Icon name="sparkles" size="sm" />
-                    {{ t('home.generator.modeImage') }}
-                  </button>
-                  <button
-                    type="button"
-                    class="studio-tab"
-                    :class="{ 'studio-tab-active': activeMode === 'video' }"
-                    :aria-pressed="activeMode === 'video'"
-                    @click="activeMode = 'video'"
-                  >
-                    <Icon name="play" size="sm" />
-                    {{ t('home.generator.modeVideo') }}
-                  </button>
+                <div v-if="showModeToggle || showModeBadge" class="flex flex-wrap items-center gap-2">
+                  <template v-if="showModeToggle">
+                    <button
+                      type="button"
+                      class="studio-tab"
+                      :class="{ 'studio-tab-active': activeMode === 'image' }"
+                      :aria-pressed="activeMode === 'image'"
+                      @click="activeMode = 'image'"
+                    >
+                      <Icon name="sparkles" size="sm" />
+                      {{ t('home.generator.modeImage') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="studio-tab"
+                      :class="{ 'studio-tab-active': activeMode === 'video' }"
+                      :aria-pressed="activeMode === 'video'"
+                      @click="activeMode = 'video'"
+                    >
+                      <Icon name="play" size="sm" />
+                      {{ t('home.generator.modeVideo') }}
+                    </button>
+                  </template>
+                  <div v-else class="studio-tab studio-tab-active cursor-default">
+                    <Icon :name="isVideoMode ? 'play' : 'sparkles'" size="sm" />
+                    {{ isVideoMode ? t('home.generator.modeVideo') : t('home.generator.modeImage') }}
+                  </div>
                 </div>
 
-              <div class="mt-6 flex flex-col gap-5">
+                <div class="mt-6 flex flex-col gap-5">
                 <div>
                   <div class="mb-2 flex items-center justify-between">
                     <label class="text-sm font-semibold text-gray-800 dark:text-gray-200">
@@ -424,7 +434,10 @@
           </section>
 
           <aside class="space-y-6 animate-slide-in-right lg:min-h-0 lg:h-full">
-            <div class="studio-card p-4 lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+            <div
+              class="p-4 lg:flex lg:h-full lg:min-h-0 lg:flex-col"
+              :class="[panelCardClass, panelToneClassRight]"
+            >
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-2">
                   <button
@@ -772,10 +785,10 @@
                 </p>
               </div>
               <div
-                v-if="detailTask?.error_message"
-                class="rounded-xl bg-red-50 p-2 text-xs text-red-600 dark:bg-dark-800/60 dark:text-red-400"
+                v-if="detailErrorMessage"
+                class="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-red-50 p-2 text-xs text-red-600 dark:bg-dark-800/60 dark:text-red-400"
               >
-                {{ detailTask.error_message }}
+                {{ detailErrorMessage }}
               </div>
               <div>
                 <p class="text-xs font-semibold text-gray-500 dark:text-dark-400">
@@ -914,6 +927,17 @@ import { formatDateTime } from '@/utils/format'
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
 
+const props = withDefaults(defineProps<{
+  mode?: 'image' | 'video'
+  showHeader?: boolean
+  allowHomeContent?: boolean
+  embedded?: boolean
+}>(), {
+  showHeader: true,
+  allowHomeContent: true,
+  embedded: false
+})
+
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
@@ -923,6 +947,20 @@ const siteName = computed(
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
+const showHomeContent = computed(() => props.allowHomeContent && homeContent.value)
+const showHeader = computed(() => props.showHeader)
+const showBackdrop = computed(() => !props.embedded)
+const homeContentClass = computed(() => (props.embedded ? 'min-h-full' : 'min-h-screen'))
+const shellClass = computed(() => [
+  props.embedded
+    ? 'studio-embed relative flex min-h-full flex-col lg:h-full lg:overflow-hidden'
+    : 'studio-shell relative flex min-h-screen flex-col lg:h-screen lg:overflow-hidden'
+])
+const panelCardClass = computed(() => (props.embedded ? '' : 'studio-card'))
+const panelToneClassLeft = computed(() => (props.embedded ? 'studio-panel studio-panel-left' : ''))
+const panelToneClassRight = computed(() =>
+  props.embedded ? 'studio-panel studio-panel-right studio-panel-divider' : ''
+)
 
 const isHomeContentUrl = computed(() => {
   const content = homeContent.value.trim()
@@ -939,9 +977,21 @@ const userInitial = computed(() => {
 })
 
 const isDark = ref(document.documentElement.classList.contains('dark'))
-const activeMode = ref<'image' | 'video'>('image')
+const activeMode = ref<'image' | 'video'>(props.mode ?? 'image')
 const isVideoMode = computed(() => activeMode.value === 'video')
 const activeTab = ref<'history' | 'creative'>('creative')
+const showModeToggle = computed(() => !props.mode)
+const showModeBadge = computed(() => !showModeToggle.value && !props.embedded)
+
+watch(
+  () => props.mode,
+  (mode) => {
+    if (mode) {
+      activeMode.value = mode
+    }
+  },
+  { immediate: true }
+)
 
 const leftPanelRef = ref<HTMLElement | null>(null)
 const leftContentRef = ref<HTMLElement | null>(null)
@@ -995,13 +1045,20 @@ const historyStatusOptions = computed(() => [
   { value: 'failed', label: t('home.history.statusFailed') }
 ])
 
-const historyModelOptions = computed(() => [
-  { value: 'all', label: t('common.all') },
-  ...models.value.map((model) => ({
-    value: model.id,
-    label: resolveModelDisplayName(model)
-  }))
-])
+const historyModelOptions = computed(() => {
+  const options = [{ value: 'all', label: t('common.all') }]
+  const seen = new Set<string>()
+  for (const model of models.value) {
+    const requestId = resolveRequestModelId(model.id)
+    if (seen.has(requestId)) continue
+    seen.add(requestId)
+    options.push({
+      value: requestId,
+      label: resolveModelDisplayName(model)
+    })
+  }
+  return options
+})
 
 const historyRangeOptions = computed(() => [
   { value: 'all', label: t('home.history.rangeAll') },
@@ -1019,6 +1076,10 @@ const detailModelDisplayName = computed(() => {
   return displayName || '-'
 })
 const detailStatusLabel = computed(() => taskStatusLabel(detailTask.value))
+const detailErrorMessage = computed(() => {
+  const message = detailTask.value?.error_message || detailTask.value?.last_error || ''
+  return message.trim()
+})
 const detailSubmissionStatus = computed(() => detailActiveImage.value?.gallery?.submission_status || 'none')
 const detailSubmissionLabel = computed(() => submissionStatusLabel(detailSubmissionStatus.value))
 const detailGalleryId = computed(() => detailActiveImage.value?.gallery?.id || 0)
@@ -1074,7 +1135,11 @@ const ratioLabelMap: Record<string, string> = {
   '21:9': '21:9'
 }
 
-const normalizeModelType = (value?: string) => (value === 'video' ? 'video' : 'image')
+const normalizeModelType = (value?: string) => {
+  if (value === 'video') return 'video'
+  if (value === 'text') return 'text'
+  return 'image'
+}
 
 const resolveModelDisplayName = (model: NewAPIModel): string => {
   const custom = modelSettings.value[model.id]?.display_name?.trim()
@@ -1087,12 +1152,28 @@ function resolveModelDisplayNameById(modelId?: string | null): string {
   if (!trimmed) return ''
   const custom = modelSettings.value[trimmed]?.display_name?.trim()
   if (custom) return custom
+  const override = Object.values(modelSettings.value).find(
+    (setting) => setting.request_model_id?.trim() === trimmed
+  )
+  if (override) {
+    const overrideName = override.display_name?.trim()
+    if (overrideName) return overrideName
+    const model = models.value.find((item) => item.id === override.model_id)
+    if (model?.name) return model.name
+    return override.model_id
+  }
   const model = models.value.find((item) => item.id === trimmed)
   return model?.name || trimmed
 }
 
+const resolveRequestModelId = (modelId: string) => {
+  const custom = modelSettings.value[modelId]?.request_model_id?.trim()
+  return custom || modelId
+}
+
 const isModelVisibleForMode = (modelId: string) => {
   const modelType = normalizeModelType(modelSettings.value[modelId]?.model_type)
+  if (modelType === 'text') return false
   return isVideoMode.value ? modelType === 'video' : modelType === 'image'
 }
 
@@ -1113,6 +1194,12 @@ const modelDisplayNames = computed(() => {
   for (const modelId of Object.keys(modelSettings.value)) {
     if (!map[modelId]) {
       map[modelId] = resolveModelDisplayNameById(modelId)
+    }
+  }
+  for (const setting of Object.values(modelSettings.value)) {
+    const requestId = setting.request_model_id?.trim()
+    if (requestId && !map[requestId]) {
+      map[requestId] = resolveModelDisplayNameById(requestId)
     }
   }
   return map
@@ -1318,44 +1405,32 @@ async function loadModelData() {
   modelsLoading.value = true
   modelsError.value = ''
 
-  const [settingsResult, modelsResult] = await Promise.allSettled([
-    modelSettingsAPI.getUserModelSettings(),
-    modelSettingsAPI.getUserNewAPIModels()
-  ])
-
-  if (settingsResult.status === 'fulfilled') {
+  try {
+    const settingsResult = await modelSettingsAPI.getUserModelSettings()
     const next: Record<string, UserModelSetting> = {}
-    for (const item of settingsResult.value.items || []) {
+    for (const item of settingsResult.items || []) {
       if (!item.model_id) continue
       next[item.model_id] = {
         model_id: item.model_id,
+        request_model_id: item.request_model_id?.trim() || '',
         resolutions: [...(item.resolutions || [])],
         aspect_ratios: [...(item.aspect_ratios || [])],
+        durations: [...(item.durations || [])],
         request_endpoint: item.request_endpoint,
         model_type: item.model_type,
         display_name: item.display_name?.trim() || ''
       }
     }
     modelSettings.value = next
-  } else {
-    modelSettings.value = {}
-  }
-
-  if (modelsResult.status === 'fulfilled') {
-    models.value = modelsResult.value || []
-    for (const model of models.value) {
-      if (!modelSettings.value[model.id]) {
-        modelSettings.value[model.id] = {
-          model_id: model.id,
-          resolutions: [],
-          aspect_ratios: [],
-          model_type: undefined,
-          display_name: ''
-        }
-      }
-    }
-  } else {
+    models.value = Object.values(next)
+      .filter((item) => item.model_id)
+      .map((item) => ({
+        id: item.model_id,
+        name: item.display_name?.trim() || item.model_id
+      }))
+  } catch (error: any) {
     models.value = []
+    modelSettings.value = {}
     modelsError.value = t('home.generator.modelLoadFailed')
   }
 
@@ -1446,7 +1521,7 @@ async function copyHistoryPrompt(task: HistoryTask) {
 
 async function openHistoryDetail(task: HistoryTask) {
   if (isVideoMode.value) return
-  if (!task?.id || !('image_urls' in task)) return
+  if (!task?.id) return
   detailOpen.value = true
   detailLoading.value = true
   detailError.value = ''
@@ -1773,10 +1848,11 @@ async function handleGenerate() {
     return
   }
   generating.value = true
+  const requestModelId = resolveRequestModelId(selectedModel.value)
   try {
     if (isVideoMode.value) {
       const task = await videosAPI.createVideoTask({
-        model_id: selectedModel.value,
+        model_id: requestModelId,
         prompt: prompt.value.trim(),
         image: referencePreview.value || undefined,
         duration: normalizeVideoValue(videoDuration.value),
@@ -1797,7 +1873,7 @@ async function handleGenerate() {
     }
 
     const payload = {
-      model_id: selectedModel.value,
+      model_id: requestModelId,
       prompt: prompt.value.trim(),
       resolution: selectedResolution.value,
       aspect_ratio: selectedRatio.value,

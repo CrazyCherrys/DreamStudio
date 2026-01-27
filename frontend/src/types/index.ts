@@ -162,6 +162,58 @@ export interface VideoGenerationTaskDetail extends VideoGenerationTask {
   videos: VideoHistoryVideo[]
 }
 
+// ==================== RedInk Types ====================
+
+export interface RedInkOutlinePage {
+  index: number
+  type: string
+  content: string
+}
+
+export interface RedInkContentResult {
+  titles: string[]
+  copywriting: string
+  tags: string[]
+}
+
+export interface RedInkPage {
+  id: number
+  page_index: number
+  page_type: string
+  page_content: string
+  prompt_text?: string | null
+  image_url?: string | null
+  status: 'pending' | 'running' | 'succeeded' | 'failed'
+  attempts: number
+  error_message?: string | null
+  created_at: string
+  updated_at: string
+  completed_at?: string | null
+}
+
+export interface RedInkRecord {
+  id: number
+  topic: string
+  outline_raw: string
+  content?: RedInkContentResult | null
+  input_images?: string[] | null
+  text_model_id?: string | null
+  image_model_id?: string | null
+  resolution?: string | null
+  aspect_ratio?: string | null
+  status: 'draft' | 'generating' | 'partial' | 'completed' | 'error'
+  thumbnail_url?: string | null
+  total_pages?: number
+  completed_pages?: number
+  failed_pages?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface RedInkRecordDetail extends RedInkRecord {
+  pages: RedInkPage[]
+}
+
 export interface AuthResponse {
   access_token: string
   token_type: string

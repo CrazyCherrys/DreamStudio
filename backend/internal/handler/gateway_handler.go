@@ -31,6 +31,8 @@ type GatewayHandler struct {
 	userService               *service.UserService
 	billingCacheService       *service.BillingCacheService
 	concurrencyHelper         *ConcurrencyHelper
+	modelRPMService           *service.ModelRPMService
+	modelRPMHelper            *ModelRPMHelper
 	maxAccountSwitches        int
 	maxAccountSwitchesGemini  int
 }
@@ -42,6 +44,7 @@ func NewGatewayHandler(
 	antigravityGatewayService *service.AntigravityGatewayService,
 	userService *service.UserService,
 	concurrencyService *service.ConcurrencyService,
+	modelRPMService *service.ModelRPMService,
 	billingCacheService *service.BillingCacheService,
 	cfg *config.Config,
 ) *GatewayHandler {
@@ -64,6 +67,8 @@ func NewGatewayHandler(
 		userService:               userService,
 		billingCacheService:       billingCacheService,
 		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
+		modelRPMService:           modelRPMService,
+		modelRPMHelper:            NewModelRPMHelper(modelRPMService, SSEPingFormatClaude, pingInterval),
 		maxAccountSwitches:        maxAccountSwitches,
 		maxAccountSwitchesGemini:  maxAccountSwitchesGemini,
 	}
@@ -148,6 +153,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			h.concurrencyHelper.DecrementWaitCount(c.Request.Context(), subject.UserID)
 		}
 	}()
+
+	// 0.5 Enforce per-model RPM limit
+	if err := h.modelRPMHelper.WaitForModelRPM(c, subject.UserID, reqModel, reqStream, &streamStarted); err != nil {
+		log.Printf("Model RPM wait failed: %v", err)
+		if _, ok := err.(*ModelRPMError); ok {
+			h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Model RPM limit reached, please retry later", streamStarted)
+		} else {
+			h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Failed to apply model RPM limit", streamStarted)
+		}
+		return
+	}
 
 	// 1. 首先获取用户并发槽位
 	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)

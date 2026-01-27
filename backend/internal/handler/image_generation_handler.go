@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ type ImageGenerationHandler struct {
 	taskService    *service.ImageTaskService
 	galleryService *service.GalleryService
 	storageService *service.StorageService
+	modelRPMHelper *ModelRPMHelper
 }
 
 func NewImageGenerationHandler(
@@ -26,12 +28,14 @@ func NewImageGenerationHandler(
 	taskService *service.ImageTaskService,
 	galleryService *service.GalleryService,
 	storageService *service.StorageService,
+	modelRPMService *service.ModelRPMService,
 ) *ImageGenerationHandler {
 	return &ImageGenerationHandler{
 		imageService:   imageService,
 		taskService:    taskService,
 		galleryService: galleryService,
 		storageService: storageService,
+		modelRPMHelper: NewModelRPMHelper(modelRPMService, SSEPingFormatNone, 0),
 	}
 }
 
@@ -63,6 +67,15 @@ func (h *ImageGenerationHandler) Generate(c *gin.Context) {
 	var req ImageGenerateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.modelRPMHelper.WaitForModelRPM(c, subject.UserID, req.ModelID, false, nil); err != nil {
+		if _, ok := err.(*ModelRPMError); ok {
+			response.Error(c, http.StatusTooManyRequests, "Model RPM limit reached, please retry later")
+		} else {
+			response.InternalError(c, "Failed to apply model RPM limit")
+		}
 		return
 	}
 

@@ -4,6 +4,7 @@
  */
 
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { authAPI } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
@@ -12,6 +13,21 @@ import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 /**
  * Route definitions with lazy loading
  */
+const isUserCustomKeyEnabled = async (): Promise<boolean> => {
+  const appStore = useAppStore()
+  if (appStore.cachedPublicSettings) {
+    return appStore.cachedPublicSettings.user_custom_key_enabled
+  }
+
+  try {
+    const settings = await authAPI.getPublicSettings()
+    return settings.user_custom_key_enabled
+  } catch (error) {
+    console.error('Failed to load public settings for api-settings route:', error)
+    return false
+  }
+}
+
 const routes: RouteRecordRaw[] = [
   // ==================== Setup Routes ====================
   {
@@ -25,6 +41,14 @@ const routes: RouteRecordRaw[] = [
   },
 
   // ==================== Public Routes ====================
+  {
+    path: '/',
+    name: 'Landing',
+    component: () => import('@/views/LandingView.vue'),
+    meta: {
+      requiresAuth: false
+    }
+  },
   {
     path: '/home',
     name: 'Home',
@@ -91,8 +115,30 @@ const routes: RouteRecordRaw[] = [
 
   // ==================== User Routes ====================
   {
-    path: '/',
-    redirect: '/home'
+    path: '/ai-image',
+    name: 'AiImage',
+    component: () => import('@/views/user/AiImageView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'AI Image',
+      titleKey: 'nav.aiImage',
+      descriptionKey: 'home.generator.subtitle',
+      hideHeaderTitle: true
+    }
+  },
+  {
+    path: '/ai-video',
+    name: 'AiVideo',
+    component: () => import('@/views/user/AiVideoView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'AI Video',
+      titleKey: 'nav.aiVideo',
+      descriptionKey: 'home.generator.subtitle',
+      hideHeaderTitle: true
+    }
   },
   {
     path: '/dashboard',
@@ -104,6 +150,19 @@ const routes: RouteRecordRaw[] = [
       title: 'Dashboard',
       titleKey: 'dashboard.title',
       descriptionKey: 'dashboard.welcomeMessage'
+    }
+  },
+  {
+    path: '/redink',
+    name: 'RedInk',
+    component: () => import('@/views/redink/RedInkView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Xiaohongshu Posts',
+      titleKey: 'redink.title',
+      descriptionKey: 'redink.subtitle',
+      hideHeader: true
     }
   },
   {
@@ -124,10 +183,29 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/user/ModelSettingsView.vue'),
     meta: {
       requiresAuth: true,
-      requiresAdmin: false,
+      requiresAdmin: true,
       title: 'Model Settings',
       titleKey: 'modelSettings.title',
       descriptionKey: 'modelSettings.description'
+    }
+  },
+  {
+    path: '/api-settings',
+    name: 'ApiSettings',
+    component: () => import('@/views/user/ApiSettingsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      titleKey: 'userApiSettings.title',
+      descriptionKey: 'userApiSettings.description'
+    },
+    beforeEnter: async (_to, _from, next) => {
+      const enabled = await isUserCustomKeyEnabled()
+      if (enabled) {
+        next()
+      } else {
+        next('/dashboard')
+      }
     }
   },
 

@@ -1,6 +1,6 @@
-# Sub2API Deployment Files
+# DreamStudio Deployment Files
 
-This directory contains files for deploying Sub2API on Linux servers.
+This directory contains files for deploying DreamStudio on Linux servers.
 
 ## Deployment Methods
 
@@ -17,10 +17,12 @@ This directory contains files for deploying Sub2API on Linux servers.
 | `.env.example` | Docker environment variables template |
 | `DOCKER.md` | Docker Hub documentation |
 | `install.sh` | One-click binary installation script |
-| `sub2api.service` | Systemd service unit file |
+| `sub2api.service` | Systemd service unit file (legacy name for compatibility) |
 | `config.example.yaml` | Example configuration file |
 
 ---
+
+Note: Deployment assets currently keep legacy service/binary names (`sub2api`, `/opt/sub2api`, `/etc/sub2api`) for compatibility. Commands below use those defaults.
 
 ## Docker Deployment (Recommended)
 
@@ -28,8 +30,8 @@ This directory contains files for deploying Sub2API on Linux servers.
 
 ```bash
 # Clone repository
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
+git clone https://github.com/CrazyCherrys/DreamStudio.git
+cd DreamStudio/deploy
 
 # Configure environment
 cp .env.example .env
@@ -99,7 +101,7 @@ docker-compose down
 # View logs
 docker-compose logs -f sub2api
 
-# Restart Sub2API only
+# Restart DreamStudio only
 docker-compose restart sub2api
 
 # Update to latest version
@@ -116,7 +118,7 @@ docker-compose down -v
 |----------|----------|---------|-------------|
 | `POSTGRES_PASSWORD` | **Yes** | - | PostgreSQL password |
 | `SERVER_PORT` | No | `8080` | Server port |
-| `ADMIN_EMAIL` | No | `admin@sub2api.local` | Admin email |
+| `ADMIN_EMAIL` | No | `admin@dreamstudio.local` | Admin email |
 | `ADMIN_PASSWORD` | No | *(auto-generated)* | Admin password |
 | `JWT_SECRET` | No | *(auto-generated)* | JWT secret |
 | `TZ` | No | `Asia/Shanghai` | Timezone |
@@ -131,7 +133,7 @@ See `.env.example` for all available options.
 
 ## Gemini OAuth Configuration
 
-Sub2API supports three methods to connect to Gemini:
+DreamStudio supports three methods to connect to Gemini:
 
 ### Method 1: Code Assist OAuth (Recommended for GCP Users)
 
@@ -176,7 +178,7 @@ Requires your own OAuth client credentials.
    - Go to "APIs & Services" → "Credentials"
    - Click "Create Credentials" → "OAuth client ID"
    - Application type: **Web application** (or **Desktop app**)
-   - Name: e.g., "Sub2API Gemini"
+   - Name: e.g., "DreamStudio Gemini"
    - Authorized redirect URIs: Add `http://localhost:1455/auth/callback`
 6. Copy the **Client ID** and **Client Secret**
 7. **⚠️ Publish to Production (IMPORTANT):**
@@ -229,12 +231,12 @@ For production servers using systemd.
 ### One-Line Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy/install.sh | sudo bash
 ```
 
 ### Manual Installation
 
-1. Download the latest release from [GitHub Releases](https://github.com/Wei-Shaw/sub2api/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/CrazyCherrys/DreamStudio/releases)
 2. Extract and copy the binary to `/opt/sub2api/`
 3. Copy `sub2api.service` to `/etc/systemd/system/`
 4. Run:
@@ -406,9 +408,9 @@ sudo systemctl status redis
 
 ## TLS Fingerprint Configuration
 
-Sub2API supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
+DreamStudio supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
 
-> **💡 Tip:** Visit **[tls.sub2api.org](https://tls.sub2api.org/)** to get TLS fingerprint information for different devices and browsers.
+> **💡 Tip:** Visit a TLS fingerprint info service (for example, https://tls.peet.ws) to get fingerprints for different devices and browsers.
 
 ### Default Behavior
 

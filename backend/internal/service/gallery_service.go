@@ -65,6 +65,7 @@ type GalleryRepository interface {
 	ListBySubmissionStatus(ctx context.Context, status string, params pagination.PaginationParams) ([]GalleryImage, *pagination.PaginationResult, error)
 	UpdateSubmissionStatus(ctx context.Context, userID, imageID int64, status string, submittedAt time.Time) (*GalleryImage, error)
 	UpdateReviewStatus(ctx context.Context, imageID int64, status string, reviewedAt time.Time, reviewedBy int64, isPublic bool) (*GalleryImage, error)
+	ReopenSubmission(ctx context.Context, imageID int64) (*GalleryImage, error)
 	ResetSubmissionStatus(ctx context.Context, userID, imageID int64) (*GalleryImage, error)
 }
 
@@ -237,6 +238,21 @@ func (s *GalleryService) ReviewSubmission(ctx context.Context, imageID, reviewer
 			return nil, ErrGalleryImageNotFound
 		}
 		return nil, fmt.Errorf("review gallery submission: %w", err)
+	}
+	return updated, nil
+}
+
+func (s *GalleryService) ReopenSubmission(ctx context.Context, imageID int64) (*GalleryImage, error) {
+	if imageID <= 0 {
+		return nil, ErrGalleryImageInvalid
+	}
+
+	updated, err := s.repo.ReopenSubmission(ctx, imageID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrGalleryImageNotFound
+		}
+		return nil, fmt.Errorf("reopen gallery submission: %w", err)
 	}
 	return updated, nil
 }

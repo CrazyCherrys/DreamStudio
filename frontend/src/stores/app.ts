@@ -16,7 +16,36 @@ import { getPublicSettings as fetchPublicSettingsAPI } from '@/api/auth'
 export const useAppStore = defineStore('app', () => {
   // ==================== State ====================
 
-  const sidebarCollapsed = ref<boolean>(false)
+  const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed'
+  const DEFAULT_SIDEBAR_COLLAPSED = true
+
+  const readSidebarCollapsed = (): boolean => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_SIDEBAR_COLLAPSED
+    }
+    try {
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
+      if (stored === null) {
+        return DEFAULT_SIDEBAR_COLLAPSED
+      }
+      return stored === 'true'
+    } catch {
+      return DEFAULT_SIDEBAR_COLLAPSED
+    }
+  }
+
+  const persistSidebarCollapsed = (collapsed: boolean): void => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? 'true' : 'false')
+    } catch {
+      // Ignore storage errors (e.g. disabled storage)
+    }
+  }
+
+  const sidebarCollapsed = ref<boolean>(readSidebarCollapsed())
   const mobileOpen = ref<boolean>(false)
   const loading = ref<boolean>(false)
   const toasts = ref<Toast[]>([])
@@ -57,6 +86,7 @@ export const useAppStore = defineStore('app', () => {
    */
   function toggleSidebar(): void {
     sidebarCollapsed.value = !sidebarCollapsed.value
+    persistSidebarCollapsed(sidebarCollapsed.value)
   }
 
   /**
@@ -65,6 +95,7 @@ export const useAppStore = defineStore('app', () => {
    */
   function setSidebarCollapsed(collapsed: boolean): void {
     sidebarCollapsed.value = collapsed
+    persistSidebarCollapsed(collapsed)
   }
 
   /**
@@ -221,7 +252,8 @@ export const useAppStore = defineStore('app', () => {
    * Useful for cleanup or testing
    */
   function reset(): void {
-    sidebarCollapsed.value = false
+    sidebarCollapsed.value = DEFAULT_SIDEBAR_COLLAPSED
+    persistSidebarCollapsed(sidebarCollapsed.value)
     loading.value = false
     loadingCount.value = 0
     toasts.value = []

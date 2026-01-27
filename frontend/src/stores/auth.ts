@@ -48,6 +48,8 @@ export const useAuthStore = defineStore('auth', () => {
         token.value = savedToken
         user.value = JSON.parse(savedUser)
 
+        applyAuthenticatedDefaults()
+
         // Immediately refresh user data from backend (async, don't block)
         refreshUser().catch((error) => {
           console.error('Failed to refresh user on init:', error)
@@ -113,6 +115,8 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem(AUTH_TOKEN_KEY, response.access_token)
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
 
+      applyAuthenticatedDefaults()
+
       // Start auto-refresh interval
       startAutoRefresh()
 
@@ -148,6 +152,8 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem(AUTH_TOKEN_KEY, response.access_token)
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userDataWithoutRunMode))
 
+      applyAuthenticatedDefaults()
+
       // Start auto-refresh interval
       startAutoRefresh()
 
@@ -172,6 +178,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const userData = await refreshUser()
+      applyAuthenticatedDefaults()
       startAutoRefresh()
       return userData
     } catch (error) {
@@ -236,6 +243,11 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem(AUTH_TOKEN_KEY)
     localStorage.removeItem(AUTH_USER_KEY)
+  }
+
+  function applyAuthenticatedDefaults(): void {
+    localStorage.setItem('theme', 'dark')
+    document.documentElement.classList.add('dark')
   }
 
   // ==================== Return Store API ====================

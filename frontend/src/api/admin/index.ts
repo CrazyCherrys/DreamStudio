@@ -5,16 +5,9 @@
 
 import dashboardAPI from './dashboard'
 import usersAPI from './users'
-import groupsAPI from './groups'
-import accountsAPI from './accounts'
-import proxiesAPI from './proxies'
-import redeemAPI from './redeem'
-import promoAPI from './promo'
 import settingsAPI from './settings'
 import newAPI from './newapi'
 import systemAPI from './system'
-import subscriptionsAPI from './subscriptions'
-import usageAPI from './usage'
 import geminiAPI from './gemini'
 import antigravityAPI from './antigravity'
 import userAttributesAPI from './userAttributes'
@@ -27,16 +20,9 @@ import inspirationAPI from './inspiration'
 export const adminAPI = {
   dashboard: dashboardAPI,
   users: usersAPI,
-  groups: groupsAPI,
-  accounts: accountsAPI,
-  proxies: proxiesAPI,
-  redeem: redeemAPI,
-  promo: promoAPI,
   settings: settingsAPI,
   newapi: newAPI,
   system: systemAPI,
-  subscriptions: subscriptionsAPI,
-  usage: usageAPI,
   gemini: geminiAPI,
   antigravity: antigravityAPI,
   userAttributes: userAttributesAPI,
@@ -47,16 +33,9 @@ export const adminAPI = {
 export {
   dashboardAPI,
   usersAPI,
-  groupsAPI,
-  accountsAPI,
-  proxiesAPI,
-  redeemAPI,
-  promoAPI,
   settingsAPI,
   newAPI,
   systemAPI,
-  subscriptionsAPI,
-  usageAPI,
   geminiAPI,
   antigravityAPI,
   userAttributesAPI,

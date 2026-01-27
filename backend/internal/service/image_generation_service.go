@@ -91,8 +91,10 @@ func (s *ImageGenerationService) Generate(ctx context.Context, input ImageGenera
 	if err != nil {
 		return nil, fmt.Errorf("get newapi settings: %w", err)
 	}
-	if !settings.AccessKeyConfigured {
-		return nil, infraerrors.BadRequest("NEWAPI_ACCESS_KEY_MISSING", "newapi access key is not configured")
+
+	accessKey, err := s.settingService.ResolveUserNewAPIAccessKey(ctx, input.UserID, settings)
+	if err != nil {
+		return nil, err
 	}
 
 	requestEndpoint, err := s.resolveRequestEndpoint(ctx, input.UserID, modelID)
@@ -103,18 +105,18 @@ func (s *ImageGenerationService) Generate(ctx context.Context, input ImageGenera
 	var result *ImageGenerationResult
 	switch requestEndpoint {
 	case requestEndpointGemini:
-		result, err = s.generateGemini(ctx, settings.BaseURL, settings.AccessKey, modelID, prompt, input)
+		result, err = s.generateGemini(ctx, settings.BaseURL, accessKey, modelID, prompt, input)
 	case requestEndpointOpenAIMod:
-		result, err = s.generateOpenAIMod(ctx, settings.BaseURL, settings.AccessKey, modelID, prompt, input)
+		result, err = s.generateOpenAIMod(ctx, settings.BaseURL, accessKey, modelID, prompt, input)
 	default:
-		result, err = s.generateOpenAI(ctx, settings.BaseURL, settings.AccessKey, modelID, prompt, input)
+		result, err = s.generateOpenAI(ctx, settings.BaseURL, accessKey, modelID, prompt, input)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if s.storageService != nil && len(result.Images) > 0 {
-		stored, err := s.storageService.StoreGeneratedImagesWithAuth(ctx, result.Images, settings.AccessKey)
+		stored, err := s.storageService.StoreGeneratedImagesWithAuth(ctx, result.Images, accessKey)
 		if err != nil {
 			log.Printf("storage: failed to store generated images: %v", err)
 		} else {
@@ -140,8 +142,10 @@ func (s *ImageGenerationService) OptimizePrompt(ctx context.Context, input Promp
 	if err != nil {
 		return "", fmt.Errorf("get newapi settings: %w", err)
 	}
-	if !settings.AccessKeyConfigured {
-		return "", infraerrors.BadRequest("NEWAPI_ACCESS_KEY_MISSING", "newapi access key is not configured")
+
+	accessKey, err := s.settingService.ResolveUserNewAPIAccessKey(ctx, input.UserID, settings)
+	if err != nil {
+		return "", err
 	}
 
 	optSettings, err := s.settingService.GetPromptOptimizationSettings(ctx)
@@ -153,7 +157,7 @@ func (s *ImageGenerationService) OptimizePrompt(ctx context.Context, input Promp
 		return "", infraerrors.BadRequest("PROMPT_OPTIMIZE_MODEL_MISSING", "prompt optimize model is not configured")
 	}
 
-	req, err := buildOpenAIChatRequest(ctx, settings.BaseURL, settings.AccessKey, modelID, prompt, optSettings.Prompt)
+	req, err := buildOpenAIChatRequest(ctx, settings.BaseURL, accessKey, modelID, prompt, optSettings.Prompt)
 	if err != nil {
 		return "", err
 	}

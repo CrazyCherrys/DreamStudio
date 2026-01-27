@@ -6,15 +6,19 @@
 import { apiClient } from './client'
 
 export type RequestEndpoint = 'openai' | 'gemini' | 'openai_mod'
-export type ModelType = 'image' | 'video'
+export type ModelType = 'image' | 'video' | 'text'
 
 export interface UserModelSetting {
   model_id: string
+  request_model_id?: string
   resolutions: string[]
   aspect_ratios: string[]
+  durations: string[]
   request_endpoint?: RequestEndpoint
   model_type?: ModelType
   display_name?: string
+  rpm?: number
+  rpm_enabled?: boolean
 }
 
 export interface UserModelSettingsResponse {

@@ -68,6 +68,7 @@ func provideCleanup(
 	opsCleanup *service.OpsCleanupService,
 	opsScheduledReport *service.OpsScheduledReportService,
 	schedulerSnapshot *service.SchedulerSnapshotService,
+	redinkTaskService *service.RedInkTaskService,
 	tokenRefresh *service.TokenRefreshService,
 	accountExpiry *service.AccountExpiryService,
 	usageCleanup *service.UsageCleanupService,
@@ -112,17 +113,23 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"OpsMetricsCollector", func() error {
-				if opsMetricsCollector != nil {
-					opsMetricsCollector.Stop()
-				}
-				return nil
-			}},
-			{"SchedulerSnapshotService", func() error {
-				if schedulerSnapshot != nil {
-					schedulerSnapshot.Stop()
-				}
-				return nil
+		{"OpsMetricsCollector", func() error {
+			if opsMetricsCollector != nil {
+				opsMetricsCollector.Stop()
+			}
+			return nil
+		}},
+		{"RedInkTaskService", func() error {
+			if redinkTaskService != nil {
+				redinkTaskService.Stop()
+			}
+			return nil
+		}},
+		{"SchedulerSnapshotService", func() error {
+			if schedulerSnapshot != nil {
+				schedulerSnapshot.Stop()
+			}
+			return nil
 			}},
 			{"UsageCleanupService", func() error {
 				if usageCleanup != nil {
