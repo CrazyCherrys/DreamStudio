@@ -17,12 +17,10 @@ This directory contains files for deploying DreamStudio on Linux servers.
 | `.env.example` | Docker environment variables template |
 | `DOCKER.md` | Docker Hub documentation |
 | `install.sh` | One-click binary installation script |
-| `sub2api.service` | Systemd service unit file (legacy name for compatibility) |
+| `dreamstudio.service` | Systemd service unit file |
 | `config.example.yaml` | Example configuration file |
 
 ---
-
-Note: Deployment assets currently keep legacy service/binary names (`sub2api`, `/opt/sub2api`, `/etc/sub2api`) for compatibility. Commands below use those defaults.
 
 ## Docker Deployment (Recommended)
 
@@ -41,7 +39,7 @@ nano .env  # Set POSTGRES_PASSWORD (required)
 docker-compose up -d
 
 # View logs (check for auto-generated admin password)
-docker-compose logs -f sub2api
+docker-compose logs -f dreamstudio
 
 # Access Web UI
 # http://localhost:8080
@@ -62,7 +60,7 @@ When using Docker Compose with `AUTO_SETUP=true`:
 
 3. If `ADMIN_PASSWORD` is not set, check logs for the generated password:
    ```bash
-   docker-compose logs sub2api | grep "admin password"
+   docker-compose logs dreamstudio | grep "admin password"
    ```
 
 ### Database Migration Notes (PostgreSQL)
@@ -99,10 +97,10 @@ docker-compose up -d
 docker-compose down
 
 # View logs
-docker-compose logs -f sub2api
+docker-compose logs -f dreamstudio
 
 # Restart DreamStudio only
-docker-compose restart sub2api
+docker-compose restart dreamstudio
 
 # Update to latest version
 docker-compose pull
@@ -237,13 +235,13 @@ curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy
 ### Manual Installation
 
 1. Download the latest release from [GitHub Releases](https://github.com/CrazyCherrys/DreamStudio/releases)
-2. Extract and copy the binary to `/opt/sub2api/`
-3. Copy `sub2api.service` to `/etc/systemd/system/`
+2. Extract and copy the binary to `/opt/dreamstudio/`
+3. Copy `dreamstudio.service` to `/etc/systemd/system/`
 4. Run:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable sub2api
-   sudo systemctl start sub2api
+   sudo systemctl enable dreamstudio
+   sudo systemctl start dreamstudio
    ```
 5. Open the Setup Wizard in your browser to complete configuration
 
@@ -264,22 +262,22 @@ sudo ./install.sh uninstall
 
 ```bash
 # Start the service
-sudo systemctl start sub2api
+sudo systemctl start dreamstudio
 
 # Stop the service
-sudo systemctl stop sub2api
+sudo systemctl stop dreamstudio
 
 # Restart the service
-sudo systemctl restart sub2api
+sudo systemctl restart dreamstudio
 
 # Check status
-sudo systemctl status sub2api
+sudo systemctl status dreamstudio
 
 # View logs
-sudo journalctl -u sub2api -f
+sudo journalctl -u dreamstudio -f
 
 # Enable auto-start on boot
-sudo systemctl enable sub2api
+sudo systemctl enable dreamstudio
 ```
 
 ### Configuration
@@ -292,7 +290,7 @@ To change after installation:
 
 1. Edit the systemd service:
    ```bash
-   sudo systemctl edit sub2api
+   sudo systemctl edit dreamstudio
    ```
 
 2. Add or modify:
@@ -305,7 +303,7 @@ To change after installation:
 3. Reload and restart:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl restart sub2api
+   sudo systemctl restart dreamstudio
    ```
 
 #### Gemini OAuth Configuration
@@ -314,7 +312,7 @@ If you need to use AI Studio OAuth for Gemini accounts, add the OAuth client cre
 
 1. Edit the service file:
    ```bash
-   sudo nano /etc/systemd/system/sub2api.service
+   sudo nano /etc/systemd/system/dreamstudio.service
    ```
 
 2. Add your OAuth credentials in the `[Service]` section (after the existing `Environment=` lines):
@@ -326,7 +324,7 @@ If you need to use AI Studio OAuth for Gemini accounts, add the OAuth client cre
 3. Reload and restart:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl restart sub2api
+   sudo systemctl restart dreamstudio
    ```
 
 > **Note:** Code Assist OAuth does not require any configuration - it uses the built-in Gemini CLI client.
@@ -334,7 +332,7 @@ If you need to use AI Studio OAuth for Gemini accounts, add the OAuth client cre
 
 #### Application Configuration
 
-The main config file is at `/etc/sub2api/config.yaml` (created by Setup Wizard).
+The main config file is at `/etc/dreamstudio/config.yaml` (created by Setup Wizard).
 
 ### Prerequisites
 
@@ -346,13 +344,13 @@ The main config file is at `/etc/sub2api/config.yaml` (created by Setup Wizard).
 ### Directory Structure
 
 ```
-/opt/sub2api/
-├── sub2api              # Main binary
-├── sub2api.backup       # Backup (after upgrade)
-└── data/                # Runtime data
+/opt/dreamstudio/
+├── dreamstudio              # Main binary
+├── dreamstudio.backup       # Backup (after upgrade)
+└── data/                    # Runtime data
 
-/etc/sub2api/
-└── config.yaml          # Configuration file
+/etc/dreamstudio/
+└── config.yaml              # Configuration file
 ```
 
 ---
@@ -366,7 +364,7 @@ The main config file is at `/etc/sub2api/config.yaml` (created by Setup Wizard).
 docker-compose ps
 
 # View detailed logs
-docker-compose logs --tail=100 sub2api
+docker-compose logs --tail=100 dreamstudio
 
 # Check database connection
 docker-compose exec postgres pg_isready
@@ -382,13 +380,13 @@ docker-compose restart
 
 ```bash
 # Check service status
-sudo systemctl status sub2api
+sudo systemctl status dreamstudio
 
 # View recent logs
-sudo journalctl -u sub2api -n 50
+sudo journalctl -u dreamstudio -n 50
 
 # Check config file
-sudo cat /etc/sub2api/config.yaml
+sudo cat /etc/dreamstudio/config.yaml
 
 # Check PostgreSQL
 sudo systemctl status postgresql

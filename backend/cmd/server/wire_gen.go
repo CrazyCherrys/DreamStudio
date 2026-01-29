@@ -8,14 +8,14 @@ package main
 
 import (
 	"context"
-	"github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/handler"
-	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
-	"github.com/Wei-Shaw/sub2api/internal/repository"
-	"github.com/Wei-Shaw/sub2api/internal/server"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/ent"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/handler"
+	"github.com/CrazyCherrys/DreamStudio/internal/handler/admin"
+	"github.com/CrazyCherrys/DreamStudio/internal/repository"
+	"github.com/CrazyCherrys/DreamStudio/internal/server"
+	"github.com/CrazyCherrys/DreamStudio/internal/server/middleware"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
@@ -24,7 +24,7 @@ import (
 
 import (
 	_ "embed"
-	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
+	_ "github.com/CrazyCherrys/DreamStudio/ent/runtime"
 )
 
 // Injectors from wire.go:
@@ -50,7 +50,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	galleryService := service.NewGalleryService(galleryRepository)
 	imageGenerationService := service.NewImageGenerationService(settingService, storageService, galleryService)
 	imageTaskRepository := repository.NewImageTaskRepository(db)
-	imageTaskService := service.NewImageTaskService(imageTaskRepository, imageGenerationService)
+	imageTaskService := service.NewImageTaskService(imageTaskRepository, imageGenerationService, settingService)
 	imageTaskService = service.ProvideImageTaskWorker(imageTaskService)
 	redinkRepository := repository.NewRedInkRepository(db)
 	redinkService := service.NewRedInkService(redinkRepository, settingService, storageService)

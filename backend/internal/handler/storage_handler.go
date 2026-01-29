@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

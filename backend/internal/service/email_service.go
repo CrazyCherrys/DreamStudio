@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
 )
 
 var (

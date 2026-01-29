@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/openai"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/imroc/req/v3"
 )
 

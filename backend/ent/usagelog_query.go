@@ -12,13 +12,13 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/ent/apikey"
-	"github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/ent/usagelog"
-	"github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/CrazyCherrys/DreamStudio/ent/account"
+	"github.com/CrazyCherrys/DreamStudio/ent/apikey"
+	"github.com/CrazyCherrys/DreamStudio/ent/group"
+	"github.com/CrazyCherrys/DreamStudio/ent/predicate"
+	"github.com/CrazyCherrys/DreamStudio/ent/usagelog"
+	"github.com/CrazyCherrys/DreamStudio/ent/user"
+	"github.com/CrazyCherrys/DreamStudio/ent/usersubscription"
 )
 
 // UsageLogQuery is the builder for querying UsageLog entities.

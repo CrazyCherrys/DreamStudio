@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbent "github.com/CrazyCherrys/DreamStudio/ent"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/stretchr/testify/require"
 )
 

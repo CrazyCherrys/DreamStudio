@@ -263,7 +263,7 @@ const emailVerifyEnabled = ref<boolean>(false)
 const promoCodeEnabled = ref<boolean>(true)
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
-const siteName = ref<string>('Sub2API')
+const siteName = ref<string>('DreamStudio')
 const linuxdoOAuthEnabled = ref<boolean>(false)
 
 // Turnstile
@@ -302,7 +302,7 @@ onMounted(async () => {
     promoCodeEnabled.value = settings.promo_code_enabled
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
-    siteName.value = settings.site_name || 'Sub2API'
+    siteName.value = settings.site_name || 'DreamStudio'
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
 
     // Read promo code from URL parameter only if promo code is enabled

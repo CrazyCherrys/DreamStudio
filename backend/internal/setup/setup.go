@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/repository"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/repository"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
@@ -403,7 +403,7 @@ func writeConfigFile(cfg *SetupConfig) error {
 			APIKeyPrefix    string  `yaml:"api_key_prefix"`
 			RateMultiplier  float64 `yaml:"rate_multiplier"`
 		}{
-			UserConcurrency: 5,
+			UserConcurrency: 0,
 			UserBalance:     0,
 			APIKeyPrefix:    "sk-",
 			RateMultiplier:  1.0,
@@ -481,7 +481,7 @@ func AutoSetupFromEnv() error {
 			Port:     getEnvIntOrDefault("DATABASE_PORT", 5432),
 			User:     getEnvOrDefault("DATABASE_USER", "postgres"),
 			Password: getEnvOrDefault("DATABASE_PASSWORD", ""),
-			DBName:   getEnvOrDefault("DATABASE_DBNAME", "sub2api"),
+			DBName:   getEnvOrDefault("DATABASE_DBNAME", "dreamstudio"),
 			SSLMode:  getEnvOrDefault("DATABASE_SSLMODE", "disable"),
 		},
 		Redis: RedisConfig{
@@ -491,7 +491,7 @@ func AutoSetupFromEnv() error {
 			DB:       getEnvIntOrDefault("REDIS_DB", 0),
 		},
 		Admin: AdminConfig{
-			Email:    getEnvOrDefault("ADMIN_EMAIL", "admin@sub2api.local"),
+			Email:    getEnvOrDefault("ADMIN_EMAIL", "admin@dreamstudio.local"),
 			Password: getEnvOrDefault("ADMIN_PASSWORD", ""),
 		},
 		Server: ServerConfig{

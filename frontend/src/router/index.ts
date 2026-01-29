@@ -1,5 +1,5 @@
 /**
- * Vue Router configuration for Sub2API frontend
+ * Vue Router configuration for DreamStudio frontend
  * Defines all application routes with lazy loading and navigation guards
  */
 
@@ -52,19 +52,36 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/home',
     name: 'Home',
-    component: () => import('@/views/HomeView.vue'),
+    component: () => import('@/views/HubView.vue'),
     meta: {
       requiresAuth: false,
       title: 'Home'
     }
   },
   {
-    path: '/gallery',
-    name: 'Gallery',
-    component: () => import('@/views/GalleryView.vue'),
+    path: '/inspiration',
+    name: 'Inspiration',
+    component: () => import('@/views/InspirationView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Gallery'
+      title: 'Inspiration Square',
+      titleKey: 'inspiration.title'
+    }
+  },
+  {
+    path: '/gallery',
+    redirect: '/inspiration'
+  },
+  {
+    path: '/assets',
+    name: 'Assets',
+    component: () => import('@/views/AssetsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'My Assets',
+      titleKey: 'assets.title',
+      descriptionKey: 'assets.subtitle'
     }
   },
   {
@@ -338,7 +355,7 @@ router.beforeEach((to, _from, next) => {
 
   // Set page title
   const appStore = useAppStore()
-  const siteName = appStore.siteName || 'Sub2API'
+  const siteName = appStore.siteName || 'DreamStudio'
   if (to.meta.title) {
     document.title = `${to.meta.title} - ${siteName}`
   } else {

@@ -4,12 +4,22 @@
       <template #filters>
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="flex flex-wrap items-center gap-3">
-            <Select
-              v-model="statusFilter"
-              :options="statusOptions"
-              class="w-40"
-              @change="handleStatusChange"
-            />
+            <!-- Status Tabs -->
+            <div class="flex rounded-lg bg-gray-100 p-1 dark:bg-dark-800">
+              <button
+                v-for="option in statusOptions"
+                :key="option.value"
+                @click="statusFilter = option.value as typeof statusFilter; handleStatusChange()"
+                class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                :class="
+                  statusFilter === option.value
+                    ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-600 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                "
+              >
+                {{ option.label }}
+              </button>
+            </div>
             <span v-if="error" class="text-xs text-red-500">{{ error }}</span>
           </div>
           <button
@@ -24,78 +34,39 @@
       </template>
 
       <template #table>
-        <DataTable :columns="columns" :data="submissions" :loading="loading">
-          <template #cell-preview="{ row }">
-            <button
-              type="button"
-              class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm dark:border-dark-700 dark:bg-dark-800"
-              @click="openPreview(row)"
-            >
-              <img
-                :src="row.thumbnail_url || row.image_url"
-                :alt="promptText(row)"
-                class="h-full w-full object-cover"
-              />
-            </button>
-          </template>
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center py-12">
+          <Icon name="refresh" class="h-8 w-8 animate-spin text-gray-400" />
+        </div>
 
-          <template #cell-prompt="{ row }">
-            <p class="max-w-xs truncate text-sm text-gray-800 dark:text-gray-100">
-              {{ promptText(row) }}
-            </p>
-          </template>
+        <!-- Empty State -->
+        <div v-else-if="submissions.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-500">
+          <p>{{ t('common.noData') }}</p>
+        </div>
 
-          <template #cell-status="{ row }">
-            <span :class="['badge', statusClass(row.submission_status)]">
-              {{ statusLabel(row.submission_status) }}
-            </span>
-          </template>
-
-          <template #cell-submitted_at="{ row }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">
-              {{ formatRelativeTime(row.submitted_at || row.created_at) }}
-            </span>
-          </template>
-
-          <template #cell-actions="{ row }">
-            <div class="flex items-center gap-2">
-              <template v-if="row.submission_status === 'pending'">
-                <button
-                  type="button"
-                  class="btn btn-success btn-sm"
-                  :title="t('admin.inspiration.actions.approve')"
-                  @click="requestReview(row, 'approved')"
-                >
-                  <Icon name="check" size="sm" />
-                  <span>{{ t('admin.inspiration.actions.approve') }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-danger btn-sm"
-                  :title="t('admin.inspiration.actions.reject')"
-                  @click="requestReview(row, 'rejected')"
-                >
-                  <Icon name="x" size="sm" />
-                  <span>{{ t('admin.inspiration.actions.reject') }}</span>
-                </button>
-              </template>
-              <template v-else-if="row.submission_status === 'approved'">
-                <button
-                  type="button"
-                  class="btn btn-warning btn-sm"
-                  :title="t('admin.inspiration.actions.revoke')"
-                  @click="requestReview(row, 'pending')"
-                >
-                  <Icon name="sync" size="sm" />
-                  <span>{{ t('admin.inspiration.actions.revoke') }}</span>
-                </button>
-              </template>
-              <span v-else class="text-xs text-gray-400 dark:text-dark-500">
-                {{ t('common.none') }}
-              </span>
+        <!-- Grid View -->
+        <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div
+            v-for="item in submissions"
+            :key="item.id"
+            class="group relative aspect-square cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition-all hover:shadow-lg dark:border-dark-700 dark:bg-dark-800"
+            @click="openDetail(item)"
+          >
+            <img
+              :src="item.thumbnail_url || item.image_url"
+              :alt="promptText(item)"
+              class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+            <div class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
+              <div class="flex items-center justify-between">
+                <span :class="['badge badge-sm', statusClass(item.submission_status)]">
+                  {{ statusLabel(item.submission_status) }}
+                </span>
+              </div>
             </div>
-          </template>
-        </DataTable>
+          </div>
+        </div>
       </template>
 
       <template #pagination>
@@ -109,23 +80,67 @@
       </template>
     </TablePageLayout>
 
+    <!-- Detail Modal -->
     <BaseDialog
-      :show="previewOpen"
-      :title="t('admin.inspiration.previewTitle')"
-      width="normal"
+      :show="detailOpen"
+      :title="t('admin.inspiration.detailTitle')"
       :close-on-click-outside="true"
-      @close="closePreview"
+      @close="closeDetail"
     >
-      <div class="flex items-center justify-center">
-        <img
-          v-if="previewUrl"
-          :src="previewUrl"
-          :alt="previewAlt"
-          class="max-h-[70vh] w-auto rounded-2xl object-contain shadow-card"
-        />
+      <div v-if="selectedItem" class="flex flex-col gap-6">
+        <!-- Large Image Preview -->
+        <div class="flex items-center justify-center overflow-hidden rounded-xl bg-gray-50 dark:bg-dark-900">
+          <img
+            :src="selectedItem.image_url"
+            :alt="promptText(selectedItem)"
+            class="max-h-[60vh] w-auto object-contain"
+          />
+        </div>
+
+        <!-- Details -->
+        <div class="space-y-4">
+          <div>
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.inspiration.columns.prompt') }}</h3>
+            <p class="mt-1 text-base text-gray-900 dark:text-white">{{ promptText(selectedItem) }}</p>
+          </div>
+
+          <div class="flex flex-wrap gap-4">
+            <div>
+              <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.inspiration.columns.status') }}</h3>
+              <span :class="['badge mt-1', statusClass(selectedItem.submission_status)]">
+                {{ statusLabel(selectedItem.submission_status) }}
+              </span>
+            </div>
+            <div>
+              <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.inspiration.columns.submittedAt') }}</h3>
+              <p class="mt-1 text-sm text-gray-900 dark:text-white">
+                {{ formatRelativeTime(selectedItem.submitted_at || selectedItem.created_at) }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-dark-700">
+            <button type="button" class="btn btn-secondary" @click="closeDetail">{{ t('common.close') }}</button>
+            <template v-if="selectedItem.submission_status === 'pending'">
+              <button type="button" class="btn btn-danger" @click="requestReview(selectedItem, 'rejected')">
+                {{ t('admin.inspiration.actions.reject') }}
+              </button>
+              <button type="button" class="btn btn-success" @click="requestReview(selectedItem, 'approved')">
+                {{ t('admin.inspiration.actions.approve') }}
+              </button>
+            </template>
+            <template v-else-if="selectedItem.submission_status === 'approved'">
+              <button type="button" class="btn btn-warning" @click="requestReview(selectedItem, 'pending')">
+                {{ t('admin.inspiration.actions.revoke') }}
+              </button>
+            </template>
+          </div>
+        </div>
       </div>
     </BaseDialog>
 
+    <!-- Confirm Dialog -->
     <ConfirmDialog
       :show="Boolean(reviewRequest)"
       :title="reviewDialogTitle"
@@ -144,12 +159,9 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores'
 import { listGallerySubmissions, updateGallerySubmissionStatus } from '@/api/admin/inspiration'
 import type { GalleryImage } from '@/types'
-import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
-import Select from '@/components/common/Select.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -169,14 +181,6 @@ const pagination = reactive({
   total: 0
 })
 
-const columns = computed<Column[]>(() => [
-  { key: 'preview', label: t('admin.inspiration.columns.preview') },
-  { key: 'prompt', label: t('admin.inspiration.columns.prompt') },
-  { key: 'status', label: t('admin.inspiration.columns.status') },
-  { key: 'submitted_at', label: t('admin.inspiration.columns.submittedAt') },
-  { key: 'actions', label: t('admin.inspiration.columns.actions') }
-])
-
 const statusOptions = computed(() => [
   { value: 'pending', label: t('admin.inspiration.status.pending') },
   { value: 'approved', label: t('admin.inspiration.status.approved') },
@@ -184,9 +188,8 @@ const statusOptions = computed(() => [
   { value: 'all', label: t('admin.inspiration.status.all') }
 ])
 
-const previewOpen = ref(false)
-const previewUrl = ref('')
-const previewAlt = ref('')
+const detailOpen = ref(false)
+const selectedItem = ref<GalleryImage | null>(null)
 
 const reviewRequest = ref<{ image: GalleryImage; status: 'approved' | 'rejected' | 'pending' } | null>(null)
 
@@ -289,16 +292,14 @@ function handlePageChange(nextPage: number) {
   loadSubmissions()
 }
 
-function openPreview(image: GalleryImage) {
-  previewUrl.value = image.image_url
-  previewAlt.value = promptText(image)
-  previewOpen.value = true
+function openDetail(image: GalleryImage) {
+  selectedItem.value = image
+  detailOpen.value = true
 }
 
-function closePreview() {
-  previewOpen.value = false
-  previewUrl.value = ''
-  previewAlt.value = ''
+function closeDetail() {
+  detailOpen.value = false
+  selectedItem.value = null
 }
 
 function requestReview(image: GalleryImage, status: 'approved' | 'rejected' | 'pending') {
@@ -324,6 +325,8 @@ async function confirmReview() {
           : t('admin.inspiration.revokeSuccess')
     appStore.showSuccess(successMessage)
     reviewRequest.value = null
+    // Close detail modal and reload
+    closeDetail()
     await loadSubmissions()
   } catch (err: any) {
     appStore.showError(err?.message || t('admin.inspiration.updateFailed'))

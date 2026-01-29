@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 )
 
 type schedulerOutboxRepository struct {

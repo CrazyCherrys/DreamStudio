@@ -1,5 +1,5 @@
 /**
- * Core Type Definitions for Sub2API Frontend
+ * Core Type Definitions for DreamStudio Frontend
  */
 
 // ==================== Common Types ====================
@@ -90,6 +90,7 @@ export interface PublicSettings {
 
 export interface GalleryImage {
   id: number
+  user_name?: string | null
   image_url: string
   thumbnail_url?: string | null
   reference_image_url?: string | null

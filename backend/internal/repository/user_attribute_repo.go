@@ -3,10 +3,10 @@ package repository
 import (
 	"context"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
-	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbent "github.com/CrazyCherrys/DreamStudio/ent"
+	"github.com/CrazyCherrys/DreamStudio/ent/userattributedefinition"
+	"github.com/CrazyCherrys/DreamStudio/ent/userattributevalue"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 )
 
 // UserAttributeDefinitionRepository implementation

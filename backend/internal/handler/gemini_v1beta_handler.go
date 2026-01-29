@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/gemini"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/antigravity"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/gemini"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/googleapi"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/ip"
+	"github.com/CrazyCherrys/DreamStudio/internal/server/middleware"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

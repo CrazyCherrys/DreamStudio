@@ -11,7 +11,7 @@ docs/claude-relay-service/
 *.dylib
 backend/bin/
 backend/server
-backend/sub2api
+backend/dreamstudio
 backend/main
 
 # Go 测试二进制
@@ -130,3 +130,4 @@ deploy/docker-compose.override.yml
 vite.config.js
 docs/*
 .serena/
+.ace-tool/

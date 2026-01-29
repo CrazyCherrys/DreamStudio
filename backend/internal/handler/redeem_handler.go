@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/handler/dto"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/response"
+	middleware2 "github.com/CrazyCherrys/DreamStudio/internal/server/middleware"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

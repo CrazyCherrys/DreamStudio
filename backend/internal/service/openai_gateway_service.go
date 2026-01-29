@@ -19,10 +19,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
-	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/openai"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/responseheaders"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/urlvalidator"
 	"github.com/gin-gonic/gin"
 )
 

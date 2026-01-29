@@ -3,8 +3,8 @@ package admin
 import (
 	"net/http"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/response"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
 	"github.com/stretchr/testify/require"
 
 	_ "github.com/lib/pq"

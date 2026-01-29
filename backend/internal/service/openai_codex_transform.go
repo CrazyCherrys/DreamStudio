@@ -524,7 +524,7 @@ func fetchWithETag(url, etag string) (string, string, int, error) {
 	if err != nil {
 		return "", "", 0, err
 	}
-	req.Header.Set("User-Agent", "sub2api-codex")
+	req.Header.Set("User-Agent", "dreamstudio-codex")
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
 	}

@@ -153,10 +153,8 @@ const userInitial = computed(() => {
 })
 
 const navLinks = computed(() => [
-  { to: '/ai-image', label: t('nav.aiImage') },
-  { to: '/ai-video', label: t('nav.aiVideo') },
-  { to: '/redink', label: t('nav.redink') },
-  { to: '/gallery', label: t('gallery.nav.gallery') }
+  { to: '/inspiration', label: t('nav.inspiration') },
+  { to: '/home', label: t('nav.home') }
 ])
 
 const hotTags = computed<string[]>(() => {

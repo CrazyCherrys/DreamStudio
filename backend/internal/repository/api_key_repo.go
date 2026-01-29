@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/apikey"
-	"github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
-	"github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbent "github.com/CrazyCherrys/DreamStudio/ent"
+	"github.com/CrazyCherrys/DreamStudio/ent/apikey"
+	"github.com/CrazyCherrys/DreamStudio/ent/group"
+	"github.com/CrazyCherrys/DreamStudio/ent/schema/mixins"
+	"github.com/CrazyCherrys/DreamStudio/ent/user"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
 )
 
 type apiKeyRepository struct {

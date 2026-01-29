@@ -285,6 +285,36 @@
           </div>
         </div>
 
+        <!-- Image Generation Settings -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.imageGeneration.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.imageGeneration.description') }}
+            </p>
+          </div>
+          <div class="space-y-4 p-6">
+            <div>
+              <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t('admin.settings.imageGeneration.maxRetryAttempts') }}
+              </label>
+              <input
+                v-model.number="settings.imageMaxRetryAttempts"
+                type="number"
+                min="0"
+                max="10"
+                class="input w-32"
+                :placeholder="t('admin.settings.imageGeneration.maxRetryAttemptsPlaceholder')"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.settings.imageGeneration.maxRetryAttemptsHelp') }}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Registration Settings -->
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -1263,7 +1293,7 @@ const form = reactive<SettingsForm>({
   promo_code_enabled: true,
   default_balance: 0,
   default_concurrency: 1,
-  site_name: 'Sub2API',
+  site_name: 'DreamStudio',
   site_logo: '',
   site_subtitle: 'Subscription to API Conversion Platform',
   api_base_url: '',
@@ -1318,6 +1348,10 @@ const form = reactive<SettingsForm>({
   ops_realtime_monitoring_enabled: true,
   ops_query_mode_default: 'auto',
   ops_metrics_interval_seconds: 60
+})
+
+const settings = reactive({
+  imageMaxRetryAttempts: 3
 })
 
 // LinuxDo OAuth redirect URL suggestion
@@ -1377,13 +1411,18 @@ function handleLogoUpload(event: Event) {
 async function loadSettings() {
   loading.value = true
   try {
-    const settings = await adminAPI.settings.getSettings()
-    Object.assign(form, settings)
+    const settingsData = await adminAPI.settings.getSettings()
+    Object.assign(form, settingsData)
     form.smtp_password = ''
     form.turnstile_secret_key = ''
     form.linuxdo_connect_client_secret = ''
     form.storage_s3_access_key = ''
     form.storage_s3_secret_key = ''
+
+    // Load image generation settings
+    settings.imageMaxRetryAttempts = parseInt(
+      (settingsData as any)['image_generation.max_retry_attempts'] || '3'
+    )
   } catch (error: any) {
     appStore.showError(
       t('admin.settings.failedToLoad') + ': ' + (error.message || t('common.unknownError'))
@@ -1442,8 +1481,9 @@ async function saveSettings() {
       enable_identity_patch: form.enable_identity_patch,
       identity_patch_prompt: form.identity_patch_prompt,
       prompt_optimize_model: form.prompt_optimize_model,
-      prompt_optimize_prompt: form.prompt_optimize_prompt
-    }
+      prompt_optimize_prompt: form.prompt_optimize_prompt,
+      'image_generation.max_retry_attempts': settings.imageMaxRetryAttempts.toString()
+    } as any
     const updated = await adminAPI.settings.updateSettings(payload)
     Object.assign(form, updated)
     form.smtp_password = ''

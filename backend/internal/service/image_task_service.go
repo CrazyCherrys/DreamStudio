@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
 )
 
 const (
@@ -73,10 +74,14 @@ type ImageTaskRepository interface {
 }
 
 type ImageTaskService struct {
-	repo         ImageTaskRepository
-	imageService *ImageGenerationService
-	startOnce    sync.Once
-	stopCh       chan struct{}
+	repo           ImageTaskRepository
+	imageService   *ImageGenerationService
+	settingService *SettingService
+	startOnce      sync.Once
+	stopCh         chan struct{}
+
+	maxAttemptsMu sync.RWMutex
+	maxAttempts   int
 }
 
 var imageTaskRetryBackoff = []time.Duration{
@@ -85,12 +90,16 @@ var imageTaskRetryBackoff = []time.Duration{
 	2 * time.Minute,
 }
 
-func NewImageTaskService(repo ImageTaskRepository, imageService *ImageGenerationService) *ImageTaskService {
-	return &ImageTaskService{
-		repo:         repo,
-		imageService: imageService,
-		stopCh:       make(chan struct{}),
+func NewImageTaskService(repo ImageTaskRepository, imageService *ImageGenerationService, settingService *SettingService) *ImageTaskService {
+	s := &ImageTaskService{
+		repo:           repo,
+		imageService:   imageService,
+		settingService: settingService,
+		stopCh:         make(chan struct{}),
+		maxAttempts:    3,
 	}
+	s.loadMaxAttempts()
+	return s
 }
 
 func ProvideImageTaskWorker(taskService *ImageTaskService) *ImageTaskService {
@@ -105,6 +114,7 @@ func (s *ImageTaskService) Start() {
 			log.Printf("image tasks: reset stale running failed: %v", err)
 		}
 		go s.staleResetLoop()
+		go s.configRefreshLoop()
 		for i := 0; i < imageTaskWorkerCount; i++ {
 			go s.workerLoop()
 		}
@@ -128,6 +138,38 @@ func (s *ImageTaskService) staleResetLoop() {
 			}
 		}
 	}
+}
+
+func (s *ImageTaskService) configRefreshLoop() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.stopCh:
+			return
+		case <-ticker.C:
+			s.loadMaxAttempts()
+		}
+	}
+}
+
+func (s *ImageTaskService) loadMaxAttempts() {
+	ctx := context.Background()
+	value, err := s.settingService.GetValue(ctx, SettingKeyImageMaxRetryAttempts)
+	if err != nil {
+		return
+	}
+	if attempts, err := strconv.Atoi(value); err == nil && attempts >= 0 && attempts <= 10 {
+		s.maxAttemptsMu.Lock()
+		s.maxAttempts = attempts
+		s.maxAttemptsMu.Unlock()
+	}
+}
+
+func (s *ImageTaskService) getMaxAttempts() int {
+	s.maxAttemptsMu.RLock()
+	defer s.maxAttemptsMu.RUnlock()
+	return s.maxAttempts
 }
 
 func (s *ImageTaskService) CreateTask(ctx context.Context, input ImageGenerationInput) (*ImageGenerationTask, error) {
@@ -235,7 +277,8 @@ func (s *ImageTaskService) processTask(task *ImageGenerationTask) {
 		}
 	}()
 
-	if task.Attempts > imageTaskMaxAttempts {
+	maxAttempts := s.getMaxAttempts()
+	if task.Attempts > maxAttempts {
 		message := "retry limit reached"
 		if updateErr := s.repo.UpdateResult(context.Background(), task.ID, ImageTaskStatusFailed, nil, &message, timePtr(time.Now())); updateErr != nil {
 			log.Printf("image tasks: update failed status error: %v", updateErr)
@@ -257,7 +300,7 @@ func (s *ImageTaskService) processTask(task *ImageGenerationTask) {
 	})
 	if err != nil {
 		message := sanitizeTaskError(err)
-		if isRetryableImageError(err) && task.Attempts < imageTaskMaxAttempts {
+		if isRetryableImageError(err) && task.Attempts < maxAttempts {
 			nextAttemptAt := time.Now().Add(pickImageTaskRetryDelay(task.Attempts))
 			if updateErr := s.repo.UpdateRetry(context.Background(), task.ID, ImageTaskStatusPending, nextAttemptAt, &message); updateErr != nil {
 				log.Printf("image tasks: update retry status error: %v", updateErr)

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -18,7 +18,7 @@ type dashboardCache struct {
 }
 
 func NewDashboardCache(rdb *redis.Client, cfg *config.Config) service.DashboardStatsCache {
-	prefix := "sub2api:"
+	prefix := "dreamstudio:"
 	if cfg != nil {
 		prefix = strings.TrimSpace(cfg.Dashboard.KeyPrefix)
 	}

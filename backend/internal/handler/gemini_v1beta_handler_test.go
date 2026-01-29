@@ -5,7 +5,7 @@ package handler
 import (
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/stretchr/testify/require"
 )
 

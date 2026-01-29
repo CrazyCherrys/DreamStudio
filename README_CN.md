@@ -86,20 +86,18 @@ curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy
 脚本会自动：
 1. 检测系统架构
 2. 下载最新版本
-3. 安装二进制文件到 `/opt/sub2api`
+3. 安装二进制文件到 `/opt/dreamstudio`
 4. 创建 systemd 服务
 5. 配置系统用户和权限
-
-注意：当前安装脚本仍沿用 `sub2api` 的服务/二进制命名以保持兼容，所以下方命令继续使用 `sub2api`。
 
 #### 安装后配置
 
 ```bash
 # 1. 启动服务
-sudo systemctl start sub2api
+sudo systemctl start dreamstudio
 
 # 2. 设置开机自启
-sudo systemctl enable sub2api
+sudo systemctl enable dreamstudio
 
 # 3. 在浏览器中打开设置向导
 # http://你的服务器IP:8080
@@ -123,13 +121,13 @@ sudo systemctl enable sub2api
 
 ```bash
 # 查看状态
-sudo systemctl status sub2api
+sudo systemctl status dreamstudio
 
 # 查看日志
-sudo journalctl -u sub2api -f
+sudo journalctl -u dreamstudio -f
 
 # 重启服务
-sudo systemctl restart sub2api
+sudo systemctl restart dreamstudio
 
 # 卸载
 curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy/install.sh | sudo bash -s -- uninstall -y
@@ -202,7 +200,7 @@ docker-compose up -d
 docker-compose ps
 
 # 7. 查看日志
-docker-compose logs -f sub2api
+docker-compose logs -f dreamstudio
 ```
 
 #### 访问

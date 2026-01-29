@@ -492,25 +492,25 @@
   /* ============ 侧边栏 ============ */
   .sidebar {
     @apply fixed inset-y-0 left-0 z-40;
-    @apply w-56 bg-white dark:bg-dark-900;
+    @apply w-20 bg-white dark:bg-dark-900;
     @apply border-r border-gray-200 dark:border-dark-800;
     @apply flex flex-col;
     @apply transition-transform duration-300;
   }
 
   .sidebar-header {
-    @apply h-16 px-6;
-    @apply flex items-center gap-3;
+    @apply h-16 px-2;
+    @apply flex items-center justify-center;
     @apply border-b border-gray-100 dark:border-dark-800;
   }
 
   .sidebar-nav {
-    @apply flex-1 overflow-y-auto px-3 py-4;
+    @apply flex-1 overflow-y-auto px-2 py-4;
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2.5;
-    @apply text-sm font-medium;
+    @apply flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5;
+    @apply text-[10px] font-medium text-center leading-tight;
     @apply text-gray-600 dark:text-dark-300;
     @apply transition-all duration-200;
     @apply hover:bg-gray-100 dark:hover:bg-dark-800;
@@ -521,16 +521,15 @@
     @apply bg-primary-50 dark:bg-primary-900/20;
     @apply text-primary-600 dark:text-primary-400;
     @apply hover:bg-primary-100 dark:hover:bg-primary-900/30;
+    @apply border-l-2 border-primary-500;
   }
 
   .sidebar-section {
-    @apply mb-6;
+    @apply mb-4;
   }
 
   .sidebar-section-title {
-    @apply mb-2 px-3;
-    @apply text-xs font-semibold uppercase tracking-wider;
-    @apply text-gray-400 dark:text-dark-500;
+    @apply hidden;
   }
 
   /* ============ 页面头部 ============ */

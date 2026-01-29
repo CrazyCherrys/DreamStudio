@@ -700,8 +700,8 @@ var schemaValidationKeys = map[string]bool{
 var warnedSchemaKeys sync.Map
 
 func schemaCleaningWarningsEnabled() bool {
-	// 可通过环境变量强制开关，方便排查：SUB2API_SCHEMA_CLEAN_WARN=true/false
-	if v := strings.TrimSpace(os.Getenv("SUB2API_SCHEMA_CLEAN_WARN")); v != "" {
+	// 可通过环境变量强制开关，方便排查：DREAMSTUDIO_SCHEMA_CLEAN_WARN=true/false
+	if v := strings.TrimSpace(os.Getenv("DREAMSTUDIO_SCHEMA_CLEAN_WARN")); v != "" {
 		switch strings.ToLower(v) {
 		case "1", "true", "yes", "on":
 			return true

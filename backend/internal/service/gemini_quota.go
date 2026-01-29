@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/usagestats"
 )
 
 type geminiModelClass string

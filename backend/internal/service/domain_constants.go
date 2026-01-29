@@ -137,6 +137,9 @@ const (
 	SettingKeyDefaultConcurrency = "default_concurrency" // 新用户默认并发量
 	SettingKeyDefaultBalance     = "default_balance"     // 新用户默认余额
 
+	// 图片生成设置
+	SettingKeyImageMaxRetryAttempts = "image_generation.max_retry_attempts" // 图片生成失败最大重试次数
+
 	// 管理员 API Key
 	SettingKeyAdminAPIKey = "admin_api_key" // 全局管理员 API Key（用于外部系统集成）
 

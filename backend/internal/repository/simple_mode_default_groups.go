@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbent "github.com/CrazyCherrys/DreamStudio/ent"
+	"github.com/CrazyCherrys/DreamStudio/ent/group"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 )
 
 func ensureSimpleModeDefaultGroups(ctx context.Context, client *dbent.Client) error {

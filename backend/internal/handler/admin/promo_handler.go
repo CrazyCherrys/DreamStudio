@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/handler/dto"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/response"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

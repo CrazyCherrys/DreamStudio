@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/usagestats"
 )
 
 type UsageLogRepository interface {

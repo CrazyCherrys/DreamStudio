@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	dbent "github.com/CrazyCherrys/DreamStudio/ent"
+	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
 )
 
 var (

@@ -21,11 +21,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
-	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
-	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/claude"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/ctxkey"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/responseheaders"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/urlvalidator"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
@@ -42,7 +42,7 @@ const (
 )
 
 func (s *GatewayService) debugModelRoutingEnabled() bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("SUB2API_DEBUG_MODEL_ROUTING")))
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("DREAMSTUDIO_DEBUG_MODEL_ROUTING")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 

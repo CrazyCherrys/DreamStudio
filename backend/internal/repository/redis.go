@@ -3,7 +3,7 @@ package repository
 import (
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
 
 	"github.com/redis/go-redis/v9"
 )

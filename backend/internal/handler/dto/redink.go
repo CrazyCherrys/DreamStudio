@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 )
 
 type RedInkOutlinePage struct {

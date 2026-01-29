@@ -15,11 +15,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/claude"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/geminicli"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/openai"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/urlvalidator"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )

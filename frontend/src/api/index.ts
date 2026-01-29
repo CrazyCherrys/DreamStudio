@@ -1,5 +1,5 @@
 /**
- * API Client for Sub2API Backend
+ * API Client for DreamStudio Backend
  * Central export point for all API modules
  */
 

@@ -85,9 +85,19 @@
 
         <div v-if="displayModels.length > 0" class="space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-              {{ t('modelSettings.filters.title') }}
-            </h3>
+            <div class="flex items-center gap-4">
+              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ t('modelSettings.filters.title') }}
+              </h3>
+              <div class="relative">
+                <input
+                  v-model="searchQuery"
+                  type="text"
+                  class="input h-8 w-48 py-1 text-sm"
+                  :placeholder="t('modelSettings.searchPlaceholder')"
+                />
+              </div>
+            </div>
             <div class="flex flex-wrap gap-2">
               <button
                 v-for="option in modelFilterOptions"
@@ -238,9 +248,18 @@
                   <div v-if="isImageModel(model.id) || isVideoModel(model.id)">
                     <div class="mb-2 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
                       <span>{{ t('modelSettings.sections.resolutions') }}</span>
-                      <span class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ t('modelSettings.selectedCount', { count: getSelectedCount(model.id, 'resolutions') }) }}
-                      </span>
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                          @click="toggleAllResolutions(model.id)"
+                        >
+                          {{ isAllResolutionsSelected(model.id) ? t('modelSettings.clearAll') : t('modelSettings.selectAll') }}
+                        </button>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                          {{ t('modelSettings.selectedCount', { count: getSelectedCount(model.id, 'resolutions') }) }}
+                        </span>
+                      </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
                       <button
@@ -259,9 +278,18 @@
                   <div v-if="isImageModel(model.id)">
                     <div class="mb-2 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
                       <span>{{ t('modelSettings.sections.aspectRatios') }}</span>
-                      <span class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ t('modelSettings.selectedCount', { count: getSelectedCount(model.id, 'aspect_ratios') }) }}
-                      </span>
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                          @click="toggleAllAspectRatios(model.id)"
+                        >
+                          {{ isAllAspectRatiosSelected(model.id) ? t('modelSettings.clearAll') : t('modelSettings.selectAll') }}
+                        </button>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                          {{ t('modelSettings.selectedCount', { count: getSelectedCount(model.id, 'aspect_ratios') }) }}
+                        </span>
+                      </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
                       <button
@@ -376,6 +404,7 @@ const newModelId = ref('')
 const newModelName = ref('')
 const newModelType = ref<ModelType>('image')
 const addError = ref('')
+const searchQuery = ref('')
 
 const resolutionOptions = ['1K', '2K', '4K']
 const videoResolutionOptions = ['480p', '720p', '1080p', '4K']
@@ -466,11 +495,22 @@ const modelGroups = computed<ModelGroup[]>(() => [
   }
 ])
 
-const filteredModelGroups = computed(() =>
-  modelFilter.value === 'all'
+const filteredModelGroups = computed(() => {
+  const groups = modelFilter.value === 'all'
     ? modelGroups.value
     : modelGroups.value.filter((group) => group.type === modelFilter.value)
-)
+
+  const query = searchQuery.value.toLowerCase().trim()
+  if (!query) return groups
+
+  return groups.map(group => ({
+    ...group,
+    models: group.models.filter(m =>
+      m.name.toLowerCase().includes(query) ||
+      m.id.toLowerCase().includes(query)
+    )
+  })).filter(group => group.models.length > 0)
+})
 
 const pendingRemoveLabel = computed(() => {
   if (!pendingRemoveModel.value) return ''
@@ -648,6 +688,52 @@ const toggleOption = (modelId: string, key: ModelSettingKey, option: string) => 
 const getSelectedCount = (modelId: string, key: ModelSettingKey): number => {
   const setting = ensureSetting(modelId)
   return setting[key].length
+}
+
+function isAllResolutionsSelected(modelId: string): boolean {
+  const options = resolutionOptionsForModel(modelId)
+  const selected = modelSettings.value[modelId]?.resolutions || []
+  return options.length > 0 && options.every(opt => selected.includes(opt))
+}
+
+function isAllAspectRatiosSelected(modelId: string): boolean {
+  const options = aspectRatioOptions.map(o => o.value)
+  const selected = modelSettings.value[modelId]?.aspect_ratios || []
+  return options.length > 0 && options.every(opt => selected.includes(opt))
+}
+
+function toggleAllResolutions(modelId: string) {
+  const options = resolutionOptionsForModel(modelId)
+  if (isAllResolutionsSelected(modelId)) {
+    // Clear all
+    if (!modelSettings.value[modelId]) {
+      modelSettings.value[modelId] = ensureSetting(modelId)
+    }
+    modelSettings.value[modelId].resolutions = []
+  } else {
+    // Select all
+    if (!modelSettings.value[modelId]) {
+      modelSettings.value[modelId] = ensureSetting(modelId)
+    }
+    modelSettings.value[modelId].resolutions = [...options]
+  }
+}
+
+function toggleAllAspectRatios(modelId: string) {
+  const options = aspectRatioOptions.map(o => o.value)
+  if (isAllAspectRatiosSelected(modelId)) {
+    // Clear all
+    if (!modelSettings.value[modelId]) {
+      modelSettings.value[modelId] = ensureSetting(modelId)
+    }
+    modelSettings.value[modelId].aspect_ratios = []
+  } else {
+    // Select all
+    if (!modelSettings.value[modelId]) {
+      modelSettings.value[modelId] = ensureSetting(modelId)
+    }
+    modelSettings.value[modelId].aspect_ratios = [...options]
+  }
 }
 
 const buildSettingsPayload = (settings: Record<string, UserModelSetting>) => {

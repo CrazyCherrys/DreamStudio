@@ -9,9 +9,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
-	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/CrazyCherrys/DreamStudio/ent/account"
+	"github.com/CrazyCherrys/DreamStudio/ent/accountgroup"
+	"github.com/CrazyCherrys/DreamStudio/ent/group"
 )
 
 // AccountGroup is the model entity for the AccountGroup schema.

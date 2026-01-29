@@ -18,12 +18,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
-	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
-	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/ctxkey"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/geminicli"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/googleapi"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/responseheaders"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/urlvalidator"
 
 	"github.com/gin-gonic/gin"
 )

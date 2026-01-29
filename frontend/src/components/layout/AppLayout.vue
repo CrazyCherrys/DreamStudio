@@ -42,7 +42,7 @@ const isAdmin = computed(() => authStore.user?.role === 'admin')
 const contentClass = computed(() => [
   'relative flex flex-col transition-all duration-300',
   props.fullBleed ? 'h-screen' : 'min-h-screen',
-  sidebarCollapsed.value ? 'lg:ml-[72px]' : 'lg:ml-56'
+  sidebarCollapsed.value ? 'lg:ml-[72px]' : 'lg:ml-20'
 ])
 const mainClass = computed(() =>
   props.fullBleed

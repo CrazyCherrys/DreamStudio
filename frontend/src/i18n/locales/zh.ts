@@ -45,6 +45,7 @@ export default {
       modelPlaceholder: '选择模型',
       modelEmpty: '暂无可用模型',
       modelLoadFailed: '模型列表加载失败',
+      noModelsAvailable: '没有可用的模型,请检查您的 API 密钥配置或联系管理员',
       promptLabel: '描述您的创意',
       promptPlaceholder: '描述您的创意...',
       promptHint: '可以加入风格、光线、材质等关键词',
@@ -363,8 +364,8 @@ export default {
 
   // Setup Wizard
   setup: {
-    title: 'Sub2API 安装向导',
-    description: '配置您的 Sub2API 实例',
+    title: 'DreamStudio 安装向导',
+    description: '配置您的 DreamStudio 实例',
     database: {
       title: '数据库配置',
       description: '连接到您的 PostgreSQL 数据库',
@@ -484,13 +485,85 @@ export default {
     now: '现在',
     unknown: '未知',
     minutes: '分钟',
-    time: {
+    guest: '访客',
+    user: '用户',
+    anonymous: '匿名',
+    today: '今天',
+    yesterday: '昨天',
+    daysAgoSimple: '{days} 天前',
+    previousPage: '上一页',
+    nextPage: '下一页',
+    timeRelative: {
       never: '从未',
       justNow: '刚刚',
       minutesAgo: '{n}分钟前',
       hoursAgo: '{n}小时前',
       daysAgo: '{n}天前'
     }
+  },
+
+  // Hub
+  hub: {
+    welcome: '欢迎回来，{name}',
+    balance: '余额',
+    toolsTitle: '创作工具',
+    startCreating: '开始创作',
+    imageDesc: '使用 AI 生成精美图片',
+    videoDesc: '创建令人惊叹的 AI 视频',
+    redinkDesc: '生成小红书风格文案'
+  },
+
+  // Assets
+  assets: {
+    title: '我的资产',
+    subtitle: '',
+    all: '全部',
+    images: '图片',
+    videos: '视频',
+    image: '图片',
+    video: '视频',
+    favorites: '收藏夹',
+    favorite: '收藏',
+    batchMode: '批量管理',
+    exitBatchMode: '退出管理',
+    selected: '已选 {count} 项',
+    sortNewest: '最新优先',
+    sortOldest: '最早优先',
+    details: '作品详情',
+    prompt: '提示词',
+    createdAt: '创建时间',
+    download: '下载',
+    delete: '删除',
+    deleteConfirm: '确认删除该资产？',
+    deleteSuccess: '资产已删除',
+    deleteFailed: '删除失败',
+    deleteNotImplemented: '删除功能尚未实现',
+    submitToInspiration: '提交到灵感广场',
+    submissionPending: '审核中',
+    submissionApproved: '已发布',
+    submissionRejected: '已拒绝',
+    submitSuccess: '已提交审核',
+    submitFailed: '提交失败',
+    videoSubmitNotSupported: '视频暂不支持提交到灵感广场',
+    emptyTitle: '暂无资产',
+    emptyDescription: '完成一次生成后，这里会展示您的作品',
+    loadFailed: '加载资产失败'
+  },
+
+  // Inspiration
+  inspiration: {
+    title: '灵感广场',
+    subtitle: '探索社区创作的精彩作品',
+    latest: '最新',
+    popular: '最热',
+    loadMore: '加载更多',
+    emptyTitle: '暂无作品',
+    emptyDescription: '还没有公开的作品',
+    loadFailed: '加载作品失败',
+    detailTitle: '作品详情',
+    detailPrompt: '提示词',
+    detailAuthor: '作者',
+    detailCreatedAt: '创建时间'
   },
 
   // Navigation
@@ -512,7 +585,9 @@ export default {
     promoCodes: '优惠码',
     settings: '系统设置',
     apiSettings: 'API 设置',
-    inspiration: '灵感审核',
+    inspiration: '灵感广场',
+    inspirationReview: '灵感审核',
+    assets: '我的资产',
     redink: '小红书图文',
     modelSettings: '模型设置',
     myAccount: '我的账户',
@@ -523,7 +598,9 @@ export default {
     logout: '退出登录',
     github: 'GitHub',
     mySubscriptions: '我的订阅',
-    docs: '文档'
+    docs: '文档',
+    home: '首页',
+    login: '登录'
   },
 
   // Auth
@@ -979,7 +1056,10 @@ export default {
       placeholder: '每分钟请求数',
       hint: '关闭时为无限制。'
     },
-    selectedCount: '已选 {count} 个'
+    selectedCount: '已选 {count} 个',
+    searchPlaceholder: '搜索模型...',
+    selectAll: '全选',
+    clearAll: '清空'
   },
 
   // Empty States
@@ -3367,7 +3447,7 @@ export default {
         secretKeyConfiguredHint: '密钥已配置，留空以保留当前值。'      },
       linuxdo: {
         title: 'LinuxDo Connect 登录',
-        description: '配置 LinuxDo Connect OAuth，用于 Sub2API 用户登录',
+        description: '配置 LinuxDo Connect OAuth，用于 DreamStudio 用户登录',
         enable: '启用 LinuxDo 登录',
         enableHint: '在登录/注册页面显示 LinuxDo 登录入口',
         clientId: 'Client ID',
@@ -3407,7 +3487,7 @@ export default {
         description: '自定义站点品牌',
         siteName: '站点名称',
         siteNameHint: '显示在邮件和页面标题中',
-        siteNamePlaceholder: 'Sub2API',
+        siteNamePlaceholder: 'DreamStudio',
         siteSubtitle: '站点副标题',
         siteSubtitleHint: '显示在登录和注册页面',
         siteSubtitlePlaceholder: '订阅转 API 转换平台',
@@ -3488,7 +3568,7 @@ export default {
         fromEmail: '发件人邮箱',
         fromEmailPlaceholder: "noreply{'@'}example.com",
         fromName: '发件人名称',
-        fromNamePlaceholder: 'Sub2API',
+        fromNamePlaceholder: 'DreamStudio',
         useTls: '使用 TLS',
         useTlsHint: '为 SMTP 连接启用 TLS 加密'
       },
@@ -3538,6 +3618,13 @@ export default {
         keyWarning: '此密钥仅显示一次，请立即复制保存。',
         securityWarning: '警告：此密钥拥有完整的管理员权限，请妥善保管。',
         usage: '使用方法：在请求头中添加 x-api-key: <your-admin-api-key>'
+      },
+      imageGeneration: {
+        title: '图片生成设置',
+        description: '配置图片生成任务的行为',
+        maxRetryAttempts: '最大重试次数',
+        maxRetryAttemptsPlaceholder: '默认: 3',
+        maxRetryAttemptsHelp: '图片生成失败后自动重试的最大次数（0-10），0 表示不重试'
       },
       streamTimeout: {
         title: '流超时处理',
@@ -3685,14 +3772,14 @@ export default {
     // Admin tour steps
     admin: {
       welcome: {
-        title: '👋 欢迎使用 Sub2API',
-        description: '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">Sub2API 是一个强大的 AI 服务中转平台，让您轻松管理和分发 AI 服务。</p><p style="margin-bottom: 12px;"><b>🎯 核心功能：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>📦 <b>分组管理</b> - 创建不同的服务套餐（VIP、免费试用等）</li><li>🔗 <b>账号池</b> - 连接多个上游 AI 服务商账号</li><li>🔑 <b>密钥分发</b> - 为用户生成独立的 API Key</li><li>💰 <b>计费管理</b> - 灵活的费率和配额控制</li></ul><p style="color: #10b981; font-weight: 600;">接下来，我们将用 3 分钟带您完成首次配置 →</p></div>',
+        title: '👋 欢迎使用 DreamStudio',
+        description: '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">DreamStudio 是一个强大的 AI 服务中转平台，让您轻松管理和分发 AI 服务。</p><p style="margin-bottom: 12px;"><b>🎯 核心功能：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>📦 <b>分组管理</b> - 创建不同的服务套餐（VIP、免费试用等）</li><li>🔗 <b>账号池</b> - 连接多个上游 AI 服务商账号</li><li>🔑 <b>密钥分发</b> - 为用户生成独立的 API Key</li><li>💰 <b>计费管理</b> - 灵活的费率和配额控制</li></ul><p style="color: #10b981; font-weight: 600;">接下来，我们将用 3 分钟带您完成首次配置 →</p></div>',
         nextBtn: '开始配置 🚀',
         prevBtn: '跳过'
       },
       groupManage: {
         title: '📦 第一步：分组管理',
-        description: '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;"><b>什么是分组？</b></p><p style="margin-bottom: 12px;">分组是 Sub2API 的核心概念，它就像一个"服务套餐"：</p><ul style="margin-left: 20px; margin-bottom: 12px; font-size: 13px;"><li>🎯 每个分组可以包含多个上游账号</li><li>💰 每个分组有独立的计费倍率</li><li>👥 可以设置为公开或专属分组</li></ul><p style="margin-top: 12px; padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 示例：</b>您可以创建"VIP专线"（高倍率）和"免费试用"（低倍率）两个分组</p><p style="margin-top: 16px; color: #10b981; font-weight: 600;">👉 点击左侧的"分组管理"开始</p></div>'
+        description: '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;"><b>什么是分组？</b></p><p style="margin-bottom: 12px;">分组是 DreamStudio 的核心概念，它就像一个"服务套餐"：</p><ul style="margin-left: 20px; margin-bottom: 12px; font-size: 13px;"><li>🎯 每个分组可以包含多个上游账号</li><li>💰 每个分组有独立的计费倍率</li><li>👥 可以设置为公开或专属分组</li></ul><p style="margin-top: 12px; padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 示例：</b>您可以创建"VIP专线"（高倍率）和"免费试用"（低倍率）两个分组</p><p style="margin-top: 16px; color: #10b981; font-weight: 600;">👉 点击左侧的"分组管理"开始</p></div>'
       },
       createGroup: {
         title: '➕ 创建新分组',
@@ -3785,8 +3872,8 @@ export default {
     // User tour steps
     user: {
       welcome: {
-        title: '👋 欢迎使用 Sub2API',
-        description: '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">您好！欢迎来到 Sub2API AI 服务平台。</p><p style="margin-bottom: 12px;"><b>🎯 快速开始：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>🔑 创建 API 密钥</li><li>📋 复制密钥到您的应用</li><li>🚀 开始使用 AI 服务</li></ul><p style="color: #10b981; font-weight: 600;">只需 1 分钟，让我们开始吧 →</p></div>',
+        title: '👋 欢迎使用 DreamStudio',
+        description: '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">您好！欢迎来到 DreamStudio AI 服务平台。</p><p style="margin-bottom: 12px;"><b>🎯 快速开始：</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>🔑 创建 API 密钥</li><li>📋 复制密钥到您的应用</li><li>🚀 开始使用 AI 服务</li></ul><p style="color: #10b981; font-weight: 600;">只需 1 分钟，让我们开始吧 →</p></div>',
         nextBtn: '开始 🚀',
         prevBtn: '跳过'
       },

@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 

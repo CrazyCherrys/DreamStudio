@@ -1,26 +1,14 @@
 <template>
   <aside
     class="sidebar"
-    :class="[
-      sidebarCollapsed ? 'w-[72px]' : 'w-56',
-      { '-translate-x-full lg:translate-x-0': !mobileOpen }
-    ]"
+    :class="{ '-translate-x-full lg:translate-x-0': !mobileOpen }"
   >
     <!-- Logo/Brand -->
     <div class="sidebar-header">
       <!-- Custom Logo or Default Logo -->
-      <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow">
+      <div class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl shadow-glow">
         <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
       </div>
-      <transition name="fade">
-        <div v-if="!sidebarCollapsed" class="flex flex-col">
-          <span class="text-lg font-bold text-gray-900 dark:text-white">
-            {{ siteName }}
-          </span>
-          <!-- Version Badge -->
-          <VersionBadge :version="siteVersion" />
-        </div>
-      </transition>
     </div>
 
     <!-- Navigation -->
@@ -33,38 +21,31 @@
             v-for="item in adminNavItems"
             :key="item.path"
             :to="item.path"
-            class="sidebar-link mb-1"
+            class="sidebar-link mb-0.5"
             :class="{ 'sidebar-link-active': isActive(item.path) }"
-            :title="sidebarCollapsed ? item.label : undefined"
+            :title="item.label"
             @click="handleMenuItemClick()"
           >
-            <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <transition name="fade">
-              <span v-if="!sidebarCollapsed">{{ item.label }}</span>
-            </transition>
+            <component :is="item.icon" class="h-6 w-6 flex-shrink-0" />
+            <span class="truncate w-full px-0.5">{{ item.label }}</span>
           </router-link>
         </div>
 
         <!-- Personal Section for Admin (hidden in simple mode) -->
         <div v-if="!authStore.isSimpleMode" class="sidebar-section">
-          <div v-if="!sidebarCollapsed" class="sidebar-section-title">
-            {{ t('nav.myAccount') }}
-          </div>
-          <div v-else class="mx-3 my-3 h-px bg-gray-200 dark:bg-dark-700"></div>
+          <div class="my-2 h-px bg-gray-200 dark:bg-dark-700 mx-2"></div>
 
           <router-link
             v-for="item in personalNavItems"
             :key="item.path"
             :to="item.path"
-            class="sidebar-link mb-1"
+            class="sidebar-link mb-0.5"
             :class="{ 'sidebar-link-active': isActive(item.path) }"
-            :title="sidebarCollapsed ? item.label : undefined"
+            :title="item.label"
             @click="handleMenuItemClick()"
           >
-            <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <transition name="fade">
-              <span v-if="!sidebarCollapsed">{{ item.label }}</span>
-            </transition>
+            <component :is="item.icon" class="h-6 w-6 flex-shrink-0" />
+            <span class="truncate w-full px-0.5">{{ item.label }}</span>
           </router-link>
         </div>
       </template>
@@ -76,55 +57,17 @@
             v-for="item in userNavItems"
             :key="item.path"
             :to="item.path"
-            class="sidebar-link mb-1"
+            class="sidebar-link mb-0.5"
             :class="{ 'sidebar-link-active': isActive(item.path) }"
-            :title="sidebarCollapsed ? item.label : undefined"
+            :title="item.label"
             @click="handleMenuItemClick()"
           >
-            <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <transition name="fade">
-              <span v-if="!sidebarCollapsed">{{ item.label }}</span>
-            </transition>
+            <component :is="item.icon" class="h-6 w-6 flex-shrink-0" />
+            <span class="truncate w-full px-0.5">{{ item.label }}</span>
           </router-link>
         </div>
       </template>
     </nav>
-
-    <!-- Bottom Section -->
-    <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
-      <!-- Language Switcher -->
-      <div class="sidebar-locale mb-2" :class="{ 'sidebar-locale-collapsed': sidebarCollapsed }">
-        <LocaleSwitcher />
-      </div>
-
-      <!-- Theme Toggle -->
-      <button
-        @click="toggleTheme"
-        class="sidebar-link mb-2 w-full"
-        :title="sidebarCollapsed ? (isDark ? t('nav.lightMode') : t('nav.darkMode')) : undefined"
-      >
-        <SunIcon v-if="isDark" class="h-5 w-5 flex-shrink-0 text-amber-500" />
-        <MoonIcon v-else class="h-5 w-5 flex-shrink-0" />
-        <transition name="fade">
-          <span v-if="!sidebarCollapsed">{{
-            isDark ? t('nav.lightMode') : t('nav.darkMode')
-          }}</span>
-        </transition>
-      </button>
-
-      <!-- Collapse Button -->
-      <button
-        @click="toggleSidebar"
-        class="sidebar-link w-full"
-        :title="sidebarCollapsed ? t('nav.expand') : t('nav.collapse')"
-      >
-        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
-        <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
-        <transition name="fade">
-          <span v-if="!sidebarCollapsed">{{ t('nav.collapse') }}</span>
-        </transition>
-      </button>
-    </div>
   </aside>
 
   <!-- Mobile Overlay -->
@@ -138,12 +81,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch, type Component } from 'vue'
+import { computed, h, onMounted, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore } from '@/stores'
-import VersionBadge from '@/components/common/VersionBadge.vue'
-import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 
 const { t } = useI18n()
 
@@ -152,10 +93,8 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 
-const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.isAdmin)
-const isDark = ref(document.documentElement.classList.contains('dark'))
 
 type NavItem = {
   path: string
@@ -165,10 +104,7 @@ type NavItem = {
 }
 
 // Site settings from appStore (cached, no flicker)
-const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => appStore.siteLogo)
-const siteVersion = computed(() => appStore.siteVersion)
-const userCustomKeyEnabled = computed(() => appStore.cachedPublicSettings?.user_custom_key_enabled ?? false)
 
 // SVG Icon Components
 const DashboardIcon = {
@@ -201,7 +137,7 @@ const SparklesIcon = {
     )
 }
 
-const PlayIcon = {
+const FolderIcon = {
   render: () =>
     h(
       'svg',
@@ -210,7 +146,7 @@ const PlayIcon = {
         h('path', {
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
-          d: 'M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z'
+          d: 'M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z'
         })
       ]
     )
@@ -296,21 +232,6 @@ const CogIcon = {
     )
 }
 
-const LightbulbIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18'
-        })
-      ]
-    )
-}
-
 const KeyIcon = {
   render: () =>
     h(
@@ -326,76 +247,12 @@ const KeyIcon = {
     )
 }
 
-const SunIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z'
-        })
-      ]
-    )
-}
-
-const MoonIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z'
-        })
-      ]
-    )
-}
-
-const ChevronDoubleLeftIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'm18.75 4.5-7.5 7.5 7.5 7.5m-6-15L5.25 12l7.5 7.5'
-        })
-      ]
-    )
-}
-
-const ChevronDoubleRightIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'm5.25 4.5 7.5 7.5-7.5 7.5m6-15 7.5 7.5-7.5 7.5'
-        })
-      ]
-    )
-}
-
 // User navigation items (for regular users)
 const userNavItems = computed(() => {
   const items: NavItem[] = [
-    { path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
     { path: '/ai-image', label: t('nav.aiImage'), icon: SparklesIcon },
-    { path: '/ai-video', label: t('nav.aiVideo'), icon: PlayIcon },
-    { path: '/redink', label: t('nav.redink'), icon: LightbulbIcon },
-    ...(userCustomKeyEnabled.value
-      ? [{ path: '/api-settings', label: t('nav.apiSettings'), icon: KeyIcon }]
-      : []),
+    { path: '/ai-video', label: t('nav.aiVideo'), icon: SparklesIcon },
+    { path: '/assets', label: t('nav.assets'), icon: FolderIcon },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon }
   ]
   return authStore.isSimpleMode ? items.filter(item => !item.hideInSimpleMode) : items
@@ -404,6 +261,9 @@ const userNavItems = computed(() => {
 // Personal navigation items (for admin's "My Account" section, without Dashboard)
 const personalNavItems = computed(() => {
   const items: NavItem[] = [
+    { path: '/ai-image', label: t('nav.aiImage'), icon: SparklesIcon },
+    { path: '/ai-video', label: t('nav.aiVideo'), icon: SparklesIcon },
+    { path: '/assets', label: t('nav.assets'), icon: FolderIcon },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon }
   ]
   return authStore.isSimpleMode ? items.filter(item => !item.hideInSimpleMode) : items
@@ -413,15 +273,12 @@ const personalNavItems = computed(() => {
 const adminNavItems = computed(() => {
   const baseItems: NavItem[] = [
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
-    { path: '/ai-image', label: t('nav.aiImage'), icon: SparklesIcon },
-    { path: '/ai-video', label: t('nav.aiVideo'), icon: PlayIcon },
-    { path: '/redink', label: t('nav.redink'), icon: LightbulbIcon },
     ...(adminSettingsStore.opsMonitoringEnabled
       ? [{ path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon }]
       : []),
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/api-settings', label: t('nav.apiSettings'), icon: KeyIcon },
-    { path: '/admin/inspiration', label: t('nav.inspiration'), icon: LightbulbIcon },
+    { path: '/admin/inspiration', label: t('nav.inspirationReview'), icon: SparklesIcon },
     { path: '/model-settings', label: t('nav.modelSettings'), icon: ModelSettingsIcon }
   ]
 
@@ -435,16 +292,6 @@ const adminNavItems = computed(() => {
   baseItems.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
   return baseItems
 })
-
-function toggleSidebar() {
-  appStore.toggleSidebar()
-}
-
-function toggleTheme() {
-  isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
-}
 
 function closeMobile() {
   appStore.setMobileOpen(false)
@@ -468,7 +315,6 @@ if (
   savedTheme === 'dark' ||
   (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
 ) {
-  isDark.value = true
   document.documentElement.classList.add('dark')
 }
 

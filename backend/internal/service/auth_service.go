@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -207,7 +207,7 @@ func (s *AuthService) SendVerifyCode(ctx context.Context, email string) error {
 	}
 
 	// 获取网站名称
-	siteName := "Sub2API"
+	siteName := "DreamStudio"
 	if s.settingService != nil {
 		siteName = s.settingService.GetSiteName(ctx)
 	}
@@ -247,7 +247,7 @@ func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string) (*S
 	}
 
 	// 获取网站名称
-	siteName := "Sub2API"
+	siteName := "DreamStudio"
 	if s.settingService != nil {
 		siteName = s.settingService.GetSiteName(ctx)
 	}

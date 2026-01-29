@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/proxyutil"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
-	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/proxyutil"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/tlsfingerprint"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/urlvalidator"
 )
 
 // 默认配置常量

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/response"
+	"github.com/CrazyCherrys/DreamStudio/internal/server/middleware"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -78,6 +78,12 @@ func (h *UserModelSettingsHandler) UpdateModelSettings(c *gin.Context) {
 // ListNewAPIModels 获取 NewAPI 模型列表
 // GET /api/v1/user/newapi/models
 func (h *UserModelSettingsHandler) ListNewAPIModels(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
 	settings, err := h.settingService.GetNewAPISettings(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -88,15 +94,17 @@ func (h *UserModelSettingsHandler) ListNewAPIModels(c *gin.Context) {
 		response.BadRequest(c, "NewAPI Base URL is required")
 		return
 	}
-	if !settings.AccessKeyConfigured {
-		response.BadRequest(c, "NewAPI access key is not configured")
+
+	accessKey, err := h.settingService.ResolveUserNewAPIAccessKey(c.Request.Context(), subject.UserID, settings)
+	if err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
 
 	models, err := service.FetchNewAPIModels(
 		c.Request.Context(),
 		settings.BaseURL,
-		settings.AccessKey,
+		accessKey,
 		h.httpClient,
 	)
 	if err != nil {

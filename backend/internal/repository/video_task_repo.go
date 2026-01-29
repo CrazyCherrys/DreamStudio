@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 )
 
 type videoTaskRepository struct {

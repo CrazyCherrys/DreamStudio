@@ -8,12 +8,12 @@ import (
 	"sort"
 	"strings"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
-	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbent "github.com/CrazyCherrys/DreamStudio/ent"
+	dbuser "github.com/CrazyCherrys/DreamStudio/ent/user"
+	"github.com/CrazyCherrys/DreamStudio/ent/userallowedgroup"
+	"github.com/CrazyCherrys/DreamStudio/ent/usersubscription"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 )
 
 type userRepository struct {

@@ -1,4 +1,4 @@
-module github.com/Wei-Shaw/sub2api
+module github.com/CrazyCherrys/DreamStudio
 
 go 1.25.5
 

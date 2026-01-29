@@ -7,10 +7,10 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
-	"github.com/Wei-Shaw/sub2api/migrations"
+	"github.com/CrazyCherrys/DreamStudio/ent"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/timezone"
+	"github.com/CrazyCherrys/DreamStudio/migrations"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"

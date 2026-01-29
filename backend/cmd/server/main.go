@@ -16,12 +16,12 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/handler"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/setup"
-	"github.com/Wei-Shaw/sub2api/internal/web"
+	_ "github.com/CrazyCherrys/DreamStudio/ent/runtime"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/handler"
+	"github.com/CrazyCherrys/DreamStudio/internal/server/middleware"
+	"github.com/CrazyCherrys/DreamStudio/internal/setup"
+	"github.com/CrazyCherrys/DreamStudio/internal/web"
 
 	"github.com/gin-gonic/gin"
 )
@@ -70,7 +70,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		log.Printf("Sub2API %s (commit: %s, built: %s)\n", Version, Commit, Date)
+		log.Printf("DreamStudio %s (commit: %s, built: %s)\n", Version, Commit, Date)
 		return
 	}
 
@@ -120,7 +120,7 @@ func runSetupServer() {
 	// This allows users to run setup on a different address if needed
 	addr := config.GetServerAddress()
 	log.Printf("Setup wizard available at http://%s", addr)
-	log.Println("Complete the setup wizard to configure Sub2API")
+	log.Println("Complete the setup wizard to configure DreamStudio")
 
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start setup server: %v", err)

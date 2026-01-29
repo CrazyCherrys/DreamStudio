@@ -1,10 +1,10 @@
-# Sub2API Configuration File
-# Sub2API 配置文件
+# DreamStudio Configuration File
+# DreamStudio 配置文件
 #
-# Copy this file to /etc/sub2api/config.yaml and modify as needed
-# 复制此文件到 /etc/sub2api/config.yaml 并根据需要修改
+# Copy this file to /etc/dreamstudio/config.yaml and modify as needed
+# 复制此文件到 /etc/dreamstudio/config.yaml 并根据需要修改
 #
-# Documentation / 文档: https://github.com/Wei-Shaw/sub2api
+# Documentation / 文档: https://github.com/CrazyCherrys/DreamStudio
 
 # =============================================================================
 # Server Configuration
@@ -258,7 +258,7 @@ dashboard_cache:
   enabled: true
   # Redis key prefix for multi-environment isolation
   # Redis key 前缀，用于多环境隔离
-  key_prefix: "sub2api:"
+  key_prefix: "dreamstudio:"
   # Fresh TTL (seconds); within this window cached stats are considered fresh
   # 新鲜阈值（秒）；命中后处于该窗口视为新鲜数据
   stats_fresh_ttl_seconds: 15
@@ -354,7 +354,7 @@ database:
   password: "your_secure_password_here"
   # Database name
   # 数据库名称
-  dbname: "sub2api"
+  dbname: "dreamstudio"
   # SSL mode: disable, require, verify-ca, verify-full
   # SSL 模式：disable（禁用）, require（要求）, verify-ca（验证CA）, verify-full（完全验证）
   sslmode: "disable"
@@ -405,7 +405,7 @@ jwt:
 
 # =============================================================================
 # LinuxDo Connect OAuth Login (SSO)
-# LinuxDo Connect OAuth 登录（用于 Sub2API 用户登录）
+# LinuxDo Connect OAuth 登录（用于 DreamStudio 用户登录）
 # =============================================================================
 linuxdo_connect:
   enabled: false
@@ -522,8 +522,8 @@ turnstile:
 # Gemini OAuth (Required for Gemini accounts)
 # Gemini OAuth 配置（Gemini 账户必需）
 # =============================================================================
-# Sub2API supports TWO Gemini OAuth modes:
-# Sub2API 支持两种 Gemini OAuth 模式：
+# DreamStudio supports TWO Gemini OAuth modes:
+# DreamStudio 支持两种 Gemini OAuth 模式：
 #
 # 1. Code Assist OAuth (requires GCP project_id)
 # 1. Code Assist OAuth（需要 GCP project_id）

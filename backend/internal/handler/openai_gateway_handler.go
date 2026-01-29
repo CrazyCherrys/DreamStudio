@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/ip"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/openai"
+	middleware2 "github.com/CrazyCherrys/DreamStudio/internal/server/middleware"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -180,13 +180,15 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		return
 	}
 
-	// 1. First acquire user concurrency slot
-	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)
-	if err != nil {
-		log.Printf("User concurrency acquire failed: %v", err)
-		h.handleConcurrencyError(c, err, "user", streamStarted)
-		return
-	}
+	// 1. 用户并发限制已禁用（仅保留模型级 RPM 限制）
+	// DEPRECATED: User-level concurrency removed in favor of model-level RPM only
+	// userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)
+	// if err != nil {
+	// 	log.Printf("User concurrency acquire failed: %v", err)
+	// 	h.handleConcurrencyError(c, err, "user", streamStarted)
+	// 	return
+	// }
+	userReleaseFunc := func() {} // no-op: user concurrency disabled
 	// User slot acquired: no longer waiting.
 	if waitCounted {
 		h.concurrencyHelper.DecrementWaitCount(c.Request.Context(), subject.UserID)

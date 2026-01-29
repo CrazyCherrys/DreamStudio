@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
 )
 
 const (

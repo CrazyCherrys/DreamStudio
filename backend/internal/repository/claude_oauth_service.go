@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/oauth"
-	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/Wei-Shaw/sub2api/internal/util/logredact"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/oauth"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/util/logredact"
 
 	"github.com/imroc/req/v3"
 )

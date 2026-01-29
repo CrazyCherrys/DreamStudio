@@ -908,7 +908,7 @@ import { useAuthStore, useAppStore } from '@/stores'
 import { useClipboard } from '@/composables/useClipboard'
 import { imagesAPI, modelSettingsAPI, videosAPI } from '@/api'
 import { submitGalleryImage, updateGalleryVisibility, withdrawGallerySubmission } from '@/api/gallery'
-import type { NewAPIModel, UserModelSetting } from '@/api/modelSettings'
+import type { NewAPIModel, UserModelSetting, ModelType } from '@/api/modelSettings'
 import type {
   GalleryImage,
   ImageGenerationTask,
@@ -942,7 +942,7 @@ const authStore = useAuthStore()
 const appStore = useAppStore()
 
 const siteName = computed(
-  () => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API'
+  () => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'DreamStudio'
 )
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
@@ -1138,6 +1138,13 @@ const ratioLabelMap: Record<string, string> = {
 const normalizeModelType = (value?: string) => {
   if (value === 'video') return 'video'
   if (value === 'text') return 'text'
+  return 'image'
+}
+
+function inferModelType(modelId: string, modelName: string): ModelType {
+  const combined = `${modelId} ${modelName}`.toLowerCase()
+  if (combined.includes('video')) return 'video'
+  if (combined.includes('text') || combined.includes('gpt') || combined.includes('claude')) return 'text'
   return 'image'
 }
 
@@ -1406,11 +1413,15 @@ async function loadModelData() {
   modelsError.value = ''
 
   try {
-    const settingsResult = await modelSettingsAPI.getUserModelSettings()
-    const next: Record<string, UserModelSetting> = {}
+    const [newApiModels, settingsResult] = await Promise.all([
+      modelSettingsAPI.getUserNewAPIModels().catch(() => []),
+      modelSettingsAPI.getUserModelSettings().catch(() => ({ items: [] }))
+    ])
+
+    const userSettings: Record<string, UserModelSetting> = {}
     for (const item of settingsResult.items || []) {
       if (!item.model_id) continue
-      next[item.model_id] = {
+      userSettings[item.model_id] = {
         model_id: item.model_id,
         request_model_id: item.request_model_id?.trim() || '',
         resolutions: [...(item.resolutions || [])],
@@ -1421,13 +1432,33 @@ async function loadModelData() {
         display_name: item.display_name?.trim() || ''
       }
     }
-    modelSettings.value = next
-    models.value = Object.values(next)
-      .filter((item) => item.model_id)
-      .map((item) => ({
-        id: item.model_id,
-        name: item.display_name?.trim() || item.model_id
-      }))
+
+    const merged: Record<string, UserModelSetting> = {}
+    for (const model of newApiModels) {
+      const modelId = model.id
+      const userConfig = userSettings[modelId]
+
+      merged[modelId] = {
+        model_id: modelId,
+        request_model_id: userConfig?.request_model_id || '',
+        resolutions: userConfig?.resolutions?.length ? userConfig.resolutions : ['1K', '2K', '4K'],
+        aspect_ratios: userConfig?.aspect_ratios?.length ? userConfig.aspect_ratios : ['Auto', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
+        durations: userConfig?.durations || [],
+        request_endpoint: userConfig?.request_endpoint || 'openai',
+        model_type: userConfig?.model_type || inferModelType(modelId, model.name),
+        display_name: userConfig?.display_name || model.name || modelId
+      }
+    }
+
+    modelSettings.value = merged
+    models.value = newApiModels.map((model) => ({
+      id: model.id,
+      name: model.name || model.id
+    }))
+
+    if (models.value.length === 0) {
+      modelsError.value = t('home.generator.noModelsAvailable')
+    }
   } catch (error: any) {
     models.value = []
     modelSettings.value = {}

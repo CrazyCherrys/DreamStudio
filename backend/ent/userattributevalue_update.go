@@ -11,10 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/ent/user"
-	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
-	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
+	"github.com/CrazyCherrys/DreamStudio/ent/predicate"
+	"github.com/CrazyCherrys/DreamStudio/ent/user"
+	"github.com/CrazyCherrys/DreamStudio/ent/userattributedefinition"
+	"github.com/CrazyCherrys/DreamStudio/ent/userattributevalue"
 )
 
 // UserAttributeValueUpdate is the builder for updating UserAttributeValue entities.

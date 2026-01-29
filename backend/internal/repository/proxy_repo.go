@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/proxy"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbent "github.com/CrazyCherrys/DreamStudio/ent"
+	"github.com/CrazyCherrys/DreamStudio/ent/proxy"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
 )
 
 type sqlQuerier interface {

@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/handler"
-	adminhandler "github.com/Wei-Shaw/sub2api/internal/handler/admin"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/handler"
+	adminhandler "github.com/CrazyCherrys/DreamStudio/internal/handler/admin"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
+	"github.com/CrazyCherrys/DreamStudio/internal/pkg/usagestats"
+	"github.com/CrazyCherrys/DreamStudio/internal/server/middleware"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -132,14 +132,14 @@ func TestAPIContracts(t *testing.T) {
 					service.SettingKeySMTPUsername: "user",
 					service.SettingKeySMTPPassword: "secret",
 					service.SettingKeySMTPFrom:     "no-reply@example.com",
-					service.SettingKeySMTPFromName: "Sub2API",
+					service.SettingKeySMTPFromName: "DreamStudio",
 					service.SettingKeySMTPUseTLS:   "true",
 
 					service.SettingKeyTurnstileEnabled:   "true",
 					service.SettingKeyTurnstileSiteKey:   "site-key",
 					service.SettingKeyTurnstileSecretKey: "secret-key",
 
-					service.SettingKeySiteName:     "Sub2API",
+					service.SettingKeySiteName:     "DreamStudio",
 					service.SettingKeySiteLogo:     "",
 					service.SettingKeySiteSubtitle: "Subtitle",
 					service.SettingKeyAPIBaseURL:   "https://api.example.com",
@@ -170,7 +170,7 @@ func TestAPIContracts(t *testing.T) {
 					"smtp_username": "user",
 					"smtp_password_configured": true,
 					"smtp_from_email": "no-reply@example.com",
-					"smtp_from_name": "Sub2API",
+					"smtp_from_name": "DreamStudio",
 					"smtp_use_tls": true,
 					"turnstile_enabled": true,
 					"turnstile_site_key": "site-key",
@@ -183,7 +183,7 @@ func TestAPIContracts(t *testing.T) {
 						"ops_realtime_monitoring_enabled": true,
 						"ops_query_mode_default": "auto",
 						"ops_metrics_interval_seconds": 60,
-						"site_name": "Sub2API",
+						"site_name": "DreamStudio",
 						"site_logo": "",
 						"site_subtitle": "Subtitle",
 						"api_base_url": "https://api.example.com",

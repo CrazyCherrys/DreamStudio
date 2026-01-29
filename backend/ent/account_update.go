@@ -11,11 +11,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/ent/proxy"
-	"github.com/Wei-Shaw/sub2api/ent/usagelog"
+	"github.com/CrazyCherrys/DreamStudio/ent/account"
+	"github.com/CrazyCherrys/DreamStudio/ent/group"
+	"github.com/CrazyCherrys/DreamStudio/ent/predicate"
+	"github.com/CrazyCherrys/DreamStudio/ent/proxy"
+	"github.com/CrazyCherrys/DreamStudio/ent/usagelog"
 )
 
 // AccountUpdate is the builder for updating Account entities.

@@ -79,20 +79,19 @@ curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy
 The script will:
 1. Detect your system architecture
 2. Download the latest release
-3. Install binary to `/opt/sub2api`
+3. Install binary to `/opt/dreamstudio`
 4. Create systemd service
 5. Configure system user and permissions
 
-Note: The current installer keeps legacy `sub2api` service/binary names for compatibility, so the commands below still use `sub2api`.
 
 #### Post-Installation
 
 ```bash
 # 1. Start the service
-sudo systemctl start sub2api
+sudo systemctl start dreamstudio
 
 # 2. Enable auto-start on boot
-sudo systemctl enable sub2api
+sudo systemctl enable dreamstudio
 
 # 3. Open Setup Wizard in browser
 # http://YOUR_SERVER_IP:8080
@@ -116,13 +115,13 @@ The web interface will:
 
 ```bash
 # Check status
-sudo systemctl status sub2api
+sudo systemctl status dreamstudio
 
 # View logs
-sudo journalctl -u sub2api -f
+sudo journalctl -u dreamstudio -f
 
 # Restart service
-sudo systemctl restart sub2api
+sudo systemctl restart dreamstudio
 
 # Uninstall
 curl -sSL https://raw.githubusercontent.com/CrazyCherrys/DreamStudio/main/deploy/install.sh | sudo bash -s -- uninstall -y
@@ -195,7 +194,7 @@ docker-compose up -d
 docker-compose ps
 
 # 7. View logs
-docker-compose logs -f sub2api
+docker-compose logs -f dreamstudio
 ```
 
 #### Access

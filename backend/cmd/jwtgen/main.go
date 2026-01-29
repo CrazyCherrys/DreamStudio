@@ -7,10 +7,10 @@ import (
 	"log"
 	"time"
 
-	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/repository"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	_ "github.com/CrazyCherrys/DreamStudio/ent/runtime"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	"github.com/CrazyCherrys/DreamStudio/internal/repository"
+	"github.com/CrazyCherrys/DreamStudio/internal/service"
 )
 
 func main() {

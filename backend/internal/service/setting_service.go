@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/CrazyCherrys/DreamStudio/internal/config"
+	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
 )
 
 var (
@@ -93,7 +93,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		PromoCodeEnabled:    settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
 		TurnstileEnabled:    settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:    settings[SettingKeyTurnstileSiteKey],
-		SiteName:            s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
+		SiteName:            s.getStringOrDefault(settings, SettingKeySiteName, "DreamStudio"),
 		SiteLogo:            settings[SettingKeySiteLogo],
 		SiteSubtitle:        s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
 		APIBaseURL:          settings[SettingKeyAPIBaseURL],
@@ -115,6 +115,11 @@ func (s *SettingService) SetOnUpdateCallback(callback func()) {
 // SetVersion sets the application version for injection into public settings
 func (s *SettingService) SetVersion(version string) {
 	s.version = version
+}
+
+// GetValue retrieves a single setting value by key
+func (s *SettingService) GetValue(ctx context.Context, key string) (string, error) {
+	return s.settingRepo.GetValue(ctx, key)
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection
@@ -297,7 +302,7 @@ func (s *SettingService) IsUserCustomKeyEnabled(ctx context.Context) bool {
 func (s *SettingService) GetSiteName(ctx context.Context) string {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeySiteName)
 	if err != nil || value == "" {
-		return "Sub2API"
+		return "DreamStudio"
 	}
 	return value
 }
@@ -343,7 +348,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyRegistrationEnabled: "true",
 		SettingKeyEmailVerifyEnabled:  "false",
 		SettingKeyPromoCodeEnabled:    "true", // 默认启用优惠码功能
-		SettingKeySiteName:            "Sub2API",
+		SettingKeySiteName:            "DreamStudio",
 		SettingKeySiteLogo:            "",
 		SettingKeyDefaultConcurrency:  strconv.Itoa(s.cfg.Default.UserConcurrency),
 		SettingKeyDefaultBalance:      strconv.FormatFloat(s.cfg.Default.UserBalance, 'f', 8, 64),
@@ -363,6 +368,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Identity patch defaults
 		SettingKeyEnableIdentityPatch: "true",
 		SettingKeyIdentityPatchPrompt: "",
+
+		// Image generation defaults
+		SettingKeyImageMaxRetryAttempts: "3",
 
 		// Ops monitoring defaults (vNext)
 		SettingKeyOpsMonitoringEnabled:         "true",
@@ -389,7 +397,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		TurnstileEnabled:             settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:             settings[SettingKeyTurnstileSiteKey],
 		TurnstileSecretKeyConfigured: settings[SettingKeyTurnstileSecretKey] != "",
-		SiteName:                     s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
+		SiteName:                     s.getStringOrDefault(settings, SettingKeySiteName, "DreamStudio"),
 		SiteLogo:                     settings[SettingKeySiteLogo],
 		SiteSubtitle:                 s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
 		APIBaseURL:                   settings[SettingKeyAPIBaseURL],
