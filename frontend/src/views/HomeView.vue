@@ -1453,7 +1453,7 @@ async function loadModelData() {
     modelSettings.value = merged
     models.value = newApiModels.map((model) => ({
       id: model.id,
-      name: model.name || model.id
+      name: merged[model.id]?.display_name || model.name || model.id
     }))
 
     if (models.value.length === 0) {
