@@ -251,6 +251,11 @@ func Install(cfg *SetupConfig) error {
 		return fmt.Errorf("database initialization failed: %w", err)
 	}
 
+	// Initialize default settings (admin_model_settings, etc.)
+	if err := initializeDefaultSettings(cfg); err != nil {
+		return fmt.Errorf("default settings initialization failed: %w", err)
+	}
+
 	// Create admin user
 	if err := createAdminUser(cfg); err != nil {
 		return fmt.Errorf("admin user creation failed: %w", err)
@@ -547,6 +552,12 @@ func AutoSetupFromEnv() error {
 		return fmt.Errorf("database initialization failed: %w", err)
 	}
 	log.Println("Database initialized successfully")
+
+	// Initialize default settings
+	log.Println("Initializing default settings...")
+	if err := initializeDefaultSettings(cfg); err != nil {
+		return fmt.Errorf("default settings initialization failed: %w", err)
+	}
 
 	// Create admin user
 	log.Println("Creating admin user...")
