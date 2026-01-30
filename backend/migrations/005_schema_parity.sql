@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS settings (
     id          BIGSERIAL PRIMARY KEY,
     key         VARCHAR(100) NOT NULL UNIQUE,
     value       TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
