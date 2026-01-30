@@ -908,7 +908,7 @@ import { useAuthStore, useAppStore } from '@/stores'
 import { useClipboard } from '@/composables/useClipboard'
 import { imagesAPI, modelSettingsAPI, videosAPI } from '@/api'
 import { submitGalleryImage, updateGalleryVisibility, withdrawGallerySubmission } from '@/api/gallery'
-import type { NewAPIModel, UserModelSetting, ModelType } from '@/api/modelSettings'
+import type { NewAPIModel, UserModelSetting } from '@/api/modelSettings'
 import type {
   GalleryImage,
   ImageGenerationTask,
@@ -1138,13 +1138,6 @@ const ratioLabelMap: Record<string, string> = {
 const normalizeModelType = (value?: string) => {
   if (value === 'video') return 'video'
   if (value === 'text') return 'text'
-  return 'image'
-}
-
-function inferModelType(modelId: string, modelName: string): ModelType {
-  const combined = `${modelId} ${modelName}`.toLowerCase()
-  if (combined.includes('video')) return 'video'
-  if (combined.includes('text') || combined.includes('gpt') || combined.includes('claude')) return 'text'
   return 'image'
 }
 
@@ -1413,48 +1406,39 @@ async function loadModelData() {
   modelsError.value = ''
 
   try {
-    const [newApiModels, settingsResult] = await Promise.all([
-      modelSettingsAPI.getUserNewAPIModels().catch(() => []),
-      modelSettingsAPI.getUserModelSettings().catch(() => ({ items: [] }))
-    ])
+    // 只获取管理员配置的模型设置
+    const settingsResult = await modelSettingsAPI.getUserModelSettings().catch(() => ({ items: [] }))
 
-    const userSettings: Record<string, UserModelSetting> = {}
+    const merged: Record<string, UserModelSetting> = {}
+    const modelList: Array<{ id: string; name: string }> = []
+
     for (const item of settingsResult.items || []) {
       if (!item.model_id) continue
-      userSettings[item.model_id] = {
-        model_id: item.model_id,
+
+      const modelId = item.model_id
+      const displayName = item.display_name?.trim() || item.model_id
+
+      merged[modelId] = {
+        model_id: modelId,
         request_model_id: item.request_model_id?.trim() || '',
         resolutions: [...(item.resolutions || [])],
         aspect_ratios: [...(item.aspect_ratios || [])],
         durations: [...(item.durations || [])],
         request_endpoint: item.request_endpoint,
         model_type: item.model_type,
-        display_name: item.display_name?.trim() || ''
+        display_name: displayName,
+        rpm: item.rpm,
+        rpm_enabled: item.rpm_enabled
       }
-    }
 
-    const merged: Record<string, UserModelSetting> = {}
-    for (const model of newApiModels) {
-      const modelId = model.id
-      const userConfig = userSettings[modelId]
-
-      merged[modelId] = {
-        model_id: modelId,
-        request_model_id: userConfig?.request_model_id || '',
-        resolutions: userConfig?.resolutions?.length ? userConfig.resolutions : ['1K', '2K', '4K'],
-        aspect_ratios: userConfig?.aspect_ratios?.length ? userConfig.aspect_ratios : ['Auto', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
-        durations: userConfig?.durations || [],
-        request_endpoint: userConfig?.request_endpoint || 'openai',
-        model_type: userConfig?.model_type || inferModelType(modelId, model.name),
-        display_name: userConfig?.display_name || model.name || modelId
-      }
+      modelList.push({
+        id: modelId,
+        name: displayName
+      })
     }
 
     modelSettings.value = merged
-    models.value = newApiModels.map((model) => ({
-      id: model.id,
-      name: merged[model.id]?.display_name || model.name || model.id
-    }))
+    models.value = modelList
 
     if (models.value.length === 0) {
       modelsError.value = t('home.generator.noModelsAvailable')

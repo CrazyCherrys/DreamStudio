@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	infraerrors "github.com/CrazyCherrys/DreamStudio/internal/pkg/errors"
@@ -48,12 +49,14 @@ func (s *SettingService) UpdateUserCustomAPIKey(ctx context.Context, userID int6
 
 	trimmed := strings.TrimSpace(key)
 	if trimmed == "" {
+		log.Printf("User %d: clearing custom API key", userID)
 		if err := s.settingRepo.Delete(ctx, userCustomAPIKeyKey(userID)); err != nil && !errors.Is(err, ErrSettingNotFound) {
 			return fmt.Errorf("clear user custom api key: %w", err)
 		}
 		return nil
 	}
 
+	log.Printf("User %d: updating custom API key (length: %d)", userID, len(trimmed))
 	if err := s.settingRepo.Set(ctx, userCustomAPIKeyKey(userID), trimmed); err != nil {
 		return fmt.Errorf("update user custom api key: %w", err)
 	}

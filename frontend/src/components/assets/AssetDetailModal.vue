@@ -3,6 +3,7 @@
     :show="show"
     :title="t('assets.details')"
     width="wide"
+    :close-on-click-outside="false"
     @close="$emit('close')"
   >
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">

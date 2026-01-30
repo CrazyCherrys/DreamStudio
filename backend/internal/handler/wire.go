@@ -75,6 +75,7 @@ func ProvideHandlers(
 	usageHandler *UsageHandler,
 	galleryHandler *GalleryHandler,
 	storageHandler *StorageHandler,
+	healthHandler *HealthHandler,
 	redeemHandler *RedeemHandler,
 	subscriptionHandler *SubscriptionHandler,
 	adminHandlers *AdminHandlers,
@@ -99,6 +100,7 @@ func ProvideHandlers(
 		Admin:         adminHandlers,
 		Gateway:       gatewayHandler,
 		OpenAIGateway: openaiGatewayHandler,
+		Health:        healthHandler,
 		Setting:       settingHandler,
 	}
 }
@@ -117,6 +119,7 @@ var ProviderSet = wire.NewSet(
 	NewUsageHandler,
 	NewGalleryHandler,
 	NewStorageHandler,
+	NewHealthHandler,
 	NewRedeemHandler,
 	NewSubscriptionHandler,
 	NewGatewayHandler,

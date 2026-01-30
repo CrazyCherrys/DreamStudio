@@ -11,6 +11,7 @@ import (
 
 const (
 	userModelSettingsKeyPrefix = "user_model_settings:"
+	adminModelSettingsKey      = "admin_model_settings"
 	requestEndpointOpenAI      = "openai"
 	requestEndpointGemini      = "gemini"
 	requestEndpointOpenAIMod   = "openai_mod"
@@ -37,13 +38,16 @@ func (s *SettingService) GetUserModelSettings(ctx context.Context, userID int64)
 		return nil, fmt.Errorf("invalid user id")
 	}
 
-	key := userModelSettingsKey(userID)
-	raw, err := s.settingRepo.GetValue(ctx, key)
+	return s.GetAdminModelSettings(ctx)
+}
+
+func (s *SettingService) GetAdminModelSettings(ctx context.Context) ([]UserModelSetting, error) {
+	raw, err := s.settingRepo.GetValue(ctx, adminModelSettingsKey)
 	if err != nil {
 		if errors.Is(err, ErrSettingNotFound) {
 			return []UserModelSetting{}, nil
 		}
-		return nil, fmt.Errorf("get user model settings: %w", err)
+		return nil, fmt.Errorf("get admin model settings: %w", err)
 	}
 
 	if strings.TrimSpace(raw) == "" {
@@ -52,7 +56,7 @@ func (s *SettingService) GetUserModelSettings(ctx context.Context, userID int64)
 
 	var items []UserModelSetting
 	if err := json.Unmarshal([]byte(raw), &items); err != nil {
-		return nil, fmt.Errorf("parse user model settings: %w", err)
+		return nil, fmt.Errorf("parse admin model settings: %w", err)
 	}
 
 	return normalizeUserModelSettings(items), nil
@@ -63,14 +67,18 @@ func (s *SettingService) UpdateUserModelSettings(ctx context.Context, userID int
 		return nil, fmt.Errorf("invalid user id")
 	}
 
+	return s.UpdateAdminModelSettings(ctx, items)
+}
+
+func (s *SettingService) UpdateAdminModelSettings(ctx context.Context, items []UserModelSetting) ([]UserModelSetting, error) {
 	normalized := normalizeUserModelSettings(items)
 	payload, err := json.Marshal(normalized)
 	if err != nil {
-		return nil, fmt.Errorf("encode user model settings: %w", err)
+		return nil, fmt.Errorf("encode admin model settings: %w", err)
 	}
 
-	if err := s.settingRepo.Set(ctx, userModelSettingsKey(userID), string(payload)); err != nil {
-		return nil, fmt.Errorf("update user model settings: %w", err)
+	if err := s.settingRepo.Set(ctx, adminModelSettingsKey, string(payload)); err != nil {
+		return nil, fmt.Errorf("update admin model settings: %w", err)
 	}
 
 	return normalized, nil

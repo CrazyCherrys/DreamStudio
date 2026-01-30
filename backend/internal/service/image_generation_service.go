@@ -22,7 +22,7 @@ import (
 
 const (
 	defaultImageMimeType = "image/png"
-	imageRequestTimeout  = 120 * time.Second
+	imageRequestTimeout  = 180 * time.Second // 增加到 180 秒（3 分钟）
 )
 
 var (
@@ -87,6 +87,16 @@ func (s *ImageGenerationService) Generate(ctx context.Context, input ImageGenera
 		return nil, ErrImageGenerationInvalid
 	}
 
+	timeoutSettings, err := s.settingService.GetGenerationTimeoutSettings(ctx)
+	if err != nil {
+		log.Printf("Failed to get generation timeout settings, using default: %v", err)
+		timeoutSettings = DefaultGenerationTimeoutSettings()
+	}
+
+	timeout := time.Duration(timeoutSettings.ImageTimeoutSeconds) * time.Second
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	settings, err := s.settingService.GetNewAPISettings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get newapi settings: %w", err)
@@ -102,14 +112,18 @@ func (s *ImageGenerationService) Generate(ctx context.Context, input ImageGenera
 		return nil, err
 	}
 
+	httpClient := &http.Client{
+		Timeout: timeout,
+	}
+
 	var result *ImageGenerationResult
 	switch requestEndpoint {
 	case requestEndpointGemini:
-		result, err = s.generateGemini(ctx, settings.BaseURL, accessKey, modelID, prompt, input)
+		result, err = s.generateGeminiWithClient(ctx, httpClient, settings.BaseURL, accessKey, modelID, prompt, input)
 	case requestEndpointOpenAIMod:
-		result, err = s.generateOpenAIMod(ctx, settings.BaseURL, accessKey, modelID, prompt, input)
+		result, err = s.generateOpenAIModWithClient(ctx, httpClient, settings.BaseURL, accessKey, modelID, prompt, input)
 	default:
-		result, err = s.generateOpenAI(ctx, settings.BaseURL, accessKey, modelID, prompt, input)
+		result, err = s.generateOpenAIWithClient(ctx, httpClient, settings.BaseURL, accessKey, modelID, prompt, input)
 	}
 	if err != nil {
 		return nil, err
@@ -118,12 +132,14 @@ func (s *ImageGenerationService) Generate(ctx context.Context, input ImageGenera
 	if s.storageService != nil && len(result.Images) > 0 {
 		stored, err := s.storageService.StoreGeneratedImagesWithAuth(ctx, result.Images, accessKey)
 		if err != nil {
-			log.Printf("storage: failed to store generated images: %v", err)
+			log.Printf("storage: failed to store generated images (user_id=%d, model=%s, count=%d): %v",
+				input.UserID, modelID, len(result.Images), err)
 		} else {
 			result.Images = stored
 		}
 	}
 
+	result.Images = ensureGeneratedImageURLs(result.Images)
 	s.persistGalleryRecords(ctx, input, result.Images)
 
 	return result, nil
@@ -208,8 +224,9 @@ func (s *ImageGenerationService) persistGalleryRecords(
 	referencePtr := s.resolveReferenceImageURL(ctx, input.ReferenceImage)
 
 	for _, image := range images {
-		url := strings.TrimSpace(image.URL)
+		url := resolveGeneratedImageURL(image)
 		if url == "" {
+			log.Printf("gallery: skip generated image without url (user_id=%d)", input.UserID)
 			continue
 		}
 		_, err := s.galleryService.Create(ctx, input.UserID, GalleryCreateInput{
@@ -222,7 +239,8 @@ func (s *ImageGenerationService) persistGalleryRecords(
 			IsPublic:           false,
 		})
 		if err != nil {
-			log.Printf("gallery: failed to store generated image: %v", err)
+			log.Printf("gallery: failed to store generated image (user_id=%d, url=%s): %v",
+				input.UserID, url, err)
 		}
 	}
 }
@@ -272,6 +290,18 @@ func (s *ImageGenerationService) generateOpenAI(
 	prompt string,
 	input ImageGenerationInput,
 ) (*ImageGenerationResult, error) {
+	return s.generateOpenAIWithClient(ctx, s.httpClient, baseURL, accessKey, modelID, prompt, input)
+}
+
+func (s *ImageGenerationService) generateOpenAIWithClient(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	accessKey string,
+	modelID string,
+	prompt string,
+	input ImageGenerationInput,
+) (*ImageGenerationResult, error) {
 	reference, err := parseReferenceImage(input.ReferenceImage)
 	if err != nil {
 		return nil, err
@@ -290,7 +320,7 @@ func (s *ImageGenerationService) generateOpenAI(
 		return nil, err
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request newapi image generation: %w", err)
 	}
@@ -313,6 +343,18 @@ func (s *ImageGenerationService) generateOpenAI(
 
 func (s *ImageGenerationService) generateOpenAIMod(
 	ctx context.Context,
+	baseURL string,
+	accessKey string,
+	modelID string,
+	prompt string,
+	input ImageGenerationInput,
+) (*ImageGenerationResult, error) {
+	return s.generateOpenAIModWithClient(ctx, s.httpClient, baseURL, accessKey, modelID, prompt, input)
+}
+
+func (s *ImageGenerationService) generateOpenAIModWithClient(
+	ctx context.Context,
+	client *http.Client,
 	baseURL string,
 	accessKey string,
 	modelID string,
@@ -351,7 +393,7 @@ func (s *ImageGenerationService) generateOpenAIMod(
 		return nil, err
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request newapi image generation: %w", err)
 	}
@@ -380,6 +422,18 @@ func (s *ImageGenerationService) generateGemini(
 	prompt string,
 	input ImageGenerationInput,
 ) (*ImageGenerationResult, error) {
+	return s.generateGeminiWithClient(ctx, s.httpClient, baseURL, accessKey, modelID, prompt, input)
+}
+
+func (s *ImageGenerationService) generateGeminiWithClient(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	accessKey string,
+	modelID string,
+	prompt string,
+	input ImageGenerationInput,
+) (*ImageGenerationResult, error) {
 	reference, err := parseReferenceImage(input.ReferenceImage)
 	if err != nil {
 		return nil, err
@@ -399,7 +453,7 @@ func (s *ImageGenerationService) generateGemini(
 		return nil, err
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request newapi gemini generation: %w", err)
 	}
@@ -1148,4 +1202,31 @@ func buildImageDimensions(resolution, aspectRatio string) (*int, *int) {
 		return nil, nil
 	}
 	return &width, &height
+}
+
+func ensureGeneratedImageURLs(images []GeneratedImage) []GeneratedImage {
+	for i := range images {
+		if strings.TrimSpace(images[i].URL) != "" {
+			continue
+		}
+		if fallback := resolveGeneratedImageURL(images[i]); fallback != "" {
+			images[i].URL = fallback
+		}
+	}
+	return images
+}
+
+func resolveGeneratedImageURL(image GeneratedImage) string {
+	if url := strings.TrimSpace(image.URL); url != "" {
+		return url
+	}
+	base64Value := strings.TrimSpace(image.Base64)
+	if base64Value == "" {
+		return ""
+	}
+	mimeType := strings.TrimSpace(image.MimeType)
+	if mimeType == "" {
+		mimeType = defaultImageMimeType
+	}
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64Value)
 }

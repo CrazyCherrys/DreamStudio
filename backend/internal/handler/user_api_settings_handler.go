@@ -24,7 +24,7 @@ type UserAPISettingsResponse struct {
 }
 
 type UpdateUserAPISettingsRequest struct {
-	CustomKey string `json:"custom_key" binding:"required"`
+	CustomKey string `json:"custom_key"`
 }
 
 // GetAPISettings 获取用户自定义 API Key 状态

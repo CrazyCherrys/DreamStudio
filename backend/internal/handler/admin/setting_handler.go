@@ -863,3 +863,49 @@ func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
 		ThresholdWindowMinutes: updatedSettings.ThresholdWindowMinutes,
 	})
 }
+
+// GetGenerationTimeoutSettings 获取生成超时配置
+// GET /api/v1/admin/settings/generation-timeout
+func (h *SettingHandler) GetGenerationTimeoutSettings(c *gin.Context) {
+	settings, err := h.settingService.GetGenerationTimeoutSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.GenerationTimeoutSettings{
+		ImageTimeoutSeconds: settings.ImageTimeoutSeconds,
+		VideoTimeoutSeconds: settings.VideoTimeoutSeconds,
+	})
+}
+
+// UpdateGenerationTimeoutSettings 更新生成超时配置
+// PUT /api/v1/admin/settings/generation-timeout
+func (h *SettingHandler) UpdateGenerationTimeoutSettings(c *gin.Context) {
+	var req dto.GenerationTimeoutSettings
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	settings := &service.GenerationTimeoutSettings{
+		ImageTimeoutSeconds: req.ImageTimeoutSeconds,
+		VideoTimeoutSeconds: req.VideoTimeoutSeconds,
+	}
+
+	if err := h.settingService.SetGenerationTimeoutSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	updatedSettings, err := h.settingService.GetGenerationTimeoutSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.GenerationTimeoutSettings{
+		ImageTimeoutSeconds: updatedSettings.ImageTimeoutSeconds,
+		VideoTimeoutSeconds: updatedSettings.VideoTimeoutSeconds,
+	})
+}

@@ -144,9 +144,8 @@ const handleSave = async () => {
     customKey.value = ''
     appStore.showSuccess(t('userApiSettings.saveSuccess'))
   } catch (error: any) {
-    appStore.showError(
-      t('userApiSettings.saveFailed') + ': ' + (error.message || t('common.unknownError'))
-    )
+    const errorMessage = error.response?.data?.message || error.message || t('common.unknownError')
+    appStore.showError(t('userApiSettings.saveFailed') + ': ' + errorMessage)
   } finally {
     saving.value = false
   }
@@ -161,9 +160,8 @@ const handleClear = async () => {
     customKey.value = ''
     appStore.showSuccess(t('userApiSettings.clearSuccess'))
   } catch (error: any) {
-    appStore.showError(
-      t('userApiSettings.saveFailed') + ': ' + (error.message || t('common.unknownError'))
-    )
+    const errorMessage = error.response?.data?.message || error.message || t('common.unknownError')
+    appStore.showError(t('userApiSettings.saveFailed') + ': ' + errorMessage)
   } finally {
     saving.value = false
   }

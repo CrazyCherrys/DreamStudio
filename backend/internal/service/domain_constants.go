@@ -191,6 +191,13 @@ const (
 
 	// SettingKeyStreamTimeoutSettings stores JSON config for stream timeout handling.
 	SettingKeyStreamTimeoutSettings = "stream_timeout_settings"
+
+	// =========================
+	// Generation Timeout Settings
+	// =========================
+
+	// SettingKeyGenerationTimeoutSettings stores JSON config for image and video generation timeout.
+	SettingKeyGenerationTimeoutSettings = "generation_timeout_settings"
 )
 
 // AdminAPIKeyPrefix is the prefix for admin API keys (distinct from user "sk-" keys).

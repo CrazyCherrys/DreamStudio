@@ -316,6 +316,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 流超时处理配置
 		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
 		adminSettings.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)
+		// 生成超时配置
+		adminSettings.GET("/generation-timeout", h.Admin.Setting.GetGenerationTimeoutSettings)
+		adminSettings.PUT("/generation-timeout", h.Admin.Setting.UpdateGenerationTimeoutSettings)
 	}
 }
 

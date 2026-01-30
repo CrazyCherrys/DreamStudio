@@ -78,10 +78,11 @@ type VideoTaskRepository interface {
 }
 
 type VideoTaskService struct {
-	repo         VideoTaskRepository
-	videoService *VideoGenerationService
-	startOnce    sync.Once
-	stopCh       chan struct{}
+	repo           VideoTaskRepository
+	videoService   *VideoGenerationService
+	settingService *SettingService
+	startOnce      sync.Once
+	stopCh         chan struct{}
 }
 
 var videoTaskRetryBackoff = []time.Duration{
@@ -90,11 +91,12 @@ var videoTaskRetryBackoff = []time.Duration{
 	2 * time.Minute,
 }
 
-func NewVideoTaskService(repo VideoTaskRepository, videoService *VideoGenerationService) *VideoTaskService {
+func NewVideoTaskService(repo VideoTaskRepository, videoService *VideoGenerationService, settingService *SettingService) *VideoTaskService {
 	return &VideoTaskService{
-		repo:         repo,
-		videoService: videoService,
-		stopCh:       make(chan struct{}),
+		repo:           repo,
+		videoService:   videoService,
+		settingService: settingService,
+		stopCh:         make(chan struct{}),
 	}
 }
 
@@ -251,7 +253,14 @@ func (s *VideoTaskService) processTask(task *VideoGenerationTask) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), videoTaskTimeout)
+	timeoutSettings, err := s.settingService.GetGenerationTimeoutSettings(context.Background())
+	if err != nil {
+		log.Printf("Failed to get generation timeout settings, using default: %v", err)
+		timeoutSettings = DefaultGenerationTimeoutSettings()
+	}
+
+	timeout := time.Duration(timeoutSettings.VideoTimeoutSeconds) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	if task.ExternalID == nil || strings.TrimSpace(*task.ExternalID) == "" {
@@ -353,17 +362,38 @@ func (s *VideoTaskService) pollTask(ctx context.Context, task *VideoGenerationTa
 func (s *VideoTaskService) completeTask(ctx context.Context, task *VideoGenerationTask, videoID string) {
 	url, err := s.videoService.StoreContent(ctx, task.UserID, videoID)
 	if err != nil {
+		fallback := strings.TrimSpace(url)
+		if fallback == "" {
+			s.handleTaskError(task, err)
+			return
+		}
+		message := sanitizeTaskError(err)
+		completedAt := time.Now()
+		log.Printf("video tasks: store content failed, persisting fallback url with failed status (task_id=%d, video_id=%s): %v",
+			task.ID, videoID, err)
+		if updateErr := s.repo.UpdateResult(context.Background(), task.ID, VideoTaskStatusFailed, []string{fallback}, &message, &completedAt); updateErr != nil {
+			log.Printf("video tasks: update failed status error: %v (task_id=%d)", updateErr, task.ID)
+		}
+		return
+	}
+	url = strings.TrimSpace(url)
+	if url == "" {
+		if err == nil {
+			err = fmt.Errorf("video content url missing")
+		}
 		s.handleTaskError(task, err)
 		return
 	}
 
 	completedAt := time.Now()
 	if updateErr := s.repo.UpdateResult(context.Background(), task.ID, VideoTaskStatusSucceeded, []string{url}, nil, &completedAt); updateErr != nil {
-		log.Printf("video tasks: update success status error: %v", updateErr)
+		log.Printf("video tasks: update success status error: %v (task_id=%d)", updateErr, task.ID)
 		message := "failed to persist video result"
 		if err := s.repo.UpdateStatus(context.Background(), task.ID, VideoTaskStatusFailed, &message); err != nil {
-			log.Printf("video tasks: update failed fallback error: %v", err)
+			log.Printf("video tasks: update failed fallback error: %v (task_id=%d)", err, task.ID)
 		}
+	} else {
+		log.Printf("video tasks: successfully completed (task_id=%d, url=%s)", task.ID, url)
 	}
 }
 

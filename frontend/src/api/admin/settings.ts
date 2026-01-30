@@ -267,6 +267,38 @@ export async function updateStreamTimeoutSettings(
   return data
 }
 
+/**
+ * Generation timeout settings
+ */
+export interface GenerationTimeoutSettings {
+  image_timeout_seconds: number
+  video_timeout_seconds: number
+}
+
+/**
+ * Get generation timeout settings
+ * @returns Generation timeout settings
+ */
+export async function getGenerationTimeoutSettings(): Promise<GenerationTimeoutSettings> {
+  const { data } = await apiClient.get<GenerationTimeoutSettings>('/admin/settings/generation-timeout')
+  return data
+}
+
+/**
+ * Update generation timeout settings
+ * @param settings - Generation timeout settings to update
+ * @returns Updated settings
+ */
+export async function updateGenerationTimeoutSettings(
+  settings: GenerationTimeoutSettings
+): Promise<GenerationTimeoutSettings> {
+  const { data } = await apiClient.put<GenerationTimeoutSettings>(
+    '/admin/settings/generation-timeout',
+    settings
+  )
+  return data
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -276,7 +308,9 @@ export const settingsAPI = {
   regenerateAdminApiKey,
   deleteAdminApiKey,
   getStreamTimeoutSettings,
-  updateStreamTimeoutSettings
+  updateStreamTimeoutSettings,
+  getGenerationTimeoutSettings,
+  updateGenerationTimeoutSettings
 }
 
 export default settingsAPI

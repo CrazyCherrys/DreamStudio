@@ -822,6 +822,69 @@ func (s *SettingService) GetStreamTimeoutSettings(ctx context.Context) (*StreamT
 	return &settings, nil
 }
 
+// GetGenerationTimeoutSettings 获取生成超时配置
+func (s *SettingService) GetGenerationTimeoutSettings(ctx context.Context) (*GenerationTimeoutSettings, error) {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyGenerationTimeoutSettings)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return DefaultGenerationTimeoutSettings(), nil
+		}
+		return nil, fmt.Errorf("get generation timeout settings: %w", err)
+	}
+	if value == "" {
+		return DefaultGenerationTimeoutSettings(), nil
+	}
+
+	var settings GenerationTimeoutSettings
+	if err := json.Unmarshal([]byte(value), &settings); err != nil {
+		return DefaultGenerationTimeoutSettings(), nil
+	}
+
+	// 验证并修正配置值
+	if settings.ImageTimeoutSeconds < MinTimeoutSeconds {
+		settings.ImageTimeoutSeconds = MinTimeoutSeconds
+	}
+	if settings.ImageTimeoutSeconds > MaxTimeoutSeconds {
+		settings.ImageTimeoutSeconds = MaxTimeoutSeconds
+	}
+	if settings.VideoTimeoutSeconds < MinTimeoutSeconds {
+		settings.VideoTimeoutSeconds = MinTimeoutSeconds
+	}
+	if settings.VideoTimeoutSeconds > MaxTimeoutSeconds {
+		settings.VideoTimeoutSeconds = MaxTimeoutSeconds
+	}
+
+	return &settings, nil
+}
+
+// SetGenerationTimeoutSettings 设置生成超时配置
+func (s *SettingService) SetGenerationTimeoutSettings(ctx context.Context, settings *GenerationTimeoutSettings) error {
+	if settings == nil {
+		return fmt.Errorf("settings cannot be nil")
+	}
+
+	// 验证并修正配置值
+	if settings.ImageTimeoutSeconds < MinTimeoutSeconds {
+		settings.ImageTimeoutSeconds = MinTimeoutSeconds
+	}
+	if settings.ImageTimeoutSeconds > MaxTimeoutSeconds {
+		settings.ImageTimeoutSeconds = MaxTimeoutSeconds
+	}
+	if settings.VideoTimeoutSeconds < MinTimeoutSeconds {
+		settings.VideoTimeoutSeconds = MinTimeoutSeconds
+	}
+	if settings.VideoTimeoutSeconds > MaxTimeoutSeconds {
+		settings.VideoTimeoutSeconds = MaxTimeoutSeconds
+	}
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("marshal generation timeout settings: %w", err)
+	}
+
+	return s.settingRepo.Set(ctx, SettingKeyGenerationTimeoutSettings, string(data))
+}
+
 // SetStreamTimeoutSettings 设置流超时处理配置
 func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings *StreamTimeoutSettings) error {
 	if settings == nil {

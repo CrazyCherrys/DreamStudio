@@ -94,3 +94,9 @@ type StreamTimeoutSettings struct {
 	ThresholdCount         int    `json:"threshold_count"`
 	ThresholdWindowMinutes int    `json:"threshold_window_minutes"`
 }
+
+// GenerationTimeoutSettings 生成超时配置 DTO
+type GenerationTimeoutSettings struct {
+	ImageTimeoutSeconds int `json:"image_timeout_seconds"`
+	VideoTimeoutSeconds int `json:"video_timeout_seconds"`
+}

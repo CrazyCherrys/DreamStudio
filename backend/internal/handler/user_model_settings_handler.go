@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -51,12 +53,19 @@ func (h *UserModelSettingsHandler) GetModelSettings(c *gin.Context) {
 	response.Success(c, UserModelSettingsResponse{Items: items})
 }
 
-// UpdateModelSettings 更新用户模型设置
+// UpdateModelSettings 更新用户模型设置（仅管理员）
 // PUT /api/v1/user/model-settings
 func (h *UserModelSettingsHandler) UpdateModelSettings(c *gin.Context) {
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok || subject.UserID <= 0 {
 		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	// 检查管理员权限
+	role, ok := middleware.GetUserRoleFromContext(c)
+	if !ok || role != "admin" {
+		response.Forbidden(c, "仅管理员可以修改模型配置")
 		return
 	}
 
@@ -75,12 +84,19 @@ func (h *UserModelSettingsHandler) UpdateModelSettings(c *gin.Context) {
 	response.Success(c, UserModelSettingsResponse{Items: items})
 }
 
-// ListNewAPIModels 获取 NewAPI 模型列表
+// ListNewAPIModels 获取 NewAPI 模型列表（仅管理员）
 // GET /api/v1/user/newapi/models
 func (h *UserModelSettingsHandler) ListNewAPIModels(c *gin.Context) {
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok || subject.UserID <= 0 {
 		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	// 检查管理员权限
+	role, ok := middleware.GetUserRoleFromContext(c)
+	if !ok || role != "admin" {
+		response.Forbidden(c, "仅管理员可以查看 NewAPI 模型列表")
 		return
 	}
 
@@ -97,6 +113,10 @@ func (h *UserModelSettingsHandler) ListNewAPIModels(c *gin.Context) {
 
 	accessKey, err := h.settingService.ResolveUserNewAPIAccessKey(c.Request.Context(), subject.UserID, settings)
 	if err != nil {
+		if errors.Is(err, service.ErrUserCustomAPIKeyMissing) {
+			response.BadRequest(c, "请先配置自定义 API Key，或联系管理员配置系统密钥")
+			return
+		}
 		response.ErrorFrom(c, err)
 		return
 	}
@@ -108,7 +128,7 @@ func (h *UserModelSettingsHandler) ListNewAPIModels(c *gin.Context) {
 		h.httpClient,
 	)
 	if err != nil {
-		response.Error(c, http.StatusBadGateway, err.Error())
+		response.Error(c, http.StatusBadGateway, fmt.Sprintf("无法从 NewAPI 服务加载模型列表: %v", err))
 		return
 	}
 

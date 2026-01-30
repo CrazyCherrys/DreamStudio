@@ -547,6 +547,8 @@ export default {
     videoSubmitNotSupported: '视频暂不支持提交到灵感广场',
     emptyTitle: '暂无资产',
     emptyDescription: '完成一次生成后，这里会展示您的作品',
+    imagesLoadFailed: '图片加载失败',
+    videosLoadFailed: '视频加载失败',
     loadFailed: '加载资产失败'
   },
 
@@ -3646,6 +3648,17 @@ export default {
         thresholdWindowMinutesHint: '超时计数的时间窗口（1-60分钟）',
         saved: '流超时设置保存成功',
         saveFailed: '保存流超时设置失败'
+      },
+      generationTimeout: {
+        title: '生成超时设置',
+        description: '配置图片和视频生成任务的超时时间，避免长时间等待导致的资源浪费',
+        imageTimeout: '图片生成超时',
+        imageTimeoutHint: '图片生成任务的最大等待时间（10-600秒），默认180秒',
+        videoTimeout: '视频生成超时',
+        videoTimeoutHint: '视频生成任务的最大等待时间（10-600秒），默认180秒',
+        seconds: '秒',
+        saved: '生成超时设置保存成功',
+        saveFailed: '保存生成超时设置失败'
       },
       saveSettings: '保存设置',
       saving: '保存中...',

@@ -41,6 +41,15 @@ type StorageService struct {
 	s3Config       *StorageSettings
 }
 
+type StorageHealth struct {
+	Backend   string `json:"backend"`
+	Ready     bool   `json:"ready"`
+	Error     string `json:"error,omitempty"`
+	LocalRoot string `json:"local_root,omitempty"`
+	Bucket    string `json:"bucket,omitempty"`
+	Endpoint  string `json:"endpoint,omitempty"`
+}
+
 func NewStorageService(settingService *SettingService) *StorageService {
 	return &StorageService{
 		settingService: settingService,
@@ -49,6 +58,64 @@ func NewStorageService(settingService *SettingService) *StorageService {
 		},
 		localRoot: defaultLocalStorageRoot,
 	}
+}
+
+func (s *StorageService) CheckHealth(ctx context.Context) StorageHealth {
+	status := StorageHealth{Backend: "unknown", Ready: false}
+	if s == nil || s.settingService == nil {
+		status.Error = "storage service not configured"
+		return status
+	}
+
+	settings, err := s.settingService.GetStorageSettings(ctx)
+	if err != nil {
+		status.Error = fmt.Sprintf("load storage settings: %v", err)
+		return status
+	}
+
+	if settings.S3Enabled {
+		status.Backend = "s3"
+		status.Endpoint = settings.S3Endpoint
+		status.Bucket = settings.S3Bucket
+		missing := make([]string, 0, 4)
+		if settings.S3Endpoint == "" {
+			missing = append(missing, "endpoint")
+		}
+		if settings.S3Bucket == "" {
+			missing = append(missing, "bucket")
+		}
+		if settings.S3AccessKey == "" {
+			missing = append(missing, "access_key")
+		}
+		if settings.S3SecretKey == "" {
+			missing = append(missing, "secret_key")
+		}
+		if len(missing) > 0 {
+			status.Error = "missing s3 settings: " + strings.Join(missing, ", ")
+			return status
+		}
+		status.Ready = true
+		return status
+	}
+
+	status.Backend = "local"
+	root := strings.TrimSpace(s.localRoot)
+	status.LocalRoot = root
+	if root == "" {
+		status.Error = "local storage root not configured"
+		return status
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		status.Error = fmt.Sprintf("local storage path unavailable: %v", err)
+		return status
+	}
+	if !info.IsDir() {
+		status.Error = "local storage path is not a directory"
+		return status
+	}
+	status.Ready = true
+	return status
 }
 
 func (s *StorageService) StoreGeneratedImages(ctx context.Context, images []GeneratedImage) ([]GeneratedImage, error) {

@@ -286,7 +286,14 @@ func (s *ImageTaskService) processTask(task *ImageGenerationTask) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), imageTaskTimeout)
+	timeoutSettings, err := s.settingService.GetGenerationTimeoutSettings(context.Background())
+	if err != nil {
+		log.Printf("Failed to get generation timeout settings, using default: %v", err)
+		timeoutSettings = DefaultGenerationTimeoutSettings()
+	}
+
+	timeout := time.Duration(timeoutSettings.ImageTimeoutSeconds) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	result, err := s.imageService.Generate(ctx, ImageGenerationInput{

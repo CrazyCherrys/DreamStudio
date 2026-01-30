@@ -127,3 +127,24 @@ func DefaultStreamTimeoutSettings() *StreamTimeoutSettings {
 		ThresholdWindowMinutes: 10,
 	}
 }
+
+// GenerationTimeoutSettings 生成超时配置
+type GenerationTimeoutSettings struct {
+	ImageTimeoutSeconds int `json:"image_timeout_seconds"`
+	VideoTimeoutSeconds int `json:"video_timeout_seconds"`
+}
+
+const (
+	DefaultImageTimeoutSeconds = 180
+	DefaultVideoTimeoutSeconds = 180
+	MinTimeoutSeconds          = 10
+	MaxTimeoutSeconds          = 600
+)
+
+// DefaultGenerationTimeoutSettings 返回默认的生成超时配置
+func DefaultGenerationTimeoutSettings() *GenerationTimeoutSettings {
+	return &GenerationTimeoutSettings{
+		ImageTimeoutSeconds: DefaultImageTimeoutSeconds,
+		VideoTimeoutSeconds: DefaultVideoTimeoutSeconds,
+	}
+}

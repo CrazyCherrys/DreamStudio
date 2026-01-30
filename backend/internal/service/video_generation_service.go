@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -17,7 +18,7 @@ import (
 )
 
 const (
-	videoRequestTimeout = 120 * time.Second
+	videoRequestTimeout = 180 * time.Second // 增加到 180 秒（3 分钟）
 )
 
 var ErrVideoGenerationInvalid = infraerrors.BadRequest("VIDEO_GENERATION_INVALID", "invalid video generation request")
@@ -83,6 +84,16 @@ func (s *VideoGenerationService) Create(ctx context.Context, input VideoGenerati
 		return nil, ErrVideoGenerationInvalid
 	}
 
+	timeoutSettings, err := s.settingService.GetGenerationTimeoutSettings(ctx)
+	if err != nil {
+		log.Printf("Failed to get generation timeout settings, using default: %v", err)
+		timeoutSettings = DefaultGenerationTimeoutSettings()
+	}
+
+	timeout := time.Duration(timeoutSettings.VideoTimeoutSeconds) * time.Second
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	settings, err := s.settingService.GetNewAPISettings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get newapi settings: %w", err)
@@ -98,7 +109,11 @@ func (s *VideoGenerationService) Create(ctx context.Context, input VideoGenerati
 		return nil, err
 	}
 
-	resp, err := s.httpClient.Do(req)
+	httpClient := &http.Client{
+		Timeout: timeout,
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request newapi video: %w", err)
 	}
@@ -196,10 +211,15 @@ func (s *VideoGenerationService) StoreContent(ctx context.Context, userID int64,
 
 	stored, err := s.storageService.StoreGeneratedImagesWithAuth(ctx, []GeneratedImage{{URL: endpoint}}, accessKey)
 	if err != nil {
-		return "", fmt.Errorf("store video content: %w", err)
+		log.Printf("storage: failed to store video content (user_id=%d, video_id=%s): %v",
+			userID, trimmedID, err)
+		return endpoint, fmt.Errorf("store video content: %w", err)
 	}
 	if len(stored) == 0 || strings.TrimSpace(stored[0].URL) == "" {
-		return "", infraerrors.ServiceUnavailable("VIDEO_STORE_FAILED", "no stored video url")
+		fallbackErr := infraerrors.ServiceUnavailable("VIDEO_STORE_FAILED", "no stored video url")
+		log.Printf("storage: empty stored video url (user_id=%d, video_id=%s): %v",
+			userID, trimmedID, fallbackErr)
+		return endpoint, fallbackErr
 	}
 	return stored[0].URL, nil
 }

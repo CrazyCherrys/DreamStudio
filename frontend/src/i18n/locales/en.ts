@@ -539,6 +539,8 @@ export default {
     videoSubmitNotSupported: 'Video submission not supported yet',
     emptyTitle: 'No Assets',
     emptyDescription: 'Your generated works will appear here',
+    imagesLoadFailed: 'Failed to load images',
+    videosLoadFailed: 'Failed to load videos',
     loadFailed: 'Failed to load assets'
   },
 
@@ -3465,6 +3467,17 @@ export default {
         thresholdWindowMinutesHint: 'Time window for counting timeouts (1-60 minutes)',
         saved: 'Stream timeout settings saved',
         saveFailed: 'Failed to save stream timeout settings'
+      },
+      generationTimeout: {
+        title: 'Generation Timeout Settings',
+        description: 'Configure timeout for image and video generation tasks to avoid resource waste from long waits',
+        imageTimeout: 'Image Generation Timeout',
+        imageTimeoutHint: 'Maximum wait time for image generation tasks (10-600 seconds), default 180s',
+        videoTimeout: 'Video Generation Timeout',
+        videoTimeoutHint: 'Maximum wait time for video generation tasks (10-600 seconds), default 180s',
+        seconds: 'seconds',
+        saved: 'Generation timeout settings saved',
+        saveFailed: 'Failed to save generation timeout settings'
       },
       saveSettings: 'Save Settings',
       saving: 'Saving...',

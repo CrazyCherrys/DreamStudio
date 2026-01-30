@@ -45,6 +45,7 @@ type Handlers struct {
 	Admin         *AdminHandlers
 	Gateway       *GatewayHandler
 	OpenAIGateway *OpenAIGatewayHandler
+	Health        *HealthHandler
 	Setting       *SettingHandler
 }
 

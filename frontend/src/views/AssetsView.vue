@@ -246,30 +246,49 @@ async function fetchAssets() {
   error.value = ''
 
   try {
-    const [imagesData, videosData] = await Promise.all([
+    const [imagesResult, videosResult] = await Promise.allSettled([
       listUserGallery({ page: 1, page_size: 100 }),
       videosAPI.listVideoHistory({ page: 1, page_size: 100 })
     ])
+    const warnings: string[] = []
 
-    images.value = (imagesData.items || []).map((img: GalleryImage) => ({
-      id: img.id,
-      type: 'image' as AssetType,
-      url: img.image_url,
-      thumbnail: img.thumbnail_url || img.image_url,
-      createdAt: img.created_at,
-      submissionStatus: img.submission_status,
-      prompt: img.prompt || undefined
-    }))
+    if (imagesResult.status === 'fulfilled') {
+      const imagesData = imagesResult.value
+      images.value = (imagesData.items || []).map((img: GalleryImage) => ({
+        id: img.id,
+        type: 'image' as AssetType,
+        url: img.image_url,
+        thumbnail: img.thumbnail_url || img.image_url,
+        createdAt: img.created_at,
+        submissionStatus: img.submission_status,
+        prompt: img.prompt || undefined
+      }))
+    } else {
+      images.value = []
+      warnings.push(t('assets.imagesLoadFailed'))
+    }
 
-    videos.value = (videosData.items || []).map((vid: any) => ({
-      id: vid.id,
-      type: 'video' as AssetType,
-      url: vid.primary_video?.video_url || vid.video_urls?.[0] || '',
-      thumbnail: vid.primary_video?.thumbnail_url || '',
-      createdAt: vid.created_at,
-      submissionStatus: undefined,
-      prompt: vid.prompt
-    }))
+    if (videosResult.status === 'fulfilled') {
+      const videosData = videosResult.value
+      videos.value = (videosData.items || []).map((vid: any) => ({
+        id: vid.id,
+        type: 'video' as AssetType,
+        url: vid.primary_video?.video_url || vid.video_urls?.[0] || '',
+        thumbnail: vid.primary_video?.thumbnail_url || '',
+        createdAt: vid.created_at,
+        submissionStatus: undefined,
+        prompt: vid.prompt
+      }))
+    } else {
+      videos.value = []
+      warnings.push(t('assets.videosLoadFailed'))
+    }
+
+    if (warnings.length === 2) {
+      error.value = t('assets.loadFailed')
+    } else if (warnings.length === 1) {
+      appStore.showWarning(warnings[0])
+    }
   } catch (err: any) {
     error.value = err?.message || t('assets.loadFailed')
   } finally {
