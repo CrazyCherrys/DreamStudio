@@ -212,21 +212,21 @@ func GalleryImageFromService(image *service.GalleryImage) *GalleryImage {
 		return nil
 	}
 	return &GalleryImage{
-		ID:               image.ID,
-		ImageURL:         image.ImageURL,
-		ThumbnailURL:     image.ThumbnailURL,
+		ID:                image.ID,
+		ImageURL:          image.ImageURL,
+		ThumbnailURL:      image.ThumbnailURL,
 		ReferenceImageURL: image.ReferenceImageURL,
-		Prompt:           image.Prompt,
-		Model:            image.Model,
-		Width:            image.Width,
-		Height:           image.Height,
-		IsPublic:         image.IsPublic,
-		SubmissionStatus: image.SubmissionStatus,
-		SubmittedAt:      image.SubmittedAt,
-		ReviewedAt:       image.ReviewedAt,
-		ReviewedBy:       image.ReviewedBy,
-		CreatedAt:        image.CreatedAt,
-		UpdatedAt:        image.UpdatedAt,
+		Prompt:            image.Prompt,
+		Model:             image.Model,
+		Width:             image.Width,
+		Height:            image.Height,
+		IsPublic:          image.IsPublic,
+		SubmissionStatus:  image.SubmissionStatus,
+		SubmittedAt:       image.SubmittedAt,
+		ReviewedAt:        image.ReviewedAt,
+		ReviewedBy:        image.ReviewedBy,
+		CreatedAt:         image.CreatedAt,
+		UpdatedAt:         image.UpdatedAt,
 	}
 }
 

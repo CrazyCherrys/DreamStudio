@@ -120,7 +120,11 @@ func (r *galleryRepository) ListPublic(ctx context.Context, params pagination.Pa
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	images := make([]service.GalleryImage, 0, params.Limit())
 	for rows.Next() {
@@ -226,7 +230,11 @@ func (r *galleryRepository) ListByUser(
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	images := make([]service.GalleryImage, 0, params.Limit())
 	for rows.Next() {
@@ -320,7 +328,11 @@ func (r *galleryRepository) ListByUserAndImageURLs(
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	images := make([]service.GalleryImage, 0, len(imageURLs))
 	for rows.Next() {

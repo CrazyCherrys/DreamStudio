@@ -437,6 +437,4 @@ func TestComputeInfraHealth(t *testing.T) {
 	}
 }
 
-func timePtr(v time.Time) *time.Time { return &v }
-
 func stringPtr(v string) *string { return &v }

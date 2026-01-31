@@ -334,8 +334,8 @@ func (r *redinkRepository) ListByUser(
 			SELECT
 				record_id,
 				COUNT(*) FILTER (WHERE deleted_at IS NULL) AS total_pages,
-				COUNT(*) FILTER (WHERE status = $%d AND deleted_at IS NULL) AS completed_pages,
-				COUNT(*) FILTER (WHERE status = $%d AND deleted_at IS NULL) AS failed_pages
+				COUNT(*) FILTER (WHERE status = '%s' AND deleted_at IS NULL) AS completed_pages,
+				COUNT(*) FILTER (WHERE status = '%s' AND deleted_at IS NULL) AS failed_pages
 			FROM redink_pages
 			WHERE deleted_at IS NULL
 			GROUP BY record_id
@@ -343,11 +343,9 @@ func (r *redinkRepository) ListByUser(
 		%s
 		ORDER BY r.created_at DESC
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argIndex, argIndex+1, argIndex+2, argIndex+3)
+	`, service.RedInkPageStatusSucceeded, service.RedInkPageStatusFailed, whereClause, argIndex, argIndex+1)
 
 	listArgs := append(args,
-		service.RedInkPageStatusSucceeded,
-		service.RedInkPageStatusFailed,
 		params.Limit(),
 		params.Offset(),
 	)

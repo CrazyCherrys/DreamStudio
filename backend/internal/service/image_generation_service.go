@@ -182,7 +182,9 @@ func (s *ImageGenerationService) OptimizePrompt(ctx context.Context, input Promp
 	if err != nil {
 		return "", fmt.Errorf("request newapi prompt optimize: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -324,7 +326,9 @@ func (s *ImageGenerationService) generateOpenAIWithClient(
 	if err != nil {
 		return nil, fmt.Errorf("request newapi image generation: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -397,7 +401,9 @@ func (s *ImageGenerationService) generateOpenAIModWithClient(
 	if err != nil {
 		return nil, fmt.Errorf("request newapi image generation: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -457,7 +463,9 @@ func (s *ImageGenerationService) generateGeminiWithClient(
 	if err != nil {
 		return nil, fmt.Errorf("request newapi gemini generation: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

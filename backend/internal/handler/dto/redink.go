@@ -34,21 +34,21 @@ type RedInkPage struct {
 }
 
 type RedInkRecord struct {
-	ID             int64              `json:"id"`
-	Topic          string             `json:"topic"`
-	OutlineRaw     string             `json:"outline_raw"`
-	Content        *RedInkContentResult `json:"content,omitempty"`
-	InputImages    []string           `json:"input_images,omitempty"`
-	TextModelID    string             `json:"text_model_id,omitempty"`
-	ImageModelID   string             `json:"image_model_id,omitempty"`
-	Resolution     string             `json:"resolution,omitempty"`
-	AspectRatio    string             `json:"aspect_ratio,omitempty"`
-	Status         string             `json:"status"`
-	ThumbnailURL   *string            `json:"thumbnail_url,omitempty"`
-	TotalPages     int                `json:"total_pages,omitempty"`
-	CompletedPages int                `json:"completed_pages,omitempty"`
-	FailedPages    int                `json:"failed_pages,omitempty"`
-	CreatedAt      time.Time          `json:"created_at"`
+	ID               int64                `json:"id"`
+	Topic            string               `json:"topic"`
+	OutlineRaw       string               `json:"outline_raw"`
+	Content          *RedInkContentResult `json:"content,omitempty"`
+	InputImages      []string             `json:"input_images,omitempty"`
+	TextModelID      string               `json:"text_model_id,omitempty"`
+	ImageModelID     string               `json:"image_model_id,omitempty"`
+	Resolution       string               `json:"resolution,omitempty"`
+	AspectRatio      string               `json:"aspect_ratio,omitempty"`
+	Status           string               `json:"status"`
+	ThumbnailURL     *string              `json:"thumbnail_url,omitempty"`
+	TotalPages       int                  `json:"total_pages,omitempty"`
+	CompletedPages   int                  `json:"completed_pages,omitempty"`
+	FailedPages      int                  `json:"failed_pages,omitempty"`
+	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
