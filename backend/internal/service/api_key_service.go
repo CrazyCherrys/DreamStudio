@@ -99,16 +99,16 @@ type UpdateAPIKeyRequest struct {
 
 // APIKeyService API Key服务
 type APIKeyService struct {
-	apiKeyRepo  APIKeyRepository
-	userRepo    UserRepository
-	groupRepo   GroupRepository
-	userSubRepo UserSubscriptionRepository
-	cache       APIKeyCache
-	cfg         *config.Config
+	apiKeyRepo     APIKeyRepository
+	userRepo       UserRepository
+	groupRepo      GroupRepository
+	userSubRepo    UserSubscriptionRepository
+	cache          APIKeyCache
+	cfg            *config.Config
 	settingService *SettingService
-	authCacheL1 *ristretto.Cache
-	authCfg     apiKeyAuthCacheConfig
-	authGroup   singleflight.Group
+	authCacheL1    *ristretto.Cache
+	authCfg        apiKeyAuthCacheConfig
+	authGroup      singleflight.Group
 }
 
 // NewAPIKeyService 创建API Key服务实例

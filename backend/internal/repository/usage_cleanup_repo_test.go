@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/CrazyCherrys/DreamStudio/internal/pkg/pagination"
 	"github.com/CrazyCherrys/DreamStudio/internal/service"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
 )
 

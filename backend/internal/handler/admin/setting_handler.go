@@ -126,15 +126,15 @@ type UpdateSettingsRequest struct {
 	LinuxDoConnectRedirectURL  string `json:"linuxdo_connect_redirect_url"`
 
 	// OEM设置
-	SiteName            string `json:"site_name"`
-	SiteLogo            string `json:"site_logo"`
-	SiteSubtitle        string `json:"site_subtitle"`
-	APIBaseURL          string `json:"api_base_url"`
-	ContactInfo         string `json:"contact_info"`
-	DocURL              string `json:"doc_url"`
-	HomeContent         string `json:"home_content"`
-	HideCcsImportButton bool   `json:"hide_ccs_import_button"`
-	UserCustomKeyEnabled bool  `json:"user_custom_key_enabled"`
+	SiteName             string `json:"site_name"`
+	SiteLogo             string `json:"site_logo"`
+	SiteSubtitle         string `json:"site_subtitle"`
+	APIBaseURL           string `json:"api_base_url"`
+	ContactInfo          string `json:"contact_info"`
+	DocURL               string `json:"doc_url"`
+	HomeContent          string `json:"home_content"`
+	HideCcsImportButton  bool   `json:"hide_ccs_import_button"`
+	UserCustomKeyEnabled bool   `json:"user_custom_key_enabled"`
 
 	// 存储设置
 	StorageS3Enabled   bool   `json:"storage_s3_enabled"`
