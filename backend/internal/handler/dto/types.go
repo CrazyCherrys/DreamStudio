@@ -309,24 +309,24 @@ type VideoHistoryVideo struct {
 }
 
 type VideoGenerationTask struct {
-	ID            int64       `json:"id"`
-	Status        string      `json:"status"`
-	Prompt        string      `json:"prompt"`
-	Model         string      `json:"model"`
-	Duration      int         `json:"duration,omitempty"`
-	Width         int         `json:"width,omitempty"`
-	Height        int         `json:"height,omitempty"`
-	FPS           int         `json:"fps,omitempty"`
-	Seed          int         `json:"seed,omitempty"`
-	Attempts      int         `json:"attempts"`
-	ErrorMessage  *string     `json:"error_message,omitempty"`
-	LastError     *string     `json:"last_error,omitempty"`
-	NextAttemptAt *time.Time  `json:"next_attempt_at,omitempty"`
-	VideoURLs     []string    `json:"video_urls,omitempty"`
-	PrimaryVideo  *VideoHistoryVideo `json:"primary_video,omitempty"`
-	CreatedAt     time.Time   `json:"created_at"`
-	UpdatedAt     time.Time   `json:"updated_at"`
-	CompletedAt   *time.Time  `json:"completed_at,omitempty"`
+	ID             int64              `json:"id"`
+	Status         string             `json:"status"`
+	Prompt         string             `json:"prompt"`
+	Model          string             `json:"model"`
+	Duration       int                `json:"duration,omitempty"`
+	Width          int                `json:"width,omitempty"`
+	Height         int                `json:"height,omitempty"`
+	FPS            int                `json:"fps,omitempty"`
+	Seed           int                `json:"seed,omitempty"`
+	Attempts       int                `json:"attempts"`
+	ErrorMessage   *string            `json:"error_message,omitempty"`
+	LastError      *string            `json:"last_error,omitempty"`
+	NextAttemptAt  *time.Time         `json:"next_attempt_at,omitempty"`
+	VideoURLs      []string           `json:"video_urls,omitempty"`
+	PrimaryVideo   *VideoHistoryVideo `json:"primary_video,omitempty"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	CompletedAt    *time.Time         `json:"completed_at,omitempty"`
 }
 
 type VideoGenerationTaskDetail struct {

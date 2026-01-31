@@ -103,7 +103,7 @@ func initializeDefaultSettings(cfg *SetupConfig) error {
 	}
 
 	// 验证 JSON 格式
-	var testJSON interface{}
+	var testJSON any
 	if err := json.Unmarshal([]byte(defaultModelSettingsJSON), &testJSON); err != nil {
 		return fmt.Errorf("invalid default model settings JSON: %w", err)
 	}

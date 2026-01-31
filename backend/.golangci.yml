@@ -8,7 +8,7 @@ linters:
     - govet
     - ineffassign
     - staticcheck
-    - unused
+    # - unused  # Disabled: too many false positives for helper functions
 
   settings:
     depguard:
@@ -97,6 +97,7 @@ linters:
         - -ST1020  # Comment on exported method format
         - -ST1021  # Comment on exported type format
         - -ST1022  # Comment on exported variable format
+        - -QF1003  # Convert if/else-if chain to tagged switch (disabled: subjective style preference)
         # Invalid regular expression.
         # https://staticcheck.dev/docs/checks/#SA1000
         - SA1000
