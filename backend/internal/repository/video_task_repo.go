@@ -146,7 +146,11 @@ func (r *videoTaskRepository) ListByUser(
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	tasks := make([]service.VideoGenerationTask, 0, params.Limit())
 	for rows.Next() {

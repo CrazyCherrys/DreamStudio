@@ -485,7 +485,11 @@ func (r *redinkRepository) GetByUser(ctx context.Context, userID int64, recordID
 	if err != nil {
 		return &record, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	pages := make([]service.RedInkPage, 0)
 	for rows.Next() {
