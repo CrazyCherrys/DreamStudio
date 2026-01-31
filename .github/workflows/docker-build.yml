@@ -40,9 +40,11 @@ jobs:
       - name: Prepare image tags
         id: image-tags
         run: |
-          GHCR_TAG="ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest"
+          # Convert owner to lowercase (fix for case-sensitive GHCR)
+          OWNER_LOWER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          GHCR_TAG="ghcr.io/${OWNER_LOWER}/${{ env.IMAGE_NAME }}:latest"
           echo "ghcr_tag=${GHCR_TAG}" >> $GITHUB_OUTPUT
-          
+
           if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
             DOCKERHUB_TAG="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
             echo "dockerhub_tag=${DOCKERHUB_TAG}" >> $GITHUB_OUTPUT
