@@ -24,12 +24,12 @@ const (
 )
 
 const (
-	imageTaskPollInterval = 2 * time.Second
-	imageTaskWorkerCount  = 2
-	imageTaskTimeout      = 5 * time.Minute
-	imageTaskStaleAfter   = 10 * time.Minute
+	imageTaskPollInterval       = 2 * time.Second
+	imageTaskWorkerCount        = 2
+	imageTaskTimeout            = 5 * time.Minute
+	imageTaskStaleAfter         = 10 * time.Minute
 	imageTaskStaleCheckInterval = 30 * time.Second
-	imageTaskMaxAttempts  = 3
+	imageTaskMaxAttempts        = 3
 )
 
 var ErrImageTaskNotFound = infraerrors.NotFound("IMAGE_TASK_NOT_FOUND", "image task not found")

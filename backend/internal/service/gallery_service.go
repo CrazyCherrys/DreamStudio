@@ -128,15 +128,15 @@ func (s *GalleryService) Create(ctx context.Context, userID int64, input Gallery
 	}
 
 	image := &GalleryImage{
-		UserID:       userID,
-		ImageURL:     imageURL,
-		ThumbnailURL: normalizeOptionalString(input.ThumbnailURL),
+		UserID:            userID,
+		ImageURL:          imageURL,
+		ThumbnailURL:      normalizeOptionalString(input.ThumbnailURL),
 		ReferenceImageURL: normalizeOptionalString(input.ReferenceImageURL),
-		Prompt:       normalizeOptionalString(input.Prompt),
-		Model:        normalizeOptionalString(input.Model),
-		Width:        normalizePositiveInt(input.Width),
-		Height:       normalizePositiveInt(input.Height),
-		IsPublic:     input.IsPublic,
+		Prompt:            normalizeOptionalString(input.Prompt),
+		Model:             normalizeOptionalString(input.Model),
+		Width:             normalizePositiveInt(input.Width),
+		Height:            normalizePositiveInt(input.Height),
+		IsPublic:          input.IsPublic,
 		SubmissionStatus: submissionStatus,
 		SubmittedAt:      submittedAt,
 		ReviewedAt:       reviewedAt,
