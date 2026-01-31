@@ -170,7 +170,9 @@ func (s *VideoGenerationService) GetStatus(ctx context.Context, userID int64, vi
 	if err != nil {
 		return nil, fmt.Errorf("request newapi video status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

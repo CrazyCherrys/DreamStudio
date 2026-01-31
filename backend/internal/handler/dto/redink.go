@@ -49,7 +49,7 @@ type RedInkRecord struct {
 	CompletedPages   int                  `json:"completed_pages,omitempty"`
 	FailedPages      int                  `json:"failed_pages,omitempty"`
 	CreatedAt        time.Time            `json:"created_at"`
-	UpdatedAt      time.Time          `json:"updated_at"`
+	UpdatedAt        time.Time            `json:"updated_at"`
 }
 
 type RedInkRecordDetail struct {

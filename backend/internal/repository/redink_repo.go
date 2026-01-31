@@ -738,7 +738,11 @@ func (r *redinkRepository) GetPageStatusCounts(ctx context.Context, recordID int
 	if err != nil {
 		return service.RedInkPageStatusCounts{}, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	counts := service.RedInkPageStatusCounts{}
 	for rows.Next() {
