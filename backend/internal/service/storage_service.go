@@ -359,9 +359,10 @@ func normalizeS3Endpoint(endpoint string, useSSL bool) (string, bool, error) {
 		if err != nil || parsed.Host == "" {
 			return "", useSSL, ErrStorageInvalid.WithCause(err)
 		}
-		if parsed.Scheme == "https" {
+		switch parsed.Scheme {
+		case "https":
 			useSSL = true
-		} else if parsed.Scheme == "http" {
+		case "http":
 			useSSL = false
 		}
 		trimmed = parsed.Host

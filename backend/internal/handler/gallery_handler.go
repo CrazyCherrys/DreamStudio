@@ -114,14 +114,14 @@ func (h *GalleryHandler) Create(c *gin.Context) {
 	}
 
 	image, err := h.galleryService.Create(c.Request.Context(), subject.UserID, service.GalleryCreateInput{
-		ImageURL:     req.ImageURL,
-		ThumbnailURL: req.ThumbnailURL,
+		ImageURL:          req.ImageURL,
+		ThumbnailURL:      req.ThumbnailURL,
 		ReferenceImageURL: req.ReferenceImageURL,
-		Prompt:       req.Prompt,
-		Model:        req.Model,
-		Width:        req.Width,
-		Height:       req.Height,
-		IsPublic:     false,
+		Prompt:            req.Prompt,
+		Model:             req.Model,
+		Width:             req.Width,
+		Height:            req.Height,
+		IsPublic:          false,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

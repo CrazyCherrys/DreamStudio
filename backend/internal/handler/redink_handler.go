@@ -36,15 +36,15 @@ type RedInkContentRequest struct {
 }
 
 type RedInkRecordCreateRequest struct {
-	Topic        string                    `json:"topic"`
-	OutlineRaw   string                    `json:"outline_raw"`
-	Content      *dto.RedInkContentResult  `json:"content,omitempty"`
+	Topic        string                      `json:"topic"`
+	OutlineRaw   string                      `json:"outline_raw"`
+	Content      *dto.RedInkContentResult    `json:"content,omitempty"`
 	Pages        []service.RedInkOutlinePage `json:"pages"`
-	InputImages  []string                  `json:"input_images,omitempty"`
-	TextModelID  string                    `json:"text_model_id,omitempty"`
-	ImageModelID string                    `json:"image_model_id,omitempty"`
-	Resolution   string                    `json:"resolution,omitempty"`
-	AspectRatio  string                    `json:"aspect_ratio,omitempty"`
+	InputImages  []string                    `json:"input_images,omitempty"`
+	TextModelID  string                      `json:"text_model_id,omitempty"`
+	ImageModelID string                      `json:"image_model_id,omitempty"`
+	Resolution   string                      `json:"resolution,omitempty"`
+	AspectRatio  string                      `json:"aspect_ratio,omitempty"`
 }
 
 type RedInkRecordUpdateRequest struct {
