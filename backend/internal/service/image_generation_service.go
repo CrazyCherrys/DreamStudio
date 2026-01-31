@@ -232,13 +232,13 @@ func (s *ImageGenerationService) persistGalleryRecords(
 			continue
 		}
 		_, err := s.galleryService.Create(ctx, input.UserID, GalleryCreateInput{
-			ImageURL:           url,
-			ReferenceImageURL:  referencePtr,
-			Prompt:             promptPtr,
-			Model:              modelPtr,
-			Width:              widthPtr,
-			Height:             heightPtr,
-			IsPublic:           false,
+			ImageURL:          url,
+			ReferenceImageURL: referencePtr,
+			Prompt:            promptPtr,
+			Model:             modelPtr,
+			Width:             widthPtr,
+			Height:            heightPtr,
+			IsPublic:          false,
 		})
 		if err != nil {
 			log.Printf("gallery: failed to store generated image (user_id=%d, url=%s): %v",

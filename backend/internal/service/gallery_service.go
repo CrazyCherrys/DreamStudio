@@ -25,22 +25,22 @@ const (
 )
 
 type GalleryImage struct {
-	ID               int64
-	UserID           int64
-	ImageURL         string
-	ThumbnailURL     *string
+	ID                int64
+	UserID            int64
+	ImageURL          string
+	ThumbnailURL      *string
 	ReferenceImageURL *string
-	Prompt           *string
-	Model            *string
-	Width            *int
-	Height           *int
-	IsPublic         bool
-	SubmissionStatus string
-	SubmittedAt      *time.Time
-	ReviewedAt       *time.Time
-	ReviewedBy       *int64
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	Prompt            *string
+	Model             *string
+	Width             *int
+	Height            *int
+	IsPublic          bool
+	SubmissionStatus  string
+	SubmittedAt       *time.Time
+	ReviewedAt        *time.Time
+	ReviewedBy        *int64
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type GalleryCreateInput struct {
