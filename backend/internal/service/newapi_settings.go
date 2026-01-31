@@ -9,10 +9,10 @@ import (
 const DefaultNewAPIBaseURL = "https://api.haokun.de"
 
 type NewAPISettings struct {
-	BaseURL              string
-	AccessKey            string
-	AccessKeyConfigured  bool
-	DefaultModel         string
+	BaseURL             string
+	AccessKey           string
+	AccessKeyConfigured bool
+	DefaultModel        string
 }
 
 type UpdateNewAPISettingsInput struct {

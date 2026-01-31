@@ -137,9 +137,9 @@ func (s *GalleryService) Create(ctx context.Context, userID int64, input Gallery
 		Width:             normalizePositiveInt(input.Width),
 		Height:            normalizePositiveInt(input.Height),
 		IsPublic:          input.IsPublic,
-		SubmissionStatus: submissionStatus,
-		SubmittedAt:      submittedAt,
-		ReviewedAt:       reviewedAt,
+		SubmissionStatus:  submissionStatus,
+		SubmittedAt:       submittedAt,
+		ReviewedAt:        reviewedAt,
 	}
 
 	if err := s.repo.Create(ctx, image); err != nil {
