@@ -259,21 +259,21 @@ type UsageLog struct {
 }
 
 type GalleryImage struct {
-	ID               int64      `json:"id"`
-	ImageURL         string     `json:"image_url"`
-	ThumbnailURL     *string    `json:"thumbnail_url,omitempty"`
+	ID                int64      `json:"id"`
+	ImageURL          string     `json:"image_url"`
+	ThumbnailURL      *string    `json:"thumbnail_url,omitempty"`
 	ReferenceImageURL *string    `json:"reference_image_url,omitempty"`
-	Prompt           *string    `json:"prompt,omitempty"`
-	Model            *string    `json:"model,omitempty"`
-	Width            *int       `json:"width,omitempty"`
-	Height           *int       `json:"height,omitempty"`
-	IsPublic         bool       `json:"is_public"`
-	SubmissionStatus string     `json:"submission_status"`
-	SubmittedAt      *time.Time `json:"submitted_at,omitempty"`
-	ReviewedAt       *time.Time `json:"reviewed_at,omitempty"`
-	ReviewedBy       *int64     `json:"reviewed_by,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	Prompt            *string    `json:"prompt,omitempty"`
+	Model             *string    `json:"model,omitempty"`
+	Width             *int       `json:"width,omitempty"`
+	Height            *int       `json:"height,omitempty"`
+	IsPublic          bool       `json:"is_public"`
+	SubmissionStatus  string     `json:"submission_status"`
+	SubmittedAt       *time.Time `json:"submitted_at,omitempty"`
+	ReviewedAt        *time.Time `json:"reviewed_at,omitempty"`
+	ReviewedBy        *int64     `json:"reviewed_by,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
 type ImageHistoryImage struct {

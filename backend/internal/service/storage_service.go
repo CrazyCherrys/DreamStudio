@@ -230,7 +230,9 @@ func (s *StorageService) resolveImageData(ctx context.Context, image GeneratedIm
 	if err != nil {
 		return nil, "", ErrStorageFailed.WithCause(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, "", ErrStorageFailed.WithCause(fmt.Errorf("download failed with status %d", resp.StatusCode))

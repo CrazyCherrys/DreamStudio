@@ -52,7 +52,9 @@ func FetchNewAPIModels(ctx context.Context, baseURL, accessKey string, client *h
 	if err != nil {
 		return nil, fmt.Errorf("request newapi models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

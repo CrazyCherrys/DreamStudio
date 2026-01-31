@@ -68,11 +68,11 @@ type SystemSettings struct {
 }
 
 type PublicSettings struct {
-	RegistrationEnabled bool   `json:"registration_enabled"`
-	EmailVerifyEnabled  bool   `json:"email_verify_enabled"`
-	PromoCodeEnabled    bool   `json:"promo_code_enabled"`
-	TurnstileEnabled    bool   `json:"turnstile_enabled"`
-	TurnstileSiteKey    string `json:"turnstile_site_key"`
+	RegistrationEnabled  bool   `json:"registration_enabled"`
+	EmailVerifyEnabled   bool   `json:"email_verify_enabled"`
+	PromoCodeEnabled     bool   `json:"promo_code_enabled"`
+	TurnstileEnabled     bool   `json:"turnstile_enabled"`
+	TurnstileSiteKey     string `json:"turnstile_site_key"`
 	SiteName             string `json:"site_name"`
 	SiteLogo             string `json:"site_logo"`
 	SiteSubtitle         string `json:"site_subtitle"`
@@ -82,8 +82,8 @@ type PublicSettings struct {
 	HomeContent          string `json:"home_content"`
 	HideCcsImportButton  bool   `json:"hide_ccs_import_button"`
 	UserCustomKeyEnabled bool   `json:"user_custom_key_enabled"`
-	LinuxDoOAuthEnabled bool   `json:"linuxdo_oauth_enabled"`
-	Version             string `json:"version"`
+	LinuxDoOAuthEnabled  bool   `json:"linuxdo_oauth_enabled"`
+	Version              string `json:"version"`
 }
 
 // StreamTimeoutSettings 流超时处理配置 DTO
