@@ -995,17 +995,17 @@ type geminiGenerateResponseCamel struct {
 	Candidates []struct {
 		Content struct {
 			Parts []struct {
-			InlineData *struct {
-				MimeType string `json:"mimeType"`
-				Data     string `json:"data"`
-			} `json:"inlineData"`
-			FileData *struct {
-				MimeType string `json:"mimeType"`
-				FileURI  string `json:"fileUri"`
-			} `json:"fileData"`
-		} `json:"parts"`
-	} `json:"content"`
-} `json:"candidates"`
+				InlineData *struct {
+					MimeType string `json:"mimeType"`
+					Data     string `json:"data"`
+				} `json:"inlineData"`
+				FileData *struct {
+					MimeType string `json:"mimeType"`
+					FileURI  string `json:"fileUri"`
+				} `json:"fileData"`
+			} `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
 }
 
 func parseGeminiImageResponse(body []byte) (*ImageGenerationResult, error) {

@@ -49,9 +49,9 @@ type GalleryCreateInput struct {
 	ReferenceImageURL *string
 	Prompt            *string
 	Model             *string
-	Width        *int
-	Height       *int
-	IsPublic     bool
+	Width             *int
+	Height            *int
+	IsPublic          bool
 }
 
 type GalleryRepository interface {
