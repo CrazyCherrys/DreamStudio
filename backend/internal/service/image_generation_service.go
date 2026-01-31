@@ -978,17 +978,17 @@ type geminiGenerateResponse struct {
 	Candidates []struct {
 		Content struct {
 			Parts []struct {
-			InlineData *struct {
-				MimeType string `json:"mime_type"`
-				Data     string `json:"data"`
-			} `json:"inline_data"`
-			FileData *struct {
-				MimeType string `json:"mime_type"`
-				FileURI  string `json:"file_uri"`
-			} `json:"file_data"`
-		} `json:"parts"`
-	} `json:"content"`
-} `json:"candidates"`
+				InlineData *struct {
+					MimeType string `json:"mime_type"`
+					Data     string `json:"data"`
+				} `json:"inline_data"`
+				FileData *struct {
+					MimeType string `json:"mime_type"`
+					FileURI  string `json:"file_uri"`
+				} `json:"file_data"`
+			} `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
 }
 
 type geminiGenerateResponseCamel struct {

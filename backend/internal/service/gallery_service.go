@@ -44,11 +44,11 @@ type GalleryImage struct {
 }
 
 type GalleryCreateInput struct {
-	ImageURL     string
-	ThumbnailURL *string
+	ImageURL          string
+	ThumbnailURL      *string
 	ReferenceImageURL *string
-	Prompt       *string
-	Model        *string
+	Prompt            *string
+	Model             *string
 	Width        *int
 	Height       *int
 	IsPublic     bool
