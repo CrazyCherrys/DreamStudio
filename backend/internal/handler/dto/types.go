@@ -277,7 +277,7 @@ type GalleryImage struct {
 }
 
 type ImageHistoryImage struct {
-	ImageURL string       `json:"image_url"`
+	ImageURL string        `json:"image_url"`
 	Gallery  *GalleryImage `json:"gallery,omitempty"`
 }
 

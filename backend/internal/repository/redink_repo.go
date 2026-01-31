@@ -354,7 +354,11 @@ func (r *redinkRepository) ListByUser(
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	records := make([]service.RedInkRecordSummary, 0, params.Limit())
 	for rows.Next() {
