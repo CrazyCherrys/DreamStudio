@@ -48,7 +48,7 @@ type RedInkRecordCreateRequest struct {
 }
 
 type RedInkRecordUpdateRequest struct {
-	OutlineRaw string                  `json:"outline_raw"`
+	OutlineRaw string                      `json:"outline_raw"`
 	Pages      []service.RedInkOutlinePage `json:"pages"`
 }
 
