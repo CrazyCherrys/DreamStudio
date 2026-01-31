@@ -26,14 +26,14 @@ type SystemSettings struct {
 	LinuxDoConnectClientSecretConfigured bool
 	LinuxDoConnectRedirectURL            string
 
-	SiteName            string
-	SiteLogo            string
-	SiteSubtitle        string
-	APIBaseURL          string
-	ContactInfo         string
-	DocURL              string
-	HomeContent         string
-	HideCcsImportButton bool
+	SiteName             string
+	SiteLogo             string
+	SiteSubtitle         string
+	APIBaseURL           string
+	ContactInfo          string
+	DocURL               string
+	HomeContent          string
+	HideCcsImportButton  bool
 	UserCustomKeyEnabled bool
 
 	StorageS3Enabled             bool
@@ -73,22 +73,22 @@ type SystemSettings struct {
 }
 
 type PublicSettings struct {
-	RegistrationEnabled bool
-	EmailVerifyEnabled  bool
-	PromoCodeEnabled    bool
-	TurnstileEnabled    bool
-	TurnstileSiteKey    string
-	SiteName            string
-	SiteLogo            string
-	SiteSubtitle        string
-	APIBaseURL          string
-	ContactInfo         string
-	DocURL              string
-	HomeContent         string
-	HideCcsImportButton bool
+	RegistrationEnabled  bool
+	EmailVerifyEnabled   bool
+	PromoCodeEnabled     bool
+	TurnstileEnabled     bool
+	TurnstileSiteKey     string
+	SiteName             string
+	SiteLogo             string
+	SiteSubtitle         string
+	APIBaseURL           string
+	ContactInfo          string
+	DocURL               string
+	HomeContent          string
+	HideCcsImportButton  bool
 	UserCustomKeyEnabled bool
-	LinuxDoOAuthEnabled bool
-	Version             string
+	LinuxDoOAuthEnabled  bool
+	Version              string
 }
 
 type PromptOptimizationSettings struct {

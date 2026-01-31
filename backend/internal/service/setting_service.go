@@ -88,21 +88,21 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	}
 
 	return &PublicSettings{
-		RegistrationEnabled: settings[SettingKeyRegistrationEnabled] == "true",
-		EmailVerifyEnabled:  settings[SettingKeyEmailVerifyEnabled] == "true",
-		PromoCodeEnabled:    settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
-		TurnstileEnabled:    settings[SettingKeyTurnstileEnabled] == "true",
-		TurnstileSiteKey:    settings[SettingKeyTurnstileSiteKey],
-		SiteName:            s.getStringOrDefault(settings, SettingKeySiteName, "DreamStudio"),
-		SiteLogo:            settings[SettingKeySiteLogo],
-		SiteSubtitle:        s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
-		APIBaseURL:          settings[SettingKeyAPIBaseURL],
-		ContactInfo:         settings[SettingKeyContactInfo],
-		DocURL:              settings[SettingKeyDocURL],
-		HomeContent:         settings[SettingKeyHomeContent],
-		HideCcsImportButton: settings[SettingKeyHideCcsImportButton] == "true",
+		RegistrationEnabled:  settings[SettingKeyRegistrationEnabled] == "true",
+		EmailVerifyEnabled:   settings[SettingKeyEmailVerifyEnabled] == "true",
+		PromoCodeEnabled:     settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
+		TurnstileEnabled:     settings[SettingKeyTurnstileEnabled] == "true",
+		TurnstileSiteKey:     settings[SettingKeyTurnstileSiteKey],
+		SiteName:             s.getStringOrDefault(settings, SettingKeySiteName, "DreamStudio"),
+		SiteLogo:             settings[SettingKeySiteLogo],
+		SiteSubtitle:         s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
+		APIBaseURL:           settings[SettingKeyAPIBaseURL],
+		ContactInfo:          settings[SettingKeyContactInfo],
+		DocURL:               settings[SettingKeyDocURL],
+		HomeContent:          settings[SettingKeyHomeContent],
+		HideCcsImportButton:  settings[SettingKeyHideCcsImportButton] == "true",
 		UserCustomKeyEnabled: !isFalseSettingValue(settings[SettingKeyUserCustomKeyEnabled]),
-		LinuxDoOAuthEnabled: linuxDoEnabled,
+		LinuxDoOAuthEnabled:  linuxDoEnabled,
 	}, nil
 }
 
@@ -132,39 +132,39 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 	// Return a struct that matches the frontend's expected format
 	return &struct {
-		RegistrationEnabled bool   `json:"registration_enabled"`
-		EmailVerifyEnabled  bool   `json:"email_verify_enabled"`
-		PromoCodeEnabled    bool   `json:"promo_code_enabled"`
-		TurnstileEnabled    bool   `json:"turnstile_enabled"`
-		TurnstileSiteKey    string `json:"turnstile_site_key,omitempty"`
-		SiteName            string `json:"site_name"`
-		SiteLogo            string `json:"site_logo,omitempty"`
-		SiteSubtitle        string `json:"site_subtitle,omitempty"`
-		APIBaseURL          string `json:"api_base_url,omitempty"`
-		ContactInfo         string `json:"contact_info,omitempty"`
-		DocURL              string `json:"doc_url,omitempty"`
-		HomeContent         string `json:"home_content,omitempty"`
-		HideCcsImportButton bool   `json:"hide_ccs_import_button"`
-		UserCustomKeyEnabled bool  `json:"user_custom_key_enabled"`
-		LinuxDoOAuthEnabled bool   `json:"linuxdo_oauth_enabled"`
-		Version             string `json:"version,omitempty"`
+		RegistrationEnabled  bool   `json:"registration_enabled"`
+		EmailVerifyEnabled   bool   `json:"email_verify_enabled"`
+		PromoCodeEnabled     bool   `json:"promo_code_enabled"`
+		TurnstileEnabled     bool   `json:"turnstile_enabled"`
+		TurnstileSiteKey     string `json:"turnstile_site_key,omitempty"`
+		SiteName             string `json:"site_name"`
+		SiteLogo             string `json:"site_logo,omitempty"`
+		SiteSubtitle         string `json:"site_subtitle,omitempty"`
+		APIBaseURL           string `json:"api_base_url,omitempty"`
+		ContactInfo          string `json:"contact_info,omitempty"`
+		DocURL               string `json:"doc_url,omitempty"`
+		HomeContent          string `json:"home_content,omitempty"`
+		HideCcsImportButton  bool   `json:"hide_ccs_import_button"`
+		UserCustomKeyEnabled bool   `json:"user_custom_key_enabled"`
+		LinuxDoOAuthEnabled  bool   `json:"linuxdo_oauth_enabled"`
+		Version              string `json:"version,omitempty"`
 	}{
-		RegistrationEnabled: settings.RegistrationEnabled,
-		EmailVerifyEnabled:  settings.EmailVerifyEnabled,
-		PromoCodeEnabled:    settings.PromoCodeEnabled,
-		TurnstileEnabled:    settings.TurnstileEnabled,
-		TurnstileSiteKey:    settings.TurnstileSiteKey,
-		SiteName:            settings.SiteName,
-		SiteLogo:            settings.SiteLogo,
-		SiteSubtitle:        settings.SiteSubtitle,
-		APIBaseURL:          settings.APIBaseURL,
-		ContactInfo:         settings.ContactInfo,
-		DocURL:              settings.DocURL,
-		HomeContent:         settings.HomeContent,
-		HideCcsImportButton: settings.HideCcsImportButton,
+		RegistrationEnabled:  settings.RegistrationEnabled,
+		EmailVerifyEnabled:   settings.EmailVerifyEnabled,
+		PromoCodeEnabled:     settings.PromoCodeEnabled,
+		TurnstileEnabled:     settings.TurnstileEnabled,
+		TurnstileSiteKey:     settings.TurnstileSiteKey,
+		SiteName:             settings.SiteName,
+		SiteLogo:             settings.SiteLogo,
+		SiteSubtitle:         settings.SiteSubtitle,
+		APIBaseURL:           settings.APIBaseURL,
+		ContactInfo:          settings.ContactInfo,
+		DocURL:               settings.DocURL,
+		HomeContent:          settings.HomeContent,
+		HideCcsImportButton:  settings.HideCcsImportButton,
 		UserCustomKeyEnabled: settings.UserCustomKeyEnabled,
-		LinuxDoOAuthEnabled: settings.LinuxDoOAuthEnabled,
-		Version:             s.version,
+		LinuxDoOAuthEnabled:  settings.LinuxDoOAuthEnabled,
+		Version:              s.version,
 	}, nil
 }
 
@@ -345,19 +345,19 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 
 	// 初始化默认设置
 	defaults := map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-		SettingKeyEmailVerifyEnabled:  "false",
-		SettingKeyPromoCodeEnabled:    "true", // 默认启用优惠码功能
-		SettingKeySiteName:            "DreamStudio",
-		SettingKeySiteLogo:            "",
-		SettingKeyDefaultConcurrency:  strconv.Itoa(s.cfg.Default.UserConcurrency),
-		SettingKeyDefaultBalance:      strconv.FormatFloat(s.cfg.Default.UserBalance, 'f', 8, 64),
-		SettingKeySMTPPort:            "587",
-		SettingKeySMTPUseTLS:          "false",
-		SettingKeyNewAPIBaseURL:       DefaultNewAPIBaseURL,
-		SettingKeyStorageS3Enabled:    "false",
-		SettingKeyStorageS3UseSSL:     "true",
-		SettingKeyStorageS3PathStyle:  "false",
+		SettingKeyRegistrationEnabled:  "true",
+		SettingKeyEmailVerifyEnabled:   "false",
+		SettingKeyPromoCodeEnabled:     "true", // 默认启用优惠码功能
+		SettingKeySiteName:             "DreamStudio",
+		SettingKeySiteLogo:             "",
+		SettingKeyDefaultConcurrency:   strconv.Itoa(s.cfg.Default.UserConcurrency),
+		SettingKeyDefaultBalance:       strconv.FormatFloat(s.cfg.Default.UserBalance, 'f', 8, 64),
+		SettingKeySMTPPort:             "587",
+		SettingKeySMTPUseTLS:           "false",
+		SettingKeyNewAPIBaseURL:        DefaultNewAPIBaseURL,
+		SettingKeyStorageS3Enabled:     "false",
+		SettingKeyStorageS3UseSSL:      "true",
+		SettingKeyStorageS3PathStyle:   "false",
 		SettingKeyUserCustomKeyEnabled: "true",
 		// Model fallback defaults
 		SettingKeyEnableModelFallback:      "false",

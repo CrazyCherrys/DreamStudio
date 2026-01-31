@@ -94,15 +94,15 @@ const (
 	SettingKeyLinuxDoConnectRedirectURL  = "linuxdo_connect_redirect_url"
 
 	// OEM设置
-	SettingKeySiteName	= "site_name"	// 网站名称
-	SettingKeySiteLogo	= "site_logo"	// 网站Logo (base64)
-	SettingKeySiteSubtitle	= "site_subtitle"	// 网站副标题
-	SettingKeyAPIBaseURL	= "api_base_url"	// API端点地址（用于客户端配置和导入）
-	SettingKeyContactInfo	= "contact_info"	// 客服联系方式
-	SettingKeyDocURL	= "doc_url"	// 文档链接
-	SettingKeyHomeContent	= "home_content"	// 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
-	SettingKeyHideCcsImportButton	= "hide_ccs_import_button"	// 是否隐藏 API Keys 页面的导入 CCS 按钮
-	SettingKeyUserCustomKeyEnabled	= "user_custom_key_enabled"	// 是否允许用户自定义 API Key
+	SettingKeySiteName             = "site_name"               // 网站名称
+	SettingKeySiteLogo             = "site_logo"               // 网站Logo (base64)
+	SettingKeySiteSubtitle         = "site_subtitle"           // 网站副标题
+	SettingKeyAPIBaseURL           = "api_base_url"            // API端点地址（用于客户端配置和导入）
+	SettingKeyContactInfo          = "contact_info"            // 客服联系方式
+	SettingKeyDocURL               = "doc_url"                 // 文档链接
+	SettingKeyHomeContent          = "home_content"            // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
+	SettingKeyHideCcsImportButton  = "hide_ccs_import_button"  // 是否隐藏 API Keys 页面的导入 CCS 按钮
+	SettingKeyUserCustomKeyEnabled = "user_custom_key_enabled" // 是否允许用户自定义 API Key
 
 	// DreamStudio NewAPI 设置
 	SettingKeyNewAPIBaseURL      = "newapi_base_url"      // NewAPI Base URL
@@ -110,27 +110,27 @@ const (
 	SettingKeyNewAPIDefaultModel = "newapi_default_model" // NewAPI 默认模型
 
 	// DreamStudio Storage 设置
-	SettingKeyStorageS3Enabled    = "storage_s3_enabled"
-	SettingKeyStorageS3Endpoint   = "storage_s3_endpoint"
-	SettingKeyStorageS3Region     = "storage_s3_region"
-	SettingKeyStorageS3Bucket     = "storage_s3_bucket"
-	SettingKeyStorageS3AccessKey  = "storage_s3_access_key"
-	SettingKeyStorageS3SecretKey  = "storage_s3_secret_key"
-	SettingKeyStorageS3PublicURL  = "storage_s3_public_url"
-	SettingKeyStorageS3UseSSL     = "storage_s3_use_ssl"
-	SettingKeyStorageS3PathStyle  = "storage_s3_path_style"
+	SettingKeyStorageS3Enabled   = "storage_s3_enabled"
+	SettingKeyStorageS3Endpoint  = "storage_s3_endpoint"
+	SettingKeyStorageS3Region    = "storage_s3_region"
+	SettingKeyStorageS3Bucket    = "storage_s3_bucket"
+	SettingKeyStorageS3AccessKey = "storage_s3_access_key"
+	SettingKeyStorageS3SecretKey = "storage_s3_secret_key"
+	SettingKeyStorageS3PublicURL = "storage_s3_public_url"
+	SettingKeyStorageS3UseSSL    = "storage_s3_use_ssl"
+	SettingKeyStorageS3PathStyle = "storage_s3_path_style"
 
 	// RedInk settings
-	SettingKeyRedInkTextModel       = "redink_text_model"
-	SettingKeyRedInkImageModel      = "redink_image_model"
-	SettingKeyRedInkResolution      = "redink_resolution"
-	SettingKeyRedInkAspectRatio     = "redink_aspect_ratio"
-	SettingKeyRedInkMaxPages        = "redink_max_pages"
-	SettingKeyRedInkUseShortPrompt  = "redink_use_short_prompt"
-	SettingKeyRedInkHighConcurrency = "redink_high_concurrency"
-	SettingKeyRedInkOutlinePrompt   = "redink_outline_prompt"
-	SettingKeyRedInkContentPrompt   = "redink_content_prompt"
-	SettingKeyRedInkImagePrompt     = "redink_image_prompt"
+	SettingKeyRedInkTextModel        = "redink_text_model"
+	SettingKeyRedInkImageModel       = "redink_image_model"
+	SettingKeyRedInkResolution       = "redink_resolution"
+	SettingKeyRedInkAspectRatio      = "redink_aspect_ratio"
+	SettingKeyRedInkMaxPages         = "redink_max_pages"
+	SettingKeyRedInkUseShortPrompt   = "redink_use_short_prompt"
+	SettingKeyRedInkHighConcurrency  = "redink_high_concurrency"
+	SettingKeyRedInkOutlinePrompt    = "redink_outline_prompt"
+	SettingKeyRedInkContentPrompt    = "redink_content_prompt"
+	SettingKeyRedInkImagePrompt      = "redink_image_prompt"
 	SettingKeyRedInkImagePromptShort = "redink_image_prompt_short"
 
 	// 默认配置

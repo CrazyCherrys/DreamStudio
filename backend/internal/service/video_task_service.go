@@ -22,13 +22,13 @@ const (
 )
 
 const (
-	videoTaskPollInterval        = 3 * time.Second
-	videoTaskWorkerCount         = 1
-	videoTaskTimeout             = 2 * time.Minute
-	videoTaskStaleAfter           = 30 * time.Minute
-	videoTaskStaleCheckInterval   = 1 * time.Minute
-	videoTaskMaxAttempts          = 120
-	videoTaskPollDelay            = 12 * time.Second
+	videoTaskPollInterval       = 3 * time.Second
+	videoTaskWorkerCount        = 1
+	videoTaskTimeout            = 2 * time.Minute
+	videoTaskStaleAfter         = 30 * time.Minute
+	videoTaskStaleCheckInterval = 1 * time.Minute
+	videoTaskMaxAttempts        = 120
+	videoTaskPollDelay          = 12 * time.Second
 )
 
 var ErrVideoTaskNotFound = infraerrors.NotFound("VIDEO_TASK_NOT_FOUND", "video task not found")

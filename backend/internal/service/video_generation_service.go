@@ -43,18 +43,18 @@ type SoraVideoError struct {
 }
 
 type SoraVideoResponse struct {
-	ID          string                 `json:"id"`
-	Object      string                 `json:"object"`
-	Model       string                 `json:"model"`
-	Status      string                 `json:"status"`
-	Progress    int                    `json:"progress"`
-	CreatedAt   int64                  `json:"created_at"`
-	Seconds     string                 `json:"seconds"`
-	CompletedAt *int64                 `json:"completed_at,omitempty"`
-	ExpiresAt   *int64                 `json:"expires_at,omitempty"`
-	Size        string                 `json:"size,omitempty"`
-	Error       *SoraVideoError        `json:"error,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID          string          `json:"id"`
+	Object      string          `json:"object"`
+	Model       string          `json:"model"`
+	Status      string          `json:"status"`
+	Progress    int             `json:"progress"`
+	CreatedAt   int64           `json:"created_at"`
+	Seconds     string          `json:"seconds"`
+	CompletedAt *int64          `json:"completed_at,omitempty"`
+	ExpiresAt   *int64          `json:"expires_at,omitempty"`
+	Size        string          `json:"size,omitempty"`
+	Error       *SoraVideoError `json:"error,omitempty"`
+	Metadata    map[string]any  `json:"metadata,omitempty"`
 }
 
 type VideoGenerationService struct {
