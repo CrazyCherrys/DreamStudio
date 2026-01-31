@@ -29,24 +29,24 @@ type AdminHandlers struct {
 
 // Handlers contains all HTTP handlers
 type Handlers struct {
-	Auth          *AuthHandler
-	User          *UserHandler
-	UserModel     *UserModelSettingsHandler
+	Auth            *AuthHandler
+	User            *UserHandler
+	UserModel       *UserModelSettingsHandler
 	UserAPISettings *UserAPISettingsHandler
-	Image         *ImageGenerationHandler
-	RedInk        *RedInkHandler
-	Video         *VideoGenerationHandler
-	APIKey        *APIKeyHandler
-	Usage         *UsageHandler
-	Gallery       *GalleryHandler
-	Storage       *StorageHandler
-	Redeem        *RedeemHandler
-	Subscription  *SubscriptionHandler
-	Admin         *AdminHandlers
-	Gateway       *GatewayHandler
-	OpenAIGateway *OpenAIGatewayHandler
-	Health        *HealthHandler
-	Setting       *SettingHandler
+	Image           *ImageGenerationHandler
+	RedInk          *RedInkHandler
+	Video           *VideoGenerationHandler
+	APIKey          *APIKeyHandler
+	Usage           *UsageHandler
+	Gallery         *GalleryHandler
+	Storage         *StorageHandler
+	Redeem          *RedeemHandler
+	Subscription    *SubscriptionHandler
+	Admin           *AdminHandlers
+	Gateway         *GatewayHandler
+	OpenAIGateway   *OpenAIGatewayHandler
+	Health          *HealthHandler
+	Setting         *SettingHandler
 }
 
 // BuildInfo contains build-time information

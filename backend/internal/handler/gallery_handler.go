@@ -20,14 +20,14 @@ func NewGalleryHandler(galleryService *service.GalleryService) *GalleryHandler {
 }
 
 type CreateGalleryImageRequest struct {
-	ImageURL     string  `json:"image_url"`
-	ThumbnailURL *string `json:"thumbnail_url"`
+	ImageURL          string  `json:"image_url"`
+	ThumbnailURL      *string `json:"thumbnail_url"`
 	ReferenceImageURL *string `json:"reference_image_url"`
-	Prompt       *string `json:"prompt"`
-	Model        *string `json:"model"`
-	Width        *int    `json:"width"`
-	Height       *int    `json:"height"`
-	IsPublic     bool    `json:"is_public"`
+	Prompt            *string `json:"prompt"`
+	Model             *string `json:"model"`
+	Width             *int    `json:"width"`
+	Height            *int    `json:"height"`
+	IsPublic          bool    `json:"is_public"`
 }
 
 type UpdateGalleryVisibilityRequest struct {
