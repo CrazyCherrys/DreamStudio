@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  super_admin
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  active
+  disabled
+  deleted
+
+  @@map("user_status")
+}
+
+enum NewApiConfigStatus {
+  untested
+  valid
+  invalid
+
+  @@map("new_api_config_status")
+}
+
+enum ModelEndpointType {
+  openai_image_generations
+  openai_image_edits
+  gemini_generate_content
+
+  @@map("model_endpoint_type")
+}
+
+enum ReferenceTransferMode {
+  none
+  multipart
+  url
+
+  @@map("reference_transfer_mode")
+}
+
+enum ImageTaskStatus {
+  pending
+  running
+  succeeded
+  failed
+  timeout
+  canceled
+
+  @@map("image_task_status")
+}
+
+enum AssetKind {
+  reference_image
+  result_image
+
+  @@map("asset_kind")
+}
+
+enum AssetStatus {
+  available
+  deleted
+  expired_cleaned
+
+  @@map("asset_status")
+}
+
+enum StorageDriver {
+  local
+  s3
+
+  @@map("storage_driver")
+}
+
+enum RequestLogStatus {
+  succeeded
+  failed
+  timeout
+  canceled
+
+  @@map("request_log_status")
+}
+
+enum AuditResult {
+  success
+  failed
+
+  @@map("audit_result")
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  username     String       @unique @db.VarChar(120)
+  passwordHash String       @map("password_hash")
+  role         UserRole     @default(user)
+  status       UserStatus   @default(active)
+  displayName  String?      @map("display_name") @db.VarChar(160)
+  lastLoginAt  DateTime?    @map("last_login_at") @db.Timestamptz(6)
+  disabledAt   DateTime?    @map("disabled_at") @db.Timestamptz(6)
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions     UserSession[]
+
+  @@index([role])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model UserSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String?   @map("refresh_token_hash")
+  ipAddress        String?   @map("ip_address") @db.Inet
+  userAgent        String?   @map("user_agent")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("user_sessions")
+}
+
+model SystemSetting {
+  key         String   @id @db.VarChar(120)
+  value       Json
+  description String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("system_settings")
+}
+
+model StorageSetting {
+  id                      String        @id @default(uuid()) @db.Uuid
+  driver                  StorageDriver @default(local)
+  isActive                Boolean       @default(true) @map("is_active")
+  localInputPath          String?       @map("local_input_path")
+  localOutputPath         String?       @map("local_output_path")
+  referenceRetentionHours Int           @default(12) @map("reference_retention_hours")
+  resultRetentionHours    Int           @default(12) @map("result_retention_hours")
+  updatedBy               String?       @map("updated_by") @db.Uuid
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([driver])
+  @@index([isActive])
+  @@map("storage_settings")
+}

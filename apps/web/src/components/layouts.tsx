@@ -1,0 +1,68 @@
+import Link from 'next/link';
+
+export function PublicLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <main>
+      <header className="ds-shell flex items-center justify-between py-6">
+        <Link className="text-lg font-black tracking-tight" href="/">
+          DreamStudio
+        </Link>
+        <nav className="flex items-center gap-3 text-sm font-semibold">
+          <Link className="ds-muted hover:text-[var(--ds-text)]" href="/auth/login">
+            登录
+          </Link>
+          <Link className="ds-button" href="/auth/register">
+            开始使用
+          </Link>
+        </nav>
+      </header>
+      {children}
+    </main>
+  );
+}
+
+export function AuthLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="ds-shell grid min-h-screen items-center gap-10 py-10 lg:grid-cols-[1fr_420px]">
+      <section className="hidden lg:block">
+        <span className="ds-badge">连接你的 new-api 密钥</span>
+        <h1 className="ds-display mt-5 max-w-2xl text-6xl font-black leading-[0.98]">
+          把复杂的模型接口收进一个安静的创作工作室。
+        </h1>
+        <p className="ds-muted mt-6 max-w-xl text-lg leading-8">
+          M0 只建立认证页面骨架，具体注册、登录、会话和 CSRF 将在 M1 实现。
+        </p>
+      </section>
+      <section className="ds-card p-7">{children}</section>
+    </main>
+  );
+}
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="min-h-screen px-4 py-4">
+      <div className="mx-auto grid max-w-[1440px] gap-4 lg:grid-cols-[300px_minmax(520px,1fr)_380px]">
+        {children}
+      </div>
+    </main>
+  );
+}
+
+export function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="min-h-screen px-4 py-6">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-6 flex items-center justify-between">
+          <div>
+            <p className="ds-badge">Admin</p>
+            <h1 className="mt-3 text-3xl font-black">管理后台骨架</h1>
+          </div>
+          <Link className="ds-button ds-button-secondary" href="/">
+            返回首页
+          </Link>
+        </header>
+        {children}
+      </div>
+    </main>
+  );
+}

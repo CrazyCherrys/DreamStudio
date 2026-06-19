@@ -1,0 +1,68 @@
+services:
+  dreamstudio:
+    build:
+      context: .
+    image: dreamstudio:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://dreamstudio:dreamstudio@postgres:5432/dreamstudio?schema=public
+      REDIS_URL: redis://redis:6379/0
+      DREAMSTUDIO_SECRET_KEY: ${DREAMSTUDIO_SECRET_KEY:-local-development-secret-key-change-before-production}
+      COOKIE_SECRET: ${COOKIE_SECRET:-local-development-cookie-secret-change-before-production}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      NODE_ENV: production
+      WEB_PORT: 3000
+      API_PORT: 3001
+      LOCAL_STORAGE_ROOT: /data
+      LOG_LEVEL: info
+      TRUST_PROXY: 'false'
+      WORKER_CONCURRENCY: 2
+    ports:
+      - '3000:3000'
+      - '3001:3001'
+    volumes:
+      - dreamstudio_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(''http://127.0.0.1:3001/healthz'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: dreamstudio
+      POSTGRES_USER: dreamstudio
+      POSTGRES_PASSWORD: dreamstudio
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dreamstudio -d dreamstudio']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  dreamstudio_data:
+  postgres_data:

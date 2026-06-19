@@ -1,0 +1,33 @@
+{
+  "name": "dreamstudio",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
+    "db:init:m0": "tsx scripts/init-m0.ts",
+    "db:migrate:deploy": "prisma migrate deploy --schema packages/db/prisma/schema.prisma",
+    "db:migrate:dev": "prisma migrate dev --schema packages/db/prisma/schema.prisma",
+    "dev": "node scripts/start-all.mjs dev",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "postinstall": "npm run db:generate",
+    "start": "node scripts/start-all.mjs start",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "prisma": "^6.19.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3"
+  }
+}

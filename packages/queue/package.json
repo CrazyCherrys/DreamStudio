@@ -1,0 +1,19 @@
+{
+  "name": "@dreamstudio/queue",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "bullmq": "^5.64.1",
+    "ioredis": "^5.8.2"
+  },
+  "devDependencies": {
+    "@dreamstudio/config": "0.0.0"
+  }
+}

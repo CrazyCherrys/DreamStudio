@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.next/
+coverage/
+packages/db/generated/
+package-lock.json
+docs/*.md
+apps/web/next-env.d.ts

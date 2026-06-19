@@ -1,0 +1,11 @@
+node_modules/
+.next/
+apps/*/.next/
+apps/*/dist/
+packages/*/dist/
+coverage/
+*.log
+*.tsbuildinfo
+.env
+.env.local
+.git/
