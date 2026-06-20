@@ -12,10 +12,9 @@ import {
 import Link from 'next/link';
 
 import { useAuth } from '@/components/auth-provider';
-import { ParameterSchemaForm } from '@/components/model-catalog/model-components';
 import { RouteGuard } from '@/components/route-guard';
 import { ApiClientError, type AuthUser } from '@/lib/auth';
-import { fetchAssets, formatAssetBytes, uploadReferenceImage, type AssetItem } from '@/lib/assets';
+import { uploadReferenceImage, type AssetItem } from '@/lib/assets';
 import {
   createImageTask,
   fetchImageTasks,
@@ -35,7 +34,7 @@ import {
 } from '@/lib/model-catalog';
 
 type StudioModelFilter = 'all' | ModelModality | 'favorite';
-type QuickParameterKind = 'count' | 'ratio' | 'resolution';
+type QuickParameterKind = 'count' | 'size' | 'resolution';
 type StudioReferencePreview = Pick<AssetItem, 'id' | 'download_url' | 'filename'>;
 
 const MAX_SELECTED_REFERENCES = 8;
@@ -57,8 +56,6 @@ function StudioContent() {
     Record<string, string | number | boolean | null>
   >({});
   const [prompt, setPrompt] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState('');
-  const [referenceAssets, setReferenceAssets] = useState<AssetItem[]>([]);
   const [selectedReferences, setSelectedReferences] = useState<StudioReferencePreview[]>([]);
   const [modelTasks, setModelTasks] = useState<ImageTask[]>([]);
   const [taskHistoryOpen, setTaskHistoryOpen] = useState(false);
@@ -81,13 +78,9 @@ function StudioContent() {
       setLoading(true);
       setError(null);
       try {
-        const [nextModels, referenceList] = await Promise.all([
-          fetchPublicModels({ modality: 'image' }),
-          fetchAssets('reference_image'),
-        ]);
+        const nextModels = await fetchPublicModels({ modality: 'image' });
         setModels(nextModels.items);
         setSelectedModel(nextModels.items[0] ?? null);
-        setReferenceAssets(referenceList.items);
       } catch (requestError) {
         setError(
           requestError instanceof ApiClientError ? requestError.message : '读取创作台数据失败',
@@ -174,11 +167,6 @@ function StudioContent() {
     () => buildQuickParameters(selectedModel?.parameter_schema ?? []),
     [selectedModel?.parameter_schema],
   );
-  const quickParameterKeys = useMemo(
-    () => new Set(quickParameters.flatMap((item) => item.fields.map((field) => field.key))),
-    [quickParameters],
-  );
-
   useEffect(() => {
     if (selectedModel && filteredModels.some((model) => model.id === selectedModel.id)) {
       return;
@@ -223,21 +211,6 @@ function StudioContent() {
       setParameterValues(value);
     },
     [],
-  );
-
-  const updateAdvancedParameterValues = useCallback(
-    (value: Record<string, string | number | boolean | null>) => {
-      setParameterValues((current) => {
-        const quickValues = Object.fromEntries(
-          Object.entries(current).filter(([key]) => quickParameterKeys.has(key)),
-        );
-        return {
-          ...quickValues,
-          ...value,
-        };
-      });
-    },
-    [quickParameterKeys],
   );
 
   function selectFilter(filter: StudioModelFilter) {
@@ -304,7 +277,7 @@ function StudioContent() {
         {
           model_record_id: selectedModel.id,
           prompt,
-          negative_prompt: negativePrompt.trim() || null,
+          negative_prompt: null,
           parameters: parameterValues,
           reference_asset_ids: selectedReferences.map((reference) => reference.id),
           client_request_id: crypto.randomUUID(),
@@ -350,7 +323,6 @@ function StudioContent() {
           return uploaded.item;
         }),
       );
-      setReferenceAssets((current) => mergeReferenceAssets(uploadedAssets, current));
       setSelectedReferences((current) =>
         addSelectedReferences(current, uploadedAssets.map(toStudioReferencePreview)),
       );
@@ -366,20 +338,6 @@ function StudioContent() {
     }
   }
 
-  function toggleReference(asset: AssetItem) {
-    if (selectedReferences.some((reference) => reference.id === asset.id)) {
-      setSelectedReferences((current) => current.filter((reference) => reference.id !== asset.id));
-      return;
-    }
-    if (selectedReferences.length >= MAX_SELECTED_REFERENCES) {
-      setError(`最多只能上传 ${MAX_SELECTED_REFERENCES} 张参考图`);
-      return;
-    }
-    setSelectedReferences((current) =>
-      addSelectedReferences(current, [toStudioReferencePreview(asset)]),
-    );
-  }
-
   function removeReference(referenceId: string) {
     setSelectedReferences((current) => current.filter((reference) => reference.id !== referenceId));
   }
@@ -392,27 +350,6 @@ function StudioContent() {
   );
   const canSubmit = Boolean(selectedImageModelSupported && prompt.trim() && !submitting);
   const resultTask = modelTasks.find((task) => task.result_assets.length > 0) ?? null;
-  const runningCount = modelTasks.filter(
-    (task) => task.status === 'pending' || task.status === 'running',
-  ).length;
-  const selectedReferenceIds = useMemo(
-    () => new Set(selectedReferences.map((reference) => reference.id)),
-    [selectedReferences],
-  );
-  const parameterCount = selectedModel?.parameter_schema.length ?? 0;
-  const advancedParameterSchema = useMemo(
-    () =>
-      (selectedModel?.parameter_schema ?? []).filter((field) => !quickParameterKeys.has(field.key)),
-    [quickParameterKeys, selectedModel?.parameter_schema],
-  );
-  const advancedParameterValues = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(parameterValues).filter(([key]) => !quickParameterKeys.has(key)),
-      ) as Record<string, string | number | boolean | null>,
-    [parameterValues, quickParameterKeys],
-  );
-
   return (
     <main className="studio-workspace">
       <StudioModelSidebar
@@ -428,8 +365,6 @@ function StudioContent() {
       />
 
       <section className="studio-stage">
-        <StudioTopbar runningCount={runningCount} selectedModel={selectedModel} />
-
         <section className="studio-creation-panel">
           <section className="studio-canvas-panel">
             <div className="studio-canvas-grid" />
@@ -477,16 +412,6 @@ function StudioContent() {
               </button>
             </div>
 
-            <div className="studio-composer-meta">
-              <span>{selectedModel?.display_name ?? '未选择模型'}</span>
-              <span>{parameterCount > 0 ? `${parameterCount} 个参数` : '默认参数'}</span>
-              <span>
-                {selectedModel?.supports_reference_image
-                  ? `${selectedReferences.length} 张参考图`
-                  : '不使用参考图'}
-              </span>
-            </div>
-
             <QuickParameterBar
               configs={quickParameters}
               onOpenChange={setOpenQuickParameter}
@@ -495,36 +420,6 @@ function StudioContent() {
               updateParameterValues={updateParameterValues}
               values={parameterValues}
             />
-
-            <ReferenceStrip
-              referenceAssets={referenceAssets}
-              selectedModel={selectedModel}
-              selectedReferenceIds={selectedReferenceIds}
-              toggleReference={toggleReference}
-            />
-
-            <div className="studio-drawer-row">
-              <details className="studio-drawer">
-                <summary>负向提示</summary>
-                <textarea
-                  className="studio-secondary-input"
-                  onChange={(event) => setNegativePrompt(event.target.value)}
-                  placeholder="不希望出现的元素"
-                  value={negativePrompt}
-                />
-              </details>
-
-              <details className="studio-drawer studio-advanced-drawer">
-                <summary>高级参数</summary>
-                <div className="studio-advanced-body">
-                  <ParameterSchemaForm
-                    onChange={updateAdvancedParameterValues}
-                    schema={advancedParameterSchema}
-                    value={advancedParameterValues}
-                  />
-                </div>
-              </details>
-            </div>
           </form>
         </section>
       </section>
@@ -683,8 +578,8 @@ function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterCon
     {
       fields: (items, keys) => findSingleQuickField(items, keys, isRatioParameter),
       icon: '□',
-      kind: 'ratio',
-      label: '比例',
+      kind: 'size',
+      label: '尺寸',
     },
     {
       fields: findResolutionFields,
@@ -751,14 +646,14 @@ function isCountParameter(field: ParameterSchemaField) {
 
 function isRatioParameter(field: ParameterSchemaField) {
   const text = fieldSearchText(field);
-  return /aspect|ratio|比例/.test(text);
+  return /\b(aspect|ratio)\b/.test(text) || /比例|画幅|尺寸/.test(text);
 }
 
 function isResolutionParameter(field: ParameterSchemaField) {
   const text = fieldSearchText(field);
   return (
-    /\b(size|resolution|dimension|quality)\b/.test(text) ||
-    /尺寸|分辨率|清晰度/.test(text) ||
+    /\b(resolution|dimension|quality)\b/.test(text) ||
+    /分辨率|清晰度|像素/.test(text) ||
     /\b(width|height)\b/.test(text)
   );
 }
@@ -798,17 +693,6 @@ function toStudioReferencePreview(asset: AssetItem): StudioReferencePreview {
     download_url: asset.download_url,
     filename: asset.filename,
   };
-}
-
-function mergeReferenceAssets(uploadedAssets: AssetItem[], currentAssets: AssetItem[]) {
-  const nextAssets = [...uploadedAssets];
-  const uploadedIds = new Set(uploadedAssets.map((asset) => asset.id));
-  for (const asset of currentAssets) {
-    if (!uploadedIds.has(asset.id)) {
-      nextAssets.push(asset);
-    }
-  }
-  return nextAssets;
 }
 
 function addSelectedReferences(
@@ -900,9 +784,22 @@ function StudioReferenceUploader({
           <label
             className={`studio-reference-add ${uploadDisabled ? 'is-disabled' : ''}`}
             htmlFor={inputId}
+            style={
+              {
+                '--reference-index': references.length,
+                '--reference-stack-x': `${Math.min(references.length, 2) * 16 + 24}px`,
+                '--reference-stack-y': `${Math.min(references.length, 3) * -3}px`,
+                '--reference-rotation': `${references.length % 2 === 0 ? -5 : 4}deg`,
+                '--reference-expanded-x': `${references.length * 80}px`,
+                '--reference-mobile-expanded-x': `${references.length * 66}px`,
+                '--reference-expanded-y': `${references.length % 2 === 0 ? 0 : 8}px`,
+                '--reference-expanded-rotation': `${references.length % 2 === 0 ? -3 : 3}deg`,
+              } as CSSProperties
+            }
             title={uploadDisabled ? statusLabel : '继续上传参考图'}
           >
-            +
+            <span className="studio-reference-placeholder-plus">+</span>
+            <span>参考图</span>
           </label>
         ) : null}
       </div>
@@ -917,37 +814,6 @@ function StudioReferenceUploader({
       />
       <span className="studio-reference-status">{statusLabel}</span>
     </div>
-  );
-}
-
-function StudioTopbar({
-  runningCount,
-  selectedModel,
-}: {
-  runningCount: number;
-  selectedModel: PublicAiModel | null;
-}) {
-  return (
-    <header className="studio-topbar">
-      <div className="studio-brand">
-        <span className="studio-brand-mark">DS</span>
-        <div>
-          <p>DreamStudio</p>
-          <span>{selectedModel?.provider_name ?? 'AI 创作工作台'}</span>
-        </div>
-      </div>
-      <nav className="studio-topnav">
-        <span className="studio-status-pill">
-          {runningCount > 0 ? `${runningCount} 个任务进行中` : '工作台就绪'}
-        </span>
-        <Link className="studio-link-button" href="/studio/assets">
-          资产库
-        </Link>
-        <Link className="studio-link-button studio-link-button-strong" href="/studio/tasks">
-          任务列表
-        </Link>
-      </nav>
-    </header>
   );
 }
 
@@ -1050,15 +916,6 @@ function StudioModelSidebar({
                 <small className="studio-model-description">
                   {model.description || model.model_id}
                 </small>
-              </span>
-              <span className="studio-model-tags">
-                <span className={`studio-model-tag studio-model-tag-${model.modality}`}>
-                  {modalityLabel(model.modality)}
-                </span>
-                {model.endpoint_types.map((endpointType) => (
-                  <span key={endpointType}>{endpointTypeShortLabel(endpointType)}</span>
-                ))}
-                {model.is_recommended ? <span>推荐</span> : null}
               </span>
             </button>
           </div>
@@ -1274,50 +1131,6 @@ function ModelIntro({ model }: { model: PublicAiModel }) {
           <span key={endpointType}>{endpointTypeShortLabel(endpointType)}</span>
         ))}
       </div>
-    </div>
-  );
-}
-
-function ReferenceStrip({
-  referenceAssets,
-  selectedModel,
-  selectedReferenceIds,
-  toggleReference,
-}: {
-  referenceAssets: AssetItem[];
-  selectedModel: PublicAiModel | null;
-  selectedReferenceIds: Set<string>;
-  toggleReference: (asset: AssetItem) => void;
-}) {
-  if (!selectedModel?.supports_reference_image) {
-    return null;
-  }
-
-  return (
-    <div className="studio-reference-strip">
-      {referenceAssets.length === 0 ? (
-        <span className="studio-reference-empty">暂无参考图</span>
-      ) : (
-        referenceAssets.map((asset) => (
-          <button
-            className={`studio-reference-chip ${
-              selectedReferenceIds.has(asset.id) ? 'is-active' : ''
-            }`}
-            key={asset.id}
-            onClick={() => toggleReference(asset)}
-            type="button"
-          >
-            <img alt={asset.filename} src={asset.download_url} />
-            <span>
-              <strong>{asset.filename}</strong>
-              <small>{formatAssetBytes(asset.size_bytes)}</small>
-            </span>
-          </button>
-        ))
-      )}
-      {selectedReferenceIds.size > 0 ? (
-        <span className="studio-reference-count">已选 {selectedReferenceIds.size}</span>
-      ) : null}
     </div>
   );
 }

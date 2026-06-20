@@ -4,6 +4,8 @@
 
 ## 当前有效文档
 
+- Studio 当前 UI 规则以 `07`、`12` 和 `14` 中更新后的描述为准：右侧为开放画布，Prompt 子容器位于底部中间且不铺满，快捷参数只来自当前模型已配置的 `parameter_schema`。
+
 - `01-dreamstudio-v1-product-shape.md`：v1 产品形态与关键决策，是当前方向的基础文档。
 - `02-dreamstudio-v1-prd.md`：v1 PRD 确认版，用于指导架构设计、数据模型、接口契约和开发里程碑。
 - `03-dreamstudio-v1-architecture.md`：v1 架构设计确认版，定义 DreamStudio 单容器部署、Web/API/Worker 逻辑模块、PostgreSQL、Redis 和存储边界。
