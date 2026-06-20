@@ -1,8 +1,6 @@
 services:
   dreamstudio:
-    build:
-      context: .
-    image: dreamstudio:local
+    image: ghcr.io/crazycherrys/dreamstudio:latest
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}

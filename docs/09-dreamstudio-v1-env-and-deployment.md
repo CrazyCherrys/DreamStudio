@@ -276,6 +276,24 @@ dreamstudio
 - 生产环境必须挂载 volume 或宿主机目录。
 - 如果运维方选择备份本地文件，需要备份 `/data`。
 
+### 5.4 GHCR 镜像发布
+
+仓库通过 GitHub Actions 自动发布 Docker 镜像：
+
+- Workflow 文件：`.github/workflows/docker-build.yml`
+- 触发条件：推送到 `main` 分支，或在 GitHub Actions 页面手动执行 `workflow_dispatch`
+- 镜像仓库：`ghcr.io/crazycherrys/dreamstudio`
+- 默认发布 tag：`latest`
+- 额外发布 tag：`main` 和 `sha-<commit>`
+
+推送到 `main` 后，GitHub Actions 会使用仓库根目录的 `Dockerfile` 构建镜像，并通过仓库默认的 `GITHUB_TOKEN` 登录 GHCR。仓库需要允许 Actions 写入 Packages。
+
+云端 Compose 示例默认使用：
+
+```yaml
+image: ghcr.io/crazycherrys/dreamstudio:latest
+```
+
 ---
 
 ## 6. 初始化流程
