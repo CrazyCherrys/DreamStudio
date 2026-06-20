@@ -132,7 +132,7 @@ function AssetGrid({
       <section className="ds-card grid place-items-center p-10 text-center">
         <div className="max-w-md">
           <span className="ds-badge">Empty</span>
-          <h2 className="mt-5 text-2xl font-black">资产库暂时为空</h2>
+          <h2 className="mt-5 text-2xl font-black">我的作品暂时为空</h2>
           <p className="ds-muted mt-3 leading-7">
             开始创作后，结果图会进入这里。也可以先上传参考图供后续任务使用。
           </p>
@@ -345,7 +345,7 @@ function StudioAssetsContent() {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="ds-badge">Assets</span>
-          <h1 className="mt-4 text-3xl font-black">资产库</h1>
+          <h1 className="mt-4 text-3xl font-black">我的作品</h1>
           <p className="ds-muted mt-2">管理自己的结果图和参考图。</p>
         </div>
         <Link className="ds-button ds-button-secondary" href="/studio">

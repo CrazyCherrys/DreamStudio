@@ -1,12 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import Link from 'next/link';
 
 import { useAuth } from '@/components/auth-provider';
 import { ParameterSchemaForm } from '@/components/model-catalog/model-components';
 import { RouteGuard } from '@/components/route-guard';
-import { ApiClientError } from '@/lib/auth';
+import { ApiClientError, type AuthUser } from '@/lib/auth';
 import { fetchAssets, formatAssetBytes, uploadReferenceImage, type AssetItem } from '@/lib/assets';
 import {
   createImageTask,
@@ -28,6 +36,9 @@ import {
 
 type StudioModelFilter = 'all' | ModelModality | 'favorite';
 type QuickParameterKind = 'count' | 'ratio' | 'resolution';
+type StudioReferencePreview = Pick<AssetItem, 'id' | 'download_url' | 'filename'>;
+
+const MAX_SELECTED_REFERENCES = 8;
 
 interface QuickParameterConfig {
   fields: ParameterSchemaField[];
@@ -48,7 +59,7 @@ function StudioContent() {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [referenceAssets, setReferenceAssets] = useState<AssetItem[]>([]);
-  const [selectedReferenceIds, setSelectedReferenceIds] = useState<Set<string>>(new Set());
+  const [selectedReferences, setSelectedReferences] = useState<StudioReferencePreview[]>([]);
   const [modelTasks, setModelTasks] = useState<ImageTask[]>([]);
   const [taskHistoryOpen, setTaskHistoryOpen] = useState(false);
   const [taskHistorySearchQuery, setTaskHistorySearchQuery] = useState('');
@@ -177,7 +188,7 @@ function StudioContent() {
     setParameterValues({});
     setShowModelIntro(Boolean(nextSelectedModel));
     if (!nextSelectedModel?.supports_reference_image) {
-      setSelectedReferenceIds(new Set());
+      setSelectedReferences([]);
     }
   }, [filteredModels, selectedModel]);
 
@@ -238,7 +249,7 @@ function StudioContent() {
     setParameterValues({});
     setShowModelIntro(true);
     if (!model.supports_reference_image) {
-      setSelectedReferenceIds(new Set());
+      setSelectedReferences([]);
     }
   }
 
@@ -295,7 +306,7 @@ function StudioContent() {
           prompt,
           negative_prompt: negativePrompt.trim() || null,
           parameters: parameterValues,
-          reference_asset_ids: [...selectedReferenceIds],
+          reference_asset_ids: selectedReferences.map((reference) => reference.id),
           client_request_id: crypto.randomUUID(),
         },
         csrfToken,
@@ -315,18 +326,39 @@ function StudioContent() {
   }
 
   async function uploadReference(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
+    const files = Array.from(event.target.files ?? []);
     event.target.value = '';
-    if (!file || !csrfToken) {
+    if (files.length === 0 || !csrfToken) {
       return;
     }
+    const remainingSlots = MAX_SELECTED_REFERENCES - selectedReferences.length;
+    if (remainingSlots <= 0) {
+      setError(`最多只能上传 ${MAX_SELECTED_REFERENCES} 张参考图`);
+      return;
+    }
+    const uploadableFiles = files.slice(0, remainingSlots);
     setUploadingReference(true);
-    setError(null);
+    setError(
+      files.length > uploadableFiles.length
+        ? `最多只能上传 ${MAX_SELECTED_REFERENCES} 张参考图`
+        : null,
+    );
     try {
-      await uploadReferenceImage(file, csrfToken);
-      const refreshed = await fetchAssets('reference_image');
-      setReferenceAssets(refreshed.items);
-      setMessage('参考图已上传。');
+      const uploadedAssets = await Promise.all(
+        uploadableFiles.map(async (file) => {
+          const uploaded = await uploadReferenceImage(file, csrfToken);
+          return uploaded.item;
+        }),
+      );
+      setReferenceAssets((current) => mergeReferenceAssets(uploadedAssets, current));
+      setSelectedReferences((current) =>
+        addSelectedReferences(current, uploadedAssets.map(toStudioReferencePreview)),
+      );
+      setMessage(
+        uploadedAssets.length > 1
+          ? `${uploadedAssets.length} 张参考图已上传并加入本次生成。`
+          : '参考图已上传并加入本次生成。',
+      );
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '参考图上传失败');
     } finally {
@@ -334,16 +366,22 @@ function StudioContent() {
     }
   }
 
-  function toggleReference(assetId: string) {
-    setSelectedReferenceIds((current) => {
-      const next = new Set(current);
-      if (next.has(assetId)) {
-        next.delete(assetId);
-      } else {
-        next.add(assetId);
-      }
-      return next;
-    });
+  function toggleReference(asset: AssetItem) {
+    if (selectedReferences.some((reference) => reference.id === asset.id)) {
+      setSelectedReferences((current) => current.filter((reference) => reference.id !== asset.id));
+      return;
+    }
+    if (selectedReferences.length >= MAX_SELECTED_REFERENCES) {
+      setError(`最多只能上传 ${MAX_SELECTED_REFERENCES} 张参考图`);
+      return;
+    }
+    setSelectedReferences((current) =>
+      addSelectedReferences(current, [toStudioReferencePreview(asset)]),
+    );
+  }
+
+  function removeReference(referenceId: string) {
+    setSelectedReferences((current) => current.filter((reference) => reference.id !== referenceId));
   }
 
   const selectedImageModelSupported = Boolean(
@@ -357,8 +395,9 @@ function StudioContent() {
   const runningCount = modelTasks.filter(
     (task) => task.status === 'pending' || task.status === 'running',
   ).length;
-  const selectedReferenceAssets = referenceAssets.filter((asset) =>
-    selectedReferenceIds.has(asset.id),
+  const selectedReferenceIds = useMemo(
+    () => new Set(selectedReferences.map((reference) => reference.id)),
+    [selectedReferences],
   );
   const parameterCount = selectedModel?.parameter_schema.length ?? 0;
   const advancedParameterSchema = useMemo(
@@ -416,31 +455,26 @@ function StudioContent() {
 
           <form className="studio-composer" onSubmit={submitTask}>
             <div className="studio-composer-main">
+              <label className="sr-only" htmlFor="studio-reference-upload">
+                上传参考图
+              </label>
+              <StudioReferenceUploader
+                disabled={!selectedModel?.supports_reference_image}
+                inputId="studio-reference-upload"
+                onRemove={removeReference}
+                onUpload={uploadReference}
+                references={selectedReferences}
+                uploading={uploadingReference}
+              />
               <textarea
                 className="studio-prompt-input"
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder="描述你想生成的画面..."
                 value={prompt}
               />
-              <div className="studio-composer-actions">
-                <label
-                  className={`studio-tool-button ${
-                    selectedModel?.supports_reference_image ? '' : 'studio-tool-button-disabled'
-                  }`}
-                >
-                  {uploadingReference ? '上传中' : '参考图'}
-                  <input
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="sr-only"
-                    disabled={uploadingReference || !selectedModel?.supports_reference_image}
-                    onChange={uploadReference}
-                    type="file"
-                  />
-                </label>
-                <button className="studio-submit-button" disabled={!canSubmit} type="submit">
-                  {submitting ? '提交中' : '生成'}
-                </button>
-              </div>
+              <button className="studio-submit-button" disabled={!canSubmit} type="submit">
+                {submitting ? '提交中' : '生成'}
+              </button>
             </div>
 
             <div className="studio-composer-meta">
@@ -448,7 +482,7 @@ function StudioContent() {
               <span>{parameterCount > 0 ? `${parameterCount} 个参数` : '默认参数'}</span>
               <span>
                 {selectedModel?.supports_reference_image
-                  ? `${selectedReferenceIds.size} 张参考图`
+                  ? `${selectedReferences.length} 张参考图`
                   : '不使用参考图'}
               </span>
             </div>
@@ -466,7 +500,6 @@ function StudioContent() {
               referenceAssets={referenceAssets}
               selectedModel={selectedModel}
               selectedReferenceIds={selectedReferenceIds}
-              selectedReferenceAssets={selectedReferenceAssets}
               toggleReference={toggleReference}
             />
 
@@ -759,6 +792,134 @@ function formatQuickFieldValue(
   return String(normalizedValue).replace(/\s*x\s*/i, ' x ');
 }
 
+function toStudioReferencePreview(asset: AssetItem): StudioReferencePreview {
+  return {
+    id: asset.id,
+    download_url: asset.download_url,
+    filename: asset.filename,
+  };
+}
+
+function mergeReferenceAssets(uploadedAssets: AssetItem[], currentAssets: AssetItem[]) {
+  const nextAssets = [...uploadedAssets];
+  const uploadedIds = new Set(uploadedAssets.map((asset) => asset.id));
+  for (const asset of currentAssets) {
+    if (!uploadedIds.has(asset.id)) {
+      nextAssets.push(asset);
+    }
+  }
+  return nextAssets;
+}
+
+function addSelectedReferences(
+  currentReferences: StudioReferencePreview[],
+  nextReferences: StudioReferencePreview[],
+) {
+  const selectedIds = new Set(currentReferences.map((reference) => reference.id));
+  const mergedReferences = [...currentReferences];
+  for (const reference of nextReferences) {
+    if (!selectedIds.has(reference.id) && mergedReferences.length < MAX_SELECTED_REFERENCES) {
+      mergedReferences.push(reference);
+      selectedIds.add(reference.id);
+    }
+  }
+  return mergedReferences;
+}
+
+function StudioReferenceUploader({
+  disabled,
+  inputId,
+  onRemove,
+  onUpload,
+  references,
+  uploading,
+}: {
+  disabled: boolean;
+  inputId: string;
+  onRemove: (referenceId: string) => void;
+  onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  references: StudioReferencePreview[];
+  uploading: boolean;
+}) {
+  const uploadDisabled = disabled || uploading || references.length >= MAX_SELECTED_REFERENCES;
+  const statusLabel = disabled
+    ? '当前模型不支持上传'
+    : uploading
+      ? '上传中'
+      : references.length > 0
+        ? `${references.length}/${MAX_SELECTED_REFERENCES}`
+        : '参考图';
+
+  return (
+    <div
+      className={`studio-reference-uploader ${disabled ? 'is-disabled' : ''} ${
+        references.length > 0 ? 'has-references' : ''
+      }`}
+    >
+      <div className="studio-reference-stack" tabIndex={references.length > 0 ? 0 : -1}>
+        {references.length === 0 ? (
+          <label
+            className="studio-reference-placeholder"
+            htmlFor={inputId}
+            title={disabled ? '当前模型不支持上传' : '上传参考图'}
+          >
+            <span className="studio-reference-placeholder-plus">+</span>
+            <span>参考图</span>
+          </label>
+        ) : (
+          references.map((reference, index) => (
+            <figure
+              className="studio-reference-card"
+              key={reference.id}
+              style={
+                {
+                  '--reference-index': index,
+                  '--reference-stack-x': `${Math.min(index, 4) * 8}px`,
+                  '--reference-stack-y': `${Math.min(index, 4) * -3}px`,
+                  '--reference-rotation': `${index % 2 === 0 ? -6 : 5}deg`,
+                  '--reference-expanded-x': `${index * 80}px`,
+                  '--reference-mobile-expanded-x': `${index * 66}px`,
+                  '--reference-expanded-y': `${index % 2 === 0 ? 0 : 8}px`,
+                  '--reference-expanded-rotation': `${index % 2 === 0 ? -3 : 3}deg`,
+                } as CSSProperties
+              }
+            >
+              <img alt={reference.filename} src={reference.download_url} />
+              <button
+                aria-label={`移除参考图 ${reference.filename}`}
+                className="studio-reference-remove"
+                onClick={() => onRemove(reference.id)}
+                type="button"
+              >
+                ×
+              </button>
+            </figure>
+          ))
+        )}
+        {references.length > 0 ? (
+          <label
+            className={`studio-reference-add ${uploadDisabled ? 'is-disabled' : ''}`}
+            htmlFor={inputId}
+            title={uploadDisabled ? statusLabel : '继续上传参考图'}
+          >
+            +
+          </label>
+        ) : null}
+      </div>
+      <input
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="sr-only"
+        disabled={uploadDisabled}
+        id={inputId}
+        multiple
+        onChange={onUpload}
+        type="file"
+      />
+      <span className="studio-reference-status">{statusLabel}</span>
+    </div>
+  );
+}
+
 function StudioTopbar({
   runningCount,
   selectedModel,
@@ -811,6 +972,7 @@ function StudioModelSidebar({
   selectedFilter: StudioModelFilter;
   selectedModel: PublicAiModel | null;
 }) {
+  const { user } = useAuth();
   const filters: Array<{ key: StudioModelFilter; label: string }> = [
     { key: 'all', label: '全部' },
     { key: 'chat', label: '聊天' },
@@ -884,8 +1046,10 @@ function StudioModelSidebar({
                 )}
               </span>
               <span className="studio-model-copy">
-                <strong>{model.display_name}</strong>
-                <small>{model.description || model.model_id}</small>
+                <strong className="studio-model-name">{model.display_name}</strong>
+                <small className="studio-model-description">
+                  {model.description || model.model_id}
+                </small>
               </span>
               <span className="studio-model-tags">
                 <span className={`studio-model-tag studio-model-tag-${model.modality}`}>
@@ -900,8 +1064,24 @@ function StudioModelSidebar({
           </div>
         ))}
       </div>
+
+      <Link className="studio-user-entry" href="/studio/assets">
+        <span className="studio-user-avatar">{getStudioUserInitial(user)}</span>
+        <span className="studio-user-copy">
+          <strong>{user?.display_name?.trim() || user?.username || 'DreamStudio 用户'}</strong>
+          <small>
+            <span className="studio-user-status-dot" />
+            我的作品
+          </small>
+        </span>
+      </Link>
     </aside>
   );
+}
+
+function getStudioUserInitial(user: AuthUser | null) {
+  const name = user?.display_name?.trim() || user?.username?.trim() || 'D';
+  return name.slice(0, 1).toUpperCase();
 }
 
 function StudioCanvas({
@@ -1101,15 +1281,13 @@ function ModelIntro({ model }: { model: PublicAiModel }) {
 function ReferenceStrip({
   referenceAssets,
   selectedModel,
-  selectedReferenceAssets,
   selectedReferenceIds,
   toggleReference,
 }: {
   referenceAssets: AssetItem[];
   selectedModel: PublicAiModel | null;
-  selectedReferenceAssets: AssetItem[];
   selectedReferenceIds: Set<string>;
-  toggleReference: (assetId: string) => void;
+  toggleReference: (asset: AssetItem) => void;
 }) {
   if (!selectedModel?.supports_reference_image) {
     return null;
@@ -1126,7 +1304,7 @@ function ReferenceStrip({
               selectedReferenceIds.has(asset.id) ? 'is-active' : ''
             }`}
             key={asset.id}
-            onClick={() => toggleReference(asset.id)}
+            onClick={() => toggleReference(asset)}
             type="button"
           >
             <img alt={asset.filename} src={asset.download_url} />
@@ -1137,8 +1315,8 @@ function ReferenceStrip({
           </button>
         ))
       )}
-      {selectedReferenceAssets.length > 0 ? (
-        <span className="studio-reference-count">已选 {selectedReferenceAssets.length}</span>
+      {selectedReferenceIds.size > 0 ? (
+        <span className="studio-reference-count">已选 {selectedReferenceIds.size}</span>
       ) : null}
     </div>
   );
