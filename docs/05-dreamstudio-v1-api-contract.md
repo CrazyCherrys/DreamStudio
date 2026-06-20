@@ -703,11 +703,10 @@ POST /api/v1/image-tasks
   "model_record_id": "uuid",
   "prompt": "一只在月光下奔跑的白色狐狸",
   "negative_prompt": "low quality, blurry",
-  "params": {
+  "parameters": {
     "size": "1024x1024",
     "n": 1,
-    "quality": "high",
-    "response_format": "b64_json"
+    "quality": "high"
   },
   "reference_asset_ids": ["uuid"],
   "client_request_id": "client_01hxyz"
@@ -718,23 +717,31 @@ POST /api/v1/image-tasks
 
 ```json
 {
-  "success": true,
-  "data": {
-    "task": {
-      "id": "uuid",
-      "status": "pending",
-      "model_record_id": "uuid",
-      "model_id_snapshot": "gpt-image-1",
-      "endpoint_type_snapshot": "openai_image_edits",
-      "prompt_summary": "一只在月光下奔跑的白色狐狸",
-      "negative_prompt_summary": "low quality, blurry",
-      "attempt_count": 0,
-      "max_attempts": 3,
-      "timeout_seconds": 600,
-      "created_at": "2026-06-19T12:00:00.000Z"
-    }
+  "item": {
+    "id": "uuid",
+    "model_record_id": "uuid",
+    "model_id": "gpt-image-1",
+    "endpoint_type": "openai_image_edits",
+    "prompt_summary": "一只在月光下奔跑的白色狐狸",
+    "negative_prompt_summary": "low quality, blurry",
+    "sanitized_parameter_snapshot": {
+      "size": "1024x1024",
+      "n": 1,
+      "quality": "high"
+    },
+    "reference_asset_ids": ["uuid"],
+    "status": "pending",
+    "error_code": null,
+    "error_message": null,
+    "client_request_id": "client_01hxyz",
+    "queued_at": "2026-06-19T12:00:00.000Z",
+    "started_at": null,
+    "completed_at": null,
+    "created_at": "2026-06-19T12:00:00.000Z",
+    "updated_at": "2026-06-19T12:00:00.000Z",
+    "deleted_at": null,
+    "result_assets": []
   },
-  "request_id": "req_01hxyz"
 }
 ```
 
@@ -757,9 +764,17 @@ POST /api/v1/image-tasks
 GET /api/v1/image-tasks?status=pending&model_record_id=uuid&page=1&page_size=20
 ```
 
+查询参数：
+
+- `status`：可选，任务状态。
+- `model_record_id`：可选，按当前用户拥有的指定模型记录过滤；格式必须是 UUID。
+- `page`：可选，默认 `1`。
+- `page_size`：可选，默认 `20`，最大 `100`。
+
 规则：
 
 - 普通用户只能查看自己的任务。
+- 设置 `model_record_id` 时仍按当前用户过滤，不会返回其他用户任务。
 - 默认按 `created_at desc` 排序。
 - 默认排除软删除任务。
 
@@ -1493,7 +1508,8 @@ GET /api/v1/auth/me
 1. `GET /api/v1/me/new-api-config`
 2. `GET /api/v1/models`
 3. 前端使用固定筛选和搜索框过滤模型。
-4. 用户选择模型后按 `parameter_schema` 渲染参数表单。
+4. 用户选择模型后加载 `GET /api/v1/image-tasks?model_record_id={id}&page=1&page_size=50`。
+5. 用户选择模型后按 `parameter_schema` 渲染底部 Prompt 子容器内的参数控件。
 
 ### 17.3 任务状态刷新
 

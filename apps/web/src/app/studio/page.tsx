@@ -10,7 +10,7 @@ import { ApiClientError } from '@/lib/auth';
 import { fetchAssets, formatAssetBytes, uploadReferenceImage, type AssetItem } from '@/lib/assets';
 import {
   createImageTask,
-  fetchImageTask,
+  fetchImageTasks,
   taskStatusLabel,
   taskStatusTone,
   type ImageTask,
@@ -49,7 +49,11 @@ function StudioContent() {
   const [negativePrompt, setNegativePrompt] = useState('');
   const [referenceAssets, setReferenceAssets] = useState<AssetItem[]>([]);
   const [selectedReferenceIds, setSelectedReferenceIds] = useState<Set<string>>(new Set());
-  const [activeTasks, setActiveTasks] = useState<ImageTask[]>([]);
+  const [modelTasks, setModelTasks] = useState<ImageTask[]>([]);
+  const [taskHistoryOpen, setTaskHistoryOpen] = useState(false);
+  const [taskHistorySearchQuery, setTaskHistorySearchQuery] = useState('');
+  const [taskHistoryLoading, setTaskHistoryLoading] = useState(false);
+  const [taskHistoryError, setTaskHistoryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showModelIntro, setShowModelIntro] = useState(true);
@@ -58,6 +62,8 @@ function StudioContent() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
   const quickParameterRef = useRef<HTMLDivElement | null>(null);
+  const taskHistoryRequestIdRef = useRef(0);
+  const selectedModelId = selectedModel?.id ?? null;
 
   useEffect(() => {
     async function loadCatalog() {
@@ -84,16 +90,6 @@ function StudioContent() {
   }, []);
 
   useEffect(() => {
-    if (!activeTasks.some((task) => task.status === 'pending' || task.status === 'running')) {
-      return;
-    }
-    const timer = setInterval(() => {
-      void refreshActiveTasks();
-    }, 2500);
-    return () => clearInterval(timer);
-  }, [activeTasks]);
-
-  useEffect(() => {
     if (!openQuickParameter) {
       return;
     }
@@ -109,6 +105,39 @@ function StudioContent() {
     window.addEventListener('pointerdown', closeOnOutsidePointer);
     return () => window.removeEventListener('pointerdown', closeOnOutsidePointer);
   }, [openQuickParameter]);
+
+  const loadModelTasks = useCallback(
+    async (modelRecordId: string, options: { showLoading?: boolean } = {}) => {
+      const requestId = taskHistoryRequestIdRef.current + 1;
+      taskHistoryRequestIdRef.current = requestId;
+      if (options.showLoading) {
+        setTaskHistoryLoading(true);
+      }
+      setTaskHistoryError(null);
+      try {
+        const payload = await fetchImageTasks({
+          status: 'all',
+          modelRecordId,
+          page: 1,
+          pageSize: 50,
+        });
+        if (taskHistoryRequestIdRef.current === requestId) {
+          setModelTasks(payload.items);
+        }
+      } catch (requestError) {
+        if (taskHistoryRequestIdRef.current === requestId) {
+          setTaskHistoryError(
+            requestError instanceof ApiClientError ? requestError.message : '读取任务历史失败',
+          );
+        }
+      } finally {
+        if (taskHistoryRequestIdRef.current === requestId && options.showLoading) {
+          setTaskHistoryLoading(false);
+        }
+      }
+    },
+    [],
+  );
 
   const filteredModels = useMemo(() => {
     const query = modelSearchQuery.trim().toLowerCase();
@@ -151,6 +180,32 @@ function StudioContent() {
       setSelectedReferenceIds(new Set());
     }
   }, [filteredModels, selectedModel]);
+
+  useEffect(() => {
+    if (!selectedModelId) {
+      taskHistoryRequestIdRef.current += 1;
+      setModelTasks([]);
+      setTaskHistorySearchQuery('');
+      setTaskHistoryError(null);
+      setTaskHistoryLoading(false);
+      return;
+    }
+    setTaskHistorySearchQuery('');
+    void loadModelTasks(selectedModelId, { showLoading: true });
+  }, [loadModelTasks, selectedModelId]);
+
+  useEffect(() => {
+    if (
+      !selectedModelId ||
+      !modelTasks.some((task) => task.status === 'pending' || task.status === 'running')
+    ) {
+      return;
+    }
+    const timer = setInterval(() => {
+      void loadModelTasks(selectedModelId);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [loadModelTasks, modelTasks, selectedModelId]);
 
   const updateParameterValues = useCallback(
     (value: Record<string, string | number | boolean | null>) => {
@@ -211,23 +266,6 @@ function StudioContent() {
     }
   }
 
-  async function refreshActiveTasks() {
-    const nextTasks = await Promise.all(
-      activeTasks.map(async (task) => {
-        if (task.status !== 'pending' && task.status !== 'running') {
-          return task;
-        }
-        try {
-          const response = await fetchImageTask(task.id);
-          return response.item;
-        } catch {
-          return task;
-        }
-      }),
-    );
-    setActiveTasks(nextTasks);
-  }
-
   async function submitTask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!csrfToken) {
@@ -262,10 +300,11 @@ function StudioContent() {
         },
         csrfToken,
       );
-      setActiveTasks((current) => [
-        created.item,
-        ...current.filter((task) => task.id !== created.item.id),
-      ]);
+      taskHistoryRequestIdRef.current += 1;
+      setTaskHistoryLoading(false);
+      setModelTasks((current) =>
+        [created.item, ...current.filter((task) => task.id !== created.item.id)].slice(0, 50),
+      );
       setMessage('任务已提交。');
       setShowModelIntro(false);
     } catch (requestError) {
@@ -314,8 +353,8 @@ function StudioContent() {
     ),
   );
   const canSubmit = Boolean(selectedImageModelSupported && prompt.trim() && !submitting);
-  const resultTask = activeTasks.find((task) => task.result_assets.length > 0) ?? null;
-  const runningCount = activeTasks.filter(
+  const resultTask = modelTasks.find((task) => task.result_assets.length > 0) ?? null;
+  const runningCount = modelTasks.filter(
     (task) => task.status === 'pending' || task.status === 'running',
   ).length;
   const selectedReferenceAssets = referenceAssets.filter((asset) =>
@@ -352,20 +391,27 @@ function StudioContent() {
       <section className="studio-stage">
         <StudioTopbar runningCount={runningCount} selectedModel={selectedModel} />
 
-        <section
-          className={`studio-creation-panel ${activeTasks.length > 0 ? 'has-task-dock' : ''}`}
-        >
+        <section className="studio-creation-panel">
           <section className="studio-canvas-panel">
             <div className="studio-canvas-grid" />
+            <StudioTaskHistoryPanel
+              error={taskHistoryError}
+              loading={taskHistoryLoading}
+              modelName={selectedModel?.display_name ?? '未选择模型'}
+              onOpenChange={setTaskHistoryOpen}
+              onSearchChange={setTaskHistorySearchQuery}
+              open={taskHistoryOpen}
+              searchQuery={taskHistorySearchQuery}
+              tasks={modelTasks}
+            />
             <StudioCanvas
-              activeTasks={activeTasks}
               error={error}
               message={message}
+              modelTasks={modelTasks}
               resultTask={resultTask}
               selectedModel={selectedModel}
               showModelIntro={showModelIntro}
             />
-            <RecentTaskDock tasks={activeTasks} />
           </section>
 
           <form className="studio-composer" onSubmit={submitTask}>
@@ -859,23 +905,23 @@ function StudioModelSidebar({
 }
 
 function StudioCanvas({
-  activeTasks,
   error,
   message,
+  modelTasks,
   resultTask,
   selectedModel,
   showModelIntro,
 }: {
-  activeTasks: ImageTask[];
   error: string | null;
   message: string | null;
+  modelTasks: ImageTask[];
   resultTask: ImageTask | null;
   selectedModel: PublicAiModel | null;
   showModelIntro: boolean;
 }) {
   const activeTask =
-    activeTasks.find((task) => task.status === 'pending' || task.status === 'running') ??
-    activeTasks[0] ??
+    modelTasks.find((task) => task.status === 'pending' || task.status === 'running') ??
+    modelTasks[0] ??
     null;
   const shouldShowModelIntro = Boolean(
     showModelIntro &&
@@ -916,6 +962,113 @@ function StudioCanvas({
         </div>
       )}
     </div>
+  );
+}
+
+function StudioTaskHistoryPanel({
+  error,
+  loading,
+  modelName,
+  onOpenChange,
+  onSearchChange,
+  open,
+  searchQuery,
+  tasks,
+}: {
+  error: string | null;
+  loading: boolean;
+  modelName: string;
+  onOpenChange: (value: boolean) => void;
+  onSearchChange: (value: string) => void;
+  open: boolean;
+  searchQuery: string;
+  tasks: ImageTask[];
+}) {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredTasks = useMemo(() => {
+    if (!normalizedQuery) {
+      return tasks;
+    }
+    return tasks.filter((task) =>
+      [task.prompt_summary, task.model_id, taskStatusLabel(task.status)]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+    );
+  }, [normalizedQuery, tasks]);
+
+  return (
+    <div className="studio-task-history">
+      <button
+        aria-expanded={open}
+        className="studio-task-history-trigger"
+        onClick={() => onOpenChange(!open)}
+        type="button"
+      >
+        <span>任务列表</span>
+        <strong>{tasks.length}</strong>
+      </button>
+
+      {open ? (
+        <aside className="studio-task-history-panel" aria-label="当前模型任务列表">
+          <div className="studio-task-history-head">
+            <div className="studio-task-history-title">
+              <span>{modelName}</span>
+              <strong>
+                已显示 {filteredTasks.length}/{tasks.length}
+              </strong>
+            </div>
+            <button
+              aria-label="关闭任务列表"
+              className="studio-task-history-close"
+              onClick={() => onOpenChange(false)}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+
+          <label className="studio-task-history-search" aria-label="搜索当前模型任务">
+            <span>⌕</span>
+            <input
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="搜索 Prompt 或状态"
+              value={searchQuery}
+            />
+          </label>
+
+          <div className="studio-task-history-list">
+            {loading ? <p className="studio-task-history-state">正在读取任务...</p> : null}
+            {!loading && error ? (
+              <p className="studio-task-history-state is-error">{error}</p>
+            ) : null}
+            {!loading && !error && tasks.length === 0 ? (
+              <p className="studio-task-history-state">当前模型暂无历史任务。</p>
+            ) : null}
+            {!loading && !error && tasks.length > 0 && filteredTasks.length === 0 ? (
+              <p className="studio-task-history-state">没有匹配的任务。</p>
+            ) : null}
+            {!loading && !error
+              ? filteredTasks.map((task) => <StudioTaskHistoryRow key={task.id} task={task} />)
+              : null}
+          </div>
+        </aside>
+      ) : null}
+    </div>
+  );
+}
+
+function StudioTaskHistoryRow({ task }: { task: ImageTask }) {
+  return (
+    <article className="studio-task-history-row">
+      <div className="studio-task-history-row-main">
+        <p>{task.prompt_summary}</p>
+        <span>{formatTaskHistoryTime(task.created_at)}</span>
+      </div>
+      <strong className={taskStatusTone(task.status)}>{taskStatusLabel(task.status)}</strong>
+      <Link className="studio-task-history-detail" href={`/studio/tasks/${task.id}`}>
+        详情
+      </Link>
+    </article>
   );
 }
 
@@ -991,46 +1144,16 @@ function ReferenceStrip({
   );
 }
 
-function RecentTaskDock({ tasks }: { tasks: ImageTask[] }) {
-  if (tasks.length === 0) {
-    return null;
+function formatTaskHistoryTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '--/-- --:--';
   }
-
-  return (
-    <aside className="studio-task-dock">
-      <div className="studio-task-dock-head">
-        <span>最近任务</span>
-        <Link href="/studio/tasks">全部</Link>
-      </div>
-      <div className="studio-task-list">
-        {tasks.slice(0, 4).map((task) => (
-          <TaskCard key={task.id} task={task} />
-        ))}
-      </div>
-    </aside>
-  );
-}
-
-function TaskCard({ task }: { task: ImageTask }) {
-  return (
-    <article className="studio-task-card">
-      <div>
-        <h3>{task.prompt_summary}</h3>
-        <p>{task.model_id}</p>
-      </div>
-      <span className={taskStatusTone(task.status)}>{taskStatusLabel(task.status)}</span>
-      {task.error_message ? <p className="studio-task-error">{task.error_message}</p> : null}
-      {task.result_assets.length > 0 ? (
-        <div className="studio-task-thumbs">
-          {task.result_assets.map((asset) => (
-            <a href={asset.download_url} key={asset.id}>
-              <img alt={asset.filename} src={asset.download_url} />
-            </a>
-          ))}
-        </div>
-      ) : null}
-    </article>
-  );
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${month}/${day} ${hour}:${minute}`;
 }
 
 export default function StudioPage() {

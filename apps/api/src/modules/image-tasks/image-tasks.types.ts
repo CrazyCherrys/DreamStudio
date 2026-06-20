@@ -9,6 +9,7 @@ export interface CreateImageTaskBody {
 
 export interface ImageTaskListQuery {
   status?: unknown;
+  model_record_id?: unknown;
   page?: unknown;
   page_size?: unknown;
 }

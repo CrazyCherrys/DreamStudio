@@ -85,10 +85,33 @@ export function createImageTask(payload: CreateImageTaskPayload, csrfToken: stri
   });
 }
 
-export function fetchImageTasks(status?: ImageTaskStatus | 'all') {
+export interface FetchImageTasksOptions {
+  status?: ImageTaskStatus | 'all';
+  modelRecordId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export function fetchImageTasks(
+  statusOrOptions?: ImageTaskStatus | 'all' | FetchImageTasksOptions,
+) {
   const params = new URLSearchParams();
+  const options =
+    typeof statusOrOptions === 'object' && statusOrOptions !== null
+      ? statusOrOptions
+      : { status: statusOrOptions };
+  const { status, modelRecordId, page, pageSize } = options;
   if (status && status !== 'all') {
     params.set('status', status);
+  }
+  if (modelRecordId) {
+    params.set('model_record_id', modelRecordId);
+  }
+  if (page) {
+    params.set('page', String(page));
+  }
+  if (pageSize) {
+    params.set('page_size', String(pageSize));
   }
   const query = params.toString();
   return apiRequest<ImageTaskListResponse>(`/api/v1/image-tasks${query ? `?${query}` : ''}`, {

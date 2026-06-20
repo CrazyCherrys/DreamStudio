@@ -96,12 +96,14 @@ export class ImageTasksService implements OnModuleDestroy {
 
   async listTasks(query: ImageTaskListQuery, session: SessionContext) {
     const status = this.readOptionalStatus(query.status);
+    const modelRecordId = this.readOptionalUuid(query.model_record_id, 'model_record_id');
     const page = this.readPositiveInt(query.page, 1, 1, 100000);
     const pageSize = this.readPositiveInt(query.page_size, 20, 1, 100);
     const where = {
       userId: session.userId,
       deletedAt: null,
       ...(status ? { status } : {}),
+      ...(modelRecordId ? { modelRecordId } : {}),
     };
     const [items, total] = await Promise.all([
       prisma.imageTask.findMany({
@@ -521,6 +523,13 @@ export class ImageTasksService implements OnModuleDestroy {
       throw validationFailed([{ field, message: 'ID 格式错误' }]);
     }
     return value;
+  }
+
+  private readOptionalUuid(value: unknown, field: string) {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+    return this.readUuid(value, field);
   }
 
   private assertUuid(value: unknown, field: string) {
