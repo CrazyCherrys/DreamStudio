@@ -43,6 +43,7 @@ function StudioContent() {
   const [activeTasks, setActiveTasks] = useState<ImageTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showModelIntro, setShowModelIntro] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
@@ -109,6 +110,7 @@ function StudioContent() {
     const nextSelectedModel = filteredModels[0] ?? null;
     setSelectedModel(nextSelectedModel);
     setParameterValues({});
+    setShowModelIntro(Boolean(nextSelectedModel));
     if (!nextSelectedModel?.supports_reference_image) {
       setSelectedReferenceIds(new Set());
     }
@@ -128,6 +130,7 @@ function StudioContent() {
   function selectModel(model: PublicAiModel) {
     setSelectedModel(model);
     setParameterValues({});
+    setShowModelIntro(true);
     if (!model.supports_reference_image) {
       setSelectedReferenceIds(new Set());
     }
@@ -213,6 +216,7 @@ function StudioContent() {
         ...current.filter((task) => task.id !== created.item.id),
       ]);
       setMessage('任务已提交。');
+      setShowModelIntro(false);
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '任务提交失败');
     } finally {
@@ -285,88 +289,93 @@ function StudioContent() {
       <section className="studio-stage">
         <StudioTopbar runningCount={runningCount} selectedModel={selectedModel} />
 
-        <section className={`studio-canvas-panel ${activeTasks.length > 0 ? 'has-task-dock' : ''}`}>
-          <div className="studio-canvas-grid" />
-          <StudioCanvas
-            activeTasks={activeTasks}
-            error={error}
-            message={message}
-            resultTask={resultTask}
-            selectedModel={selectedModel}
-          />
-          <RecentTaskDock tasks={activeTasks} />
-        </section>
-
-        <form className="studio-composer" onSubmit={submitTask}>
-          <div className="studio-composer-main">
-            <textarea
-              className="studio-prompt-input"
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="描述你想生成的画面..."
-              value={prompt}
+        <section
+          className={`studio-creation-panel ${activeTasks.length > 0 ? 'has-task-dock' : ''}`}
+        >
+          <section className="studio-canvas-panel">
+            <div className="studio-canvas-grid" />
+            <StudioCanvas
+              activeTasks={activeTasks}
+              error={error}
+              message={message}
+              resultTask={resultTask}
+              selectedModel={selectedModel}
+              showModelIntro={showModelIntro}
             />
-            <div className="studio-composer-actions">
-              <label
-                className={`studio-tool-button ${
-                  selectedModel?.supports_reference_image ? '' : 'studio-tool-button-disabled'
-                }`}
-              >
-                {uploadingReference ? '上传中' : '参考图'}
-                <input
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="sr-only"
-                  disabled={uploadingReference || !selectedModel?.supports_reference_image}
-                  onChange={uploadReference}
-                  type="file"
-                />
-              </label>
-              <button className="studio-submit-button" disabled={!canSubmit} type="submit">
-                {submitting ? '提交中' : '生成'}
-              </button>
-            </div>
-          </div>
+            <RecentTaskDock tasks={activeTasks} />
+          </section>
 
-          <div className="studio-composer-meta">
-            <span>{selectedModel?.display_name ?? '未选择模型'}</span>
-            <span>{parameterCount > 0 ? `${parameterCount} 个参数` : '默认参数'}</span>
-            <span>
-              {selectedModel?.supports_reference_image
-                ? `${selectedReferenceIds.size} 张参考图`
-                : '不使用参考图'}
-            </span>
-          </div>
-
-          <ReferenceStrip
-            referenceAssets={referenceAssets}
-            selectedModel={selectedModel}
-            selectedReferenceIds={selectedReferenceIds}
-            selectedReferenceAssets={selectedReferenceAssets}
-            toggleReference={toggleReference}
-          />
-
-          <div className="studio-drawer-row">
-            <details className="studio-drawer">
-              <summary>负向提示</summary>
+          <form className="studio-composer" onSubmit={submitTask}>
+            <div className="studio-composer-main">
               <textarea
-                className="studio-secondary-input"
-                onChange={(event) => setNegativePrompt(event.target.value)}
-                placeholder="不希望出现的元素"
-                value={negativePrompt}
+                className="studio-prompt-input"
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder="描述你想生成的画面..."
+                value={prompt}
               />
-            </details>
-
-            <details className="studio-drawer studio-advanced-drawer">
-              <summary>高级参数</summary>
-              <div className="studio-advanced-body">
-                <ParameterSchemaForm
-                  onChange={updateParameterValues}
-                  schema={selectedModel?.parameter_schema ?? []}
-                  value={parameterValues}
-                />
+              <div className="studio-composer-actions">
+                <label
+                  className={`studio-tool-button ${
+                    selectedModel?.supports_reference_image ? '' : 'studio-tool-button-disabled'
+                  }`}
+                >
+                  {uploadingReference ? '上传中' : '参考图'}
+                  <input
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="sr-only"
+                    disabled={uploadingReference || !selectedModel?.supports_reference_image}
+                    onChange={uploadReference}
+                    type="file"
+                  />
+                </label>
+                <button className="studio-submit-button" disabled={!canSubmit} type="submit">
+                  {submitting ? '提交中' : '生成'}
+                </button>
               </div>
-            </details>
-          </div>
-        </form>
+            </div>
+
+            <div className="studio-composer-meta">
+              <span>{selectedModel?.display_name ?? '未选择模型'}</span>
+              <span>{parameterCount > 0 ? `${parameterCount} 个参数` : '默认参数'}</span>
+              <span>
+                {selectedModel?.supports_reference_image
+                  ? `${selectedReferenceIds.size} 张参考图`
+                  : '不使用参考图'}
+              </span>
+            </div>
+
+            <ReferenceStrip
+              referenceAssets={referenceAssets}
+              selectedModel={selectedModel}
+              selectedReferenceIds={selectedReferenceIds}
+              selectedReferenceAssets={selectedReferenceAssets}
+              toggleReference={toggleReference}
+            />
+
+            <div className="studio-drawer-row">
+              <details className="studio-drawer">
+                <summary>负向提示</summary>
+                <textarea
+                  className="studio-secondary-input"
+                  onChange={(event) => setNegativePrompt(event.target.value)}
+                  placeholder="不希望出现的元素"
+                  value={negativePrompt}
+                />
+              </details>
+
+              <details className="studio-drawer studio-advanced-drawer">
+                <summary>高级参数</summary>
+                <div className="studio-advanced-body">
+                  <ParameterSchemaForm
+                    onChange={updateParameterValues}
+                    schema={selectedModel?.parameter_schema ?? []}
+                    value={parameterValues}
+                  />
+                </div>
+              </details>
+            </div>
+          </form>
+        </section>
       </section>
     </main>
   );
@@ -523,14 +532,25 @@ function StudioCanvas({
   message,
   resultTask,
   selectedModel,
+  showModelIntro,
 }: {
   activeTasks: ImageTask[];
   error: string | null;
   message: string | null;
   resultTask: ImageTask | null;
   selectedModel: PublicAiModel | null;
+  showModelIntro: boolean;
 }) {
-  const activeTask = activeTasks[0] ?? null;
+  const activeTask =
+    activeTasks.find((task) => task.status === 'pending' || task.status === 'running') ??
+    activeTasks[0] ??
+    null;
+  const shouldShowModelIntro = Boolean(
+    showModelIntro &&
+    selectedModel &&
+    activeTask?.status !== 'pending' &&
+    activeTask?.status !== 'running',
+  );
 
   return (
     <div className="studio-canvas-content">
@@ -539,7 +559,9 @@ function StudioCanvas({
         {message ? <p className="studio-alert studio-alert-success">{message}</p> : null}
       </div>
 
-      {resultTask ? (
+      {shouldShowModelIntro && selectedModel ? (
+        <ModelIntro model={selectedModel} />
+      ) : resultTask ? (
         <div className="studio-result-frame">
           <div className="studio-result-meta">
             <span>{taskStatusLabel(resultTask.status)}</span>
@@ -561,6 +583,32 @@ function StudioCanvas({
           {activeTask ? <small>{activeTask.prompt_summary}</small> : null}
         </div>
       )}
+    </div>
+  );
+}
+
+function ModelIntro({ model }: { model: PublicAiModel }) {
+  return (
+    <div className="studio-model-intro">
+      <div className="studio-model-intro-icon">
+        {model.icon_url ? (
+          <img alt={model.display_name} src={model.icon_url} />
+        ) : (
+          model.display_name.slice(0, 1)
+        )}
+      </div>
+      <span className={`studio-model-tag studio-model-tag-${model.modality}`}>
+        {modalityLabel(model.modality)}
+      </span>
+      <h2>{model.display_name}</h2>
+      <p>{model.description || model.model_id}</p>
+      <div className="studio-model-intro-meta">
+        <span>{model.provider_name ?? '默认提供方'}</span>
+        <span>{model.model_id}</span>
+        {model.endpoint_types.map((endpointType) => (
+          <span key={endpointType}>{endpointTypeShortLabel(endpointType)}</span>
+        ))}
+      </div>
     </div>
   );
 }
