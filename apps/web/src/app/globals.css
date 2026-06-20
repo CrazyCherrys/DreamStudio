@@ -1762,14 +1762,14 @@ select option {
       rotate(var(--reference-expanded-rotation, 0deg));
   }
 
-  .studio-reference-card:hover,
-  .studio-reference-card:focus-within {
+  .studio-reference-stack .studio-reference-card:hover,
+  .studio-reference-stack .studio-reference-card:focus-within {
     transform: translate(min(var(--reference-mobile-expanded-x, 0px), calc(100vw - 126px)), -4px)
       rotate(0deg) scale(1.1);
   }
 
-  .studio-reference-add:hover,
-  .studio-reference-add:focus-visible {
+  .studio-reference-stack .studio-reference-add:hover,
+  .studio-reference-stack .studio-reference-add:focus-visible {
     transform: translate(
         min(var(--reference-mobile-expanded-x, 0px), calc(100vw - 126px)),
         var(--reference-expanded-y, 0)
