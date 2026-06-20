@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from 'react';
 import Link from 'next/link';
-import { CornerDownLeft, Plus, Send } from 'lucide-react';
+import { Plus, Send } from 'lucide-react';
 
 import { useAuth } from '@/components/auth-provider';
 import { RouteGuard } from '@/components/route-guard';
@@ -39,7 +39,6 @@ type QuickParameterKind = 'count' | 'size' | 'resolution';
 type StudioReferencePreview = Pick<AssetItem, 'id' | 'download_url' | 'filename'>;
 
 const MAX_SELECTED_REFERENCES = 8;
-const STUDIO_ENTER_TO_SEND_STORAGE_KEY = 'dreamstudio.studio.enterToSend';
 
 interface QuickParameterConfig {
   fields: ParameterSchemaField[];
@@ -68,7 +67,6 @@ function StudioContent() {
   const [message, setMessage] = useState<string | null>(null);
   const [showModelIntro, setShowModelIntro] = useState(true);
   const [openQuickParameter, setOpenQuickParameter] = useState<QuickParameterKind | null>(null);
-  const [enterToSend, setEnterToSend] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
@@ -94,13 +92,6 @@ function StudioContent() {
     }
 
     void loadCatalog();
-  }, []);
-
-  useEffect(() => {
-    const storedPreference = window.localStorage.getItem(STUDIO_ENTER_TO_SEND_STORAGE_KEY);
-    if (storedPreference !== null) {
-      setEnterToSend(storedPreference !== 'false');
-    }
   }, []);
 
   useEffect(() => {
@@ -352,17 +343,8 @@ function StudioContent() {
     setSelectedReferences((current) => current.filter((reference) => reference.id !== referenceId));
   }
 
-  function toggleEnterMode() {
-    setEnterToSend((current) => {
-      const nextValue = !current;
-      window.localStorage.setItem(STUDIO_ENTER_TO_SEND_STORAGE_KEY, String(nextValue));
-      return nextValue;
-    });
-  }
-
   function handlePromptKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (
-      !enterToSend ||
       event.key !== 'Enter' ||
       event.shiftKey ||
       event.altKey ||
@@ -447,27 +429,13 @@ function StudioContent() {
               />
               <div className="studio-composer-actions">
                 <button
-                  aria-label={
-                    enterToSend
-                      ? '当前为回车发送，点击切换为回车换行'
-                      : '当前为回车换行，点击切换为回车发送'
-                  }
-                  aria-pressed={!enterToSend}
-                  className={`studio-enter-toggle ${enterToSend ? '' : 'is-newline-mode'}`}
-                  onClick={toggleEnterMode}
-                  title={enterToSend ? '回车发送' : '回车换行'}
-                  type="button"
-                >
-                  <CornerDownLeft aria-hidden="true" size={19} strokeWidth={2.3} />
-                </button>
-                <button
                   aria-label={submitting ? '正在提交任务' : '提交生成任务'}
                   className="studio-submit-button"
                   disabled={!canSubmit}
                   title={submitting ? '提交中' : '提交生成任务'}
                   type="submit"
                 >
-                  <Send aria-hidden="true" size={20} strokeWidth={2.35} />
+                  <Send aria-hidden="true" size={17} strokeWidth={2.4} />
                 </button>
               </div>
             </div>
@@ -639,7 +607,7 @@ function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterCon
       fields: (items, keys) => findSingleQuickField(items, keys, isRatioParameter),
       icon: '□',
       kind: 'size',
-      label: '尺寸',
+      label: '比例',
     },
     {
       fields: findResolutionFields,

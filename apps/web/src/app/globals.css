@@ -1140,8 +1140,9 @@ select option {
 }
 
 .studio-composer-main {
+  position: relative;
   display: grid;
-  grid-template-columns: 126px minmax(0, 1fr) auto;
+  grid-template-columns: 126px minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
   overflow: visible;
@@ -1168,7 +1169,7 @@ select option {
 .studio-prompt-input {
   min-height: 78px;
   max-height: 148px;
-  padding: 12px 14px;
+  padding: 12px 56px 12px 14px;
   line-height: 1.65;
 }
 
@@ -1182,15 +1183,14 @@ select option {
 }
 
 .studio-tool-button,
-.studio-submit-button,
-.studio-enter-toggle {
+.studio-submit-button {
   display: inline-flex;
   min-width: 0;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 12px;
-  padding: 0 12px;
+  border-radius: 999px;
+  padding: 0;
   font-size: 13px;
   font-weight: 900;
   cursor: pointer;
@@ -1213,41 +1213,20 @@ select option {
 }
 
 .studio-composer-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
   display: flex;
-  align-items: stretch;
-  gap: 8px;
-  padding-left: 10px;
-}
-
-.studio-enter-toggle,
-.studio-submit-button {
-  width: 48px;
-  min-height: 78px;
-}
-
-.studio-enter-toggle {
-  background: rgba(255, 255, 255, 0.065);
-  color: #d8e2dc;
-  transition:
-    background 100ms ease,
-    color 100ms ease,
-    box-shadow 100ms ease;
-}
-
-.studio-enter-toggle:hover {
-  background: rgba(255, 255, 255, 0.095);
-}
-
-.studio-enter-toggle.is-newline-mode {
-  background: rgba(39, 198, 183, 0.2);
-  color: var(--studio-teal);
-  box-shadow: inset 0 0 0 1px rgba(39, 198, 183, 0.24);
+  align-items: center;
+  justify-content: center;
 }
 
 .studio-submit-button {
+  width: 36px;
+  height: 36px;
   background: var(--studio-teal);
   color: #031615;
-  box-shadow: 0 12px 28px rgba(39, 198, 183, 0.22);
+  box-shadow: 0 10px 22px rgba(39, 198, 183, 0.24);
 }
 
 .studio-submit-button:disabled {
@@ -1487,7 +1466,7 @@ select option {
   width: 100%;
   border-radius: 18px;
   background: rgba(13, 18, 16, 0.74);
-  padding: 10px 12px 0;
+  padding: 10px 12px;
 }
 
 .studio-quick-param {
@@ -1730,6 +1709,10 @@ select option {
     gap: 8px;
   }
 
+  .studio-prompt-input {
+    padding-right: 56px;
+  }
+
   .studio-creation-panel {
     min-height: 460px;
   }
@@ -1806,15 +1789,8 @@ select option {
   }
 
   .studio-composer-actions {
-    justify-content: flex-end;
-    gap: 8px;
-    padding-left: 0;
-  }
-
-  .studio-enter-toggle,
-  .studio-submit-button {
-    width: 46px;
-    min-height: 44px;
+    right: 16px;
+    bottom: 16px;
   }
 
   .studio-quick-params {
