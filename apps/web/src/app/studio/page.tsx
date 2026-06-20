@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 
 import { useAuth } from '@/components/auth-provider';
@@ -20,12 +20,21 @@ import {
   favoriteModel,
   fetchPublicModels,
   modalityLabel,
+  type ParameterSchemaField,
   type PublicAiModel,
   type ModelModality,
   unfavoriteModel,
 } from '@/lib/model-catalog';
 
 type StudioModelFilter = 'all' | ModelModality | 'favorite';
+type QuickParameterKind = 'count' | 'ratio' | 'resolution';
+
+interface QuickParameterConfig {
+  fields: ParameterSchemaField[];
+  icon: string;
+  kind: QuickParameterKind;
+  label: string;
+}
 
 function StudioContent() {
   const { csrfToken } = useAuth();
@@ -44,9 +53,11 @@ function StudioContent() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showModelIntro, setShowModelIntro] = useState(true);
+  const [openQuickParameter, setOpenQuickParameter] = useState<QuickParameterKind | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
+  const quickParameterRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     async function loadCatalog() {
@@ -82,6 +93,23 @@ function StudioContent() {
     return () => clearInterval(timer);
   }, [activeTasks]);
 
+  useEffect(() => {
+    if (!openQuickParameter) {
+      return;
+    }
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && quickParameterRef.current?.contains(target)) {
+        return;
+      }
+      setOpenQuickParameter(null);
+    }
+
+    window.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => window.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [openQuickParameter]);
+
   const filteredModels = useMemo(() => {
     const query = modelSearchQuery.trim().toLowerCase();
     return models.filter((model) => {
@@ -102,6 +130,14 @@ function StudioContent() {
         .some((value) => String(value).toLowerCase().includes(query));
     });
   }, [models, modelSearchQuery, selectedFilter]);
+  const quickParameters = useMemo(
+    () => buildQuickParameters(selectedModel?.parameter_schema ?? []),
+    [selectedModel?.parameter_schema],
+  );
+  const quickParameterKeys = useMemo(
+    () => new Set(quickParameters.flatMap((item) => item.fields.map((field) => field.key))),
+    [quickParameters],
+  );
 
   useEffect(() => {
     if (selectedModel && filteredModels.some((model) => model.id === selectedModel.id)) {
@@ -121,6 +157,21 @@ function StudioContent() {
       setParameterValues(value);
     },
     [],
+  );
+
+  const updateAdvancedParameterValues = useCallback(
+    (value: Record<string, string | number | boolean | null>) => {
+      setParameterValues((current) => {
+        const quickValues = Object.fromEntries(
+          Object.entries(current).filter(([key]) => quickParameterKeys.has(key)),
+        );
+        return {
+          ...quickValues,
+          ...value,
+        };
+      });
+    },
+    [quickParameterKeys],
   );
 
   function selectFilter(filter: StudioModelFilter) {
@@ -271,6 +322,18 @@ function StudioContent() {
     selectedReferenceIds.has(asset.id),
   );
   const parameterCount = selectedModel?.parameter_schema.length ?? 0;
+  const advancedParameterSchema = useMemo(
+    () =>
+      (selectedModel?.parameter_schema ?? []).filter((field) => !quickParameterKeys.has(field.key)),
+    [quickParameterKeys, selectedModel?.parameter_schema],
+  );
+  const advancedParameterValues = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(parameterValues).filter(([key]) => !quickParameterKeys.has(key)),
+      ) as Record<string, string | number | boolean | null>,
+    [parameterValues, quickParameterKeys],
+  );
 
   return (
     <main className="studio-workspace">
@@ -344,6 +407,15 @@ function StudioContent() {
               </span>
             </div>
 
+            <QuickParameterBar
+              configs={quickParameters}
+              onOpenChange={setOpenQuickParameter}
+              openKind={openQuickParameter}
+              refElement={quickParameterRef}
+              updateParameterValues={updateParameterValues}
+              values={parameterValues}
+            />
+
             <ReferenceStrip
               referenceAssets={referenceAssets}
               selectedModel={selectedModel}
@@ -367,9 +439,9 @@ function StudioContent() {
                 <summary>高级参数</summary>
                 <div className="studio-advanced-body">
                   <ParameterSchemaForm
-                    onChange={updateParameterValues}
-                    schema={selectedModel?.parameter_schema ?? []}
-                    value={parameterValues}
+                    onChange={updateAdvancedParameterValues}
+                    schema={advancedParameterSchema}
+                    value={advancedParameterValues}
                   />
                 </div>
               </details>
@@ -379,6 +451,266 @@ function StudioContent() {
       </section>
     </main>
   );
+}
+
+function QuickParameterBar({
+  configs,
+  onOpenChange,
+  openKind,
+  refElement,
+  updateParameterValues,
+  values,
+}: {
+  configs: QuickParameterConfig[];
+  onOpenChange: (kind: QuickParameterKind | null) => void;
+  openKind: QuickParameterKind | null;
+  refElement: RefObject<HTMLDivElement | null>;
+  updateParameterValues: (value: Record<string, string | number | boolean | null>) => void;
+  values: Record<string, string | number | boolean | null>;
+}) {
+  if (configs.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="studio-quick-params" ref={refElement}>
+      {configs.map((config) => {
+        const value = formatQuickParameterValue(config.fields, values);
+        const isOpen = openKind === config.kind;
+        return (
+          <div className="studio-quick-param" key={config.kind}>
+            <button
+              aria-expanded={isOpen}
+              className={`studio-quick-param-trigger ${isOpen ? 'is-active' : ''}`}
+              onClick={() => onOpenChange(isOpen ? null : config.kind)}
+              type="button"
+            >
+              <span aria-hidden="true">{config.icon}</span>
+              <strong>{config.label}</strong>
+              <small>{value}</small>
+            </button>
+            {isOpen ? (
+              <div className="studio-quick-param-popover">
+                <div className="studio-quick-param-head">
+                  <span>{config.icon}</span>
+                  <strong>{config.label}</strong>
+                </div>
+                {config.fields.map((field) => (
+                  <div className="studio-quick-field" key={field.key}>
+                    {config.fields.length > 1 ? <span>{field.label}</span> : null}
+                    <ParameterFieldControl
+                      field={field}
+                      onChange={(nextValue) =>
+                        updateParameterValues({
+                          ...values,
+                          [field.key]: nextValue,
+                        })
+                      }
+                      value={values[field.key] ?? field.default ?? null}
+                    />
+                    {field.description ? <p>{field.description}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ParameterFieldControl({
+  field,
+  onChange,
+  value,
+}: {
+  field: ParameterSchemaField;
+  onChange: (value: string | number | boolean | null) => void;
+  value: string | number | boolean | null;
+}) {
+  if (field.type === 'select') {
+    return (
+      <div className="studio-quick-options">
+        {(field.options ?? []).map((option) => (
+          <button
+            className={value === option.value ? 'is-active' : ''}
+            key={String(option.value)}
+            onClick={() => onChange(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  if (field.type === 'boolean') {
+    return (
+      <label className="studio-quick-toggle">
+        <input
+          checked={value === true}
+          onChange={(event) => onChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span>{field.label}</span>
+      </label>
+    );
+  }
+
+  const inputValue = typeof value === 'boolean' || value === null ? '' : value;
+
+  return (
+    <input
+      className="studio-quick-input"
+      max={field.max}
+      min={field.min}
+      onChange={(event) => {
+        if (event.target.value === '') {
+          onChange(null);
+          return;
+        }
+        if (field.type === 'number' || field.type === 'integer') {
+          onChange(Number(event.target.value));
+          return;
+        }
+        onChange(event.target.value);
+      }}
+      placeholder={field.placeholder}
+      step={field.type === 'integer' ? 1 : undefined}
+      type={field.type === 'number' || field.type === 'integer' ? 'number' : 'text'}
+      value={inputValue}
+    />
+  );
+}
+
+function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterConfig[] {
+  const usedKeys = new Set<string>();
+  const configs: QuickParameterConfig[] = [];
+
+  const definitions: Array<{
+    fields: (schema: ParameterSchemaField[], usedKeys: Set<string>) => ParameterSchemaField[];
+    icon: string;
+    kind: QuickParameterKind;
+    label: string;
+  }> = [
+    {
+      fields: (items, keys) => findSingleQuickField(items, keys, isCountParameter),
+      icon: '#',
+      kind: 'count',
+      label: '张数',
+    },
+    {
+      fields: (items, keys) => findSingleQuickField(items, keys, isRatioParameter),
+      icon: '□',
+      kind: 'ratio',
+      label: '比例',
+    },
+    {
+      fields: findResolutionFields,
+      icon: '▣',
+      kind: 'resolution',
+      label: '分辨率',
+    },
+  ];
+
+  for (const definition of definitions) {
+    const fields = definition.fields(schema, usedKeys);
+    if (fields.length === 0) {
+      continue;
+    }
+    fields.forEach((field) => usedKeys.add(field.key));
+    configs.push({
+      fields,
+      icon: definition.icon,
+      kind: definition.kind,
+      label: definition.label,
+    });
+  }
+
+  return configs;
+}
+
+function findSingleQuickField(
+  schema: ParameterSchemaField[],
+  usedKeys: Set<string>,
+  match: (field: ParameterSchemaField) => boolean,
+) {
+  const field = schema.find((item) => !usedKeys.has(item.key) && match(item));
+  return field ? [field] : [];
+}
+
+function findResolutionFields(schema: ParameterSchemaField[], usedKeys: Set<string>) {
+  const directField = schema.find(
+    (item) =>
+      !usedKeys.has(item.key) &&
+      isResolutionParameter(item) &&
+      !/\b(width|height)\b/.test(fieldSearchText(item)),
+  );
+  if (directField) {
+    return [directField];
+  }
+
+  const widthField = schema.find(
+    (item) => !usedKeys.has(item.key) && /\b(width|w)\b|宽度/.test(fieldSearchText(item)),
+  );
+  const heightField = schema.find(
+    (item) => !usedKeys.has(item.key) && /\b(height|h)\b|高度/.test(fieldSearchText(item)),
+  );
+  return [widthField, heightField].filter((field): field is ParameterSchemaField => Boolean(field));
+}
+
+function fieldSearchText(field: ParameterSchemaField) {
+  return `${field.key} ${field.label} ${field.description ?? ''}`.toLowerCase();
+}
+
+function isCountParameter(field: ParameterSchemaField) {
+  const text = fieldSearchText(field);
+  return /\b(n|count|num|number|quantity|images?)\b/.test(text) || /张数|数量/.test(text);
+}
+
+function isRatioParameter(field: ParameterSchemaField) {
+  const text = fieldSearchText(field);
+  return /aspect|ratio|比例/.test(text);
+}
+
+function isResolutionParameter(field: ParameterSchemaField) {
+  const text = fieldSearchText(field);
+  return (
+    /\b(size|resolution|dimension|quality)\b/.test(text) ||
+    /尺寸|分辨率|清晰度/.test(text) ||
+    /\b(width|height)\b/.test(text)
+  );
+}
+
+function formatQuickParameterValue(
+  fields: ParameterSchemaField[],
+  values: Record<string, string | number | boolean | null>,
+) {
+  if (fields.length > 1) {
+    return fields.map((field) => formatQuickFieldValue(field, values[field.key])).join(' x ');
+  }
+  const field = fields[0];
+  if (!field) {
+    return '';
+  }
+  return formatQuickFieldValue(field, values[field.key]);
+}
+
+function formatQuickFieldValue(
+  field: ParameterSchemaField,
+  value: string | number | boolean | null | undefined,
+) {
+  const normalizedValue = value ?? field.default ?? '';
+  const option = field.options?.find((item) => item.value === normalizedValue);
+  if (option) {
+    return option.label;
+  }
+  if (normalizedValue === '' || normalizedValue === null) {
+    return field.label;
+  }
+  return String(normalizedValue).replace(/\s*x\s*/i, ' x ');
 }
 
 function StudioTopbar({
