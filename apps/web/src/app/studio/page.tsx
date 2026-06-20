@@ -761,6 +761,7 @@ function StudioReferenceUploader({
                   '--reference-stack-x': `${Math.min(index, 4) * 8}px`,
                   '--reference-stack-y': `${Math.min(index, 4) * -3}px`,
                   '--reference-rotation': `${index % 2 === 0 ? -6 : 5}deg`,
+                  '--reference-focus-x': `${index * 80}px`,
                   '--reference-expanded-x': `${index * 80}px`,
                   '--reference-mobile-expanded-x': `${index * 66}px`,
                   '--reference-expanded-y': `${index % 2 === 0 ? 0 : 8}px`,
@@ -790,6 +791,7 @@ function StudioReferenceUploader({
                 '--reference-stack-x': `${Math.min(references.length, 2) * 16 + 24}px`,
                 '--reference-stack-y': `${Math.min(references.length, 3) * -3}px`,
                 '--reference-rotation': `${references.length % 2 === 0 ? -5 : 4}deg`,
+                '--reference-focus-x': `${references.length * 80}px`,
                 '--reference-expanded-x': `${references.length * 80}px`,
                 '--reference-mobile-expanded-x': `${references.length * 66}px`,
                 '--reference-expanded-y': `${references.length % 2 === 0 ? 0 : 8}px`,
@@ -801,6 +803,11 @@ function StudioReferenceUploader({
             <span className="studio-reference-placeholder-plus">+</span>
             <span>参考图</span>
           </label>
+        ) : null}
+        {references.length > 0 ? (
+          <span className="studio-reference-cue" aria-hidden="true">
+            +
+          </span>
         ) : null}
       </div>
       <input
