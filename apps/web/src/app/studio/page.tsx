@@ -969,7 +969,7 @@ function StudioCanvas({
 
   return (
     <div className="studio-canvas-content">
-      <div className="studio-alert-stack">
+      <div className="studio-alert-stack" aria-live="polite">
         {error ? <p className="studio-alert studio-alert-error">{error}</p> : null}
         {message ? <p className="studio-alert studio-alert-success">{message}</p> : null}
       </div>

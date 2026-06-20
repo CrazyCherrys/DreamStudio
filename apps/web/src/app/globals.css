@@ -674,11 +674,12 @@ select option {
 .studio-alert-stack {
   position: absolute;
   top: 18px;
-  left: 18px;
-  z-index: 2;
+  left: 50%;
+  z-index: 4;
   display: grid;
   width: min(520px, calc(100% - 36px));
   gap: 8px;
+  transform: translateX(-50%);
 }
 
 .studio-alert {
@@ -1651,6 +1652,11 @@ select option {
   .studio-task-history {
     top: 14px;
     left: 14px;
+    width: calc(100% - 28px);
+  }
+
+  .studio-alert-stack {
+    top: 62px;
     width: calc(100% - 28px);
   }
 
