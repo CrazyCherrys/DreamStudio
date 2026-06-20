@@ -274,12 +274,13 @@ function StudioContent() {
     setError(null);
     setMessage(null);
     try {
+      const resolvedParameters = mergeQuickParameterDefaults(quickParameters, parameterValues);
       const created = await createImageTask(
         {
           model_record_id: selectedModel.id,
           prompt,
           negative_prompt: null,
-          parameters: parameterValues,
+          parameters: resolvedParameters,
           reference_asset_ids: selectedReferences.map((reference) => reference.id),
           client_request_id: crypto.randomUUID(),
         },
@@ -674,16 +675,34 @@ function isCountParameter(field: ParameterSchemaField) {
 
 function isRatioParameter(field: ParameterSchemaField) {
   const text = fieldSearchText(field);
-  return /\b(aspect|ratio)\b/.test(text) || /比例|画幅|尺寸/.test(text);
+  if (isResolutionValueField(field)) {
+    return false;
+  }
+  return /\b(aspect|ratio)\b/.test(text) || /比例|画幅|尺寸/.test(text) || isRatioValueField(field);
 }
 
 function isResolutionParameter(field: ParameterSchemaField) {
   const text = fieldSearchText(field);
   return (
-    /\b(resolution|dimension|quality)\b/.test(text) ||
+    /\b(size|resolution|dimension|quality)\b/.test(text) ||
     /分辨率|清晰度|像素/.test(text) ||
-    /\b(width|height)\b/.test(text)
+    /\b(width|height)\b/.test(text) ||
+    isResolutionValueField(field)
   );
+}
+
+function isRatioValueField(field: ParameterSchemaField) {
+  return getFieldExampleValues(field).some((value) => /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(value));
+}
+
+function isResolutionValueField(field: ParameterSchemaField) {
+  return getFieldExampleValues(field).some((value) => /^\d{3,5}\s*x\s*\d{3,5}$/i.test(value));
+}
+
+function getFieldExampleValues(field: ParameterSchemaField) {
+  return [field.default, ...(field.options ?? []).map((option) => option.value)]
+    .filter((value): value is string | number | boolean => value !== undefined && value !== null)
+    .map((value) => String(value).trim());
 }
 
 function formatQuickParameterValue(
@@ -713,6 +732,24 @@ function formatQuickFieldValue(
     return field.label;
   }
   return String(normalizedValue).replace(/\s*x\s*/i, ' x ');
+}
+
+function mergeQuickParameterDefaults(
+  configs: QuickParameterConfig[],
+  values: Record<string, string | number | boolean | null>,
+) {
+  const nextValues = { ...values };
+  for (const config of configs) {
+    for (const field of config.fields) {
+      if (
+        !Object.prototype.hasOwnProperty.call(nextValues, field.key) &&
+        field.default !== undefined
+      ) {
+        nextValues[field.key] = field.default;
+      }
+    }
+  }
+  return nextValues;
 }
 
 function toStudioReferencePreview(asset: AssetItem): StudioReferencePreview {

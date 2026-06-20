@@ -16,6 +16,7 @@ import {
   type ModelSyncSnapshotPayload,
   type ModelSyncSnapshotSummary,
   type ParameterFieldType,
+  type ParameterSchemaOption,
   type ParameterSchemaField,
   type ReferenceTransferMode,
   uploadModelIcon,
@@ -29,6 +30,74 @@ const ENDPOINT_TYPES: ModelEndpointType[] = [
   'gemini_generate_content',
 ];
 const TRANSFER_MODES: ReferenceTransferMode[] = ['none', 'multipart', 'url'];
+type StudioQuickParameterKind = 'count' | 'ratio' | 'resolution';
+
+interface StudioQuickParameterConfig {
+  defaultField: ParameterSchemaField;
+  description: string;
+  kind: StudioQuickParameterKind;
+  match: (
+    field: ParameterSchemaField,
+    schema: ParameterSchemaField[],
+    usedKeys: Set<string>,
+  ) => boolean;
+  title: string;
+}
+
+const STUDIO_QUICK_PARAMETER_CONFIGS: StudioQuickParameterConfig[] = [
+  {
+    defaultField: {
+      default: 1,
+      key: 'n',
+      label: '张数',
+      max: 4,
+      min: 1,
+      placeholder: '1',
+      required: false,
+      type: 'integer',
+    },
+    description: '控制一次任务生成的图片数量。',
+    kind: 'count',
+    match: isCountParameter,
+    title: '张数',
+  },
+  {
+    defaultField: {
+      default: '1:1',
+      key: 'aspect_ratio',
+      label: '比例',
+      options: [
+        { label: '1:1', value: '1:1' },
+        { label: '16:9', value: '16:9' },
+        { label: '9:16', value: '9:16' },
+      ],
+      required: false,
+      type: 'select',
+    },
+    description: '画幅比例，选项会显示在 Studio 的比例选择里。',
+    kind: 'ratio',
+    match: isRatioParameter,
+    title: '比例',
+  },
+  {
+    defaultField: {
+      default: '1024x1024',
+      key: 'size',
+      label: '分辨率',
+      options: [
+        { label: '1024x1024', value: '1024x1024' },
+        { label: '1536x1024', value: '1536x1024' },
+        { label: '1024x1536', value: '1024x1536' },
+      ],
+      required: false,
+      type: 'select',
+    },
+    description: '像素规格，选项会显示在 Studio 的分辨率选择里。',
+    kind: 'resolution',
+    match: isResolutionParameter,
+    title: '分辨率',
+  },
+];
 
 export function ParameterSchemaForm({
   schema,
@@ -297,6 +366,99 @@ export function SchemaPreview({ schema }: { schema: ParameterSchemaField[] }) {
   );
 }
 
+export function StudioQuickParameterSettings({
+  schema,
+  onChange,
+}: {
+  schema: ParameterSchemaField[];
+  onChange: (schema: ParameterSchemaField[]) => void;
+}) {
+  return (
+    <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+      <div className="grid gap-1">
+        <h3 className="text-lg font-black">Studio 快捷参数</h3>
+        <p className="ds-muted text-sm leading-6">
+          这里配置的字段会显示在 /studio 输入区下方；关闭某项会从参数 Schema 中移除对应字段。
+        </p>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {STUDIO_QUICK_PARAMETER_CONFIGS.map((config) => (
+          <StudioQuickParameterCard
+            config={config}
+            key={config.kind}
+            onChange={onChange}
+            schema={schema}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StudioQuickParameterCard({
+  config,
+  schema,
+  onChange,
+}: {
+  config: StudioQuickParameterConfig;
+  schema: ParameterSchemaField[];
+  onChange: (schema: ParameterSchemaField[]) => void;
+}) {
+  const field = findStudioQuickParameterField(schema, config);
+  const enabled = Boolean(field);
+  const effectiveField = field ?? config.defaultField;
+
+  function toggleEnabled(checked: boolean) {
+    onChange(
+      checked
+        ? upsertStudioQuickParameterField(schema, config, config.defaultField)
+        : removeStudioQuickParameterField(schema, config),
+    );
+  }
+
+  function patchField(patch: Partial<ParameterSchemaField>) {
+    onChange(
+      upsertStudioQuickParameterField(schema, config, {
+        ...effectiveField,
+        ...patch,
+      }),
+    );
+  }
+
+  return (
+    <div
+      className={`grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 ${
+        enabled ? '' : 'opacity-70'
+      }`}
+    >
+      <label className="flex items-start justify-between gap-3 text-sm font-black">
+        <span className="grid gap-1">
+          <span>{config.title}</span>
+          <code className="text-xs font-semibold text-[var(--ds-muted)]">
+            key: {effectiveField.key}
+          </code>
+        </span>
+        <input
+          checked={enabled}
+          onChange={(event) => toggleEnabled(event.target.checked)}
+          type="checkbox"
+        />
+      </label>
+      <p className="ds-muted text-xs leading-5">{config.description}</p>
+      {enabled ? (
+        <>
+          <DsInput
+            label="参数 key"
+            onChange={(event) => patchField({ key: event.target.value })}
+            value={effectiveField.key}
+          />
+          {renderStudioQuickParameterControls(config, effectiveField, patchField)}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function ModelForm({
   csrfToken,
   initialModel,
@@ -544,6 +706,11 @@ export function ModelForm({
         />
       </label>
 
+      <StudioQuickParameterSettings
+        onChange={(parameterSchema) => patchForm({ parameter_schema: parameterSchema })}
+        schema={form.parameter_schema}
+      />
+
       <SchemaBuilder
         onChange={(parameterSchema) => patchForm({ parameter_schema: parameterSchema })}
         schema={form.parameter_schema}
@@ -695,6 +862,86 @@ function renderParameterInput(
   );
 }
 
+function renderStudioQuickParameterControls(
+  config: StudioQuickParameterConfig,
+  field: ParameterSchemaField,
+  patchField: (patch: Partial<ParameterSchemaField>) => void,
+) {
+  if (config.kind === 'count') {
+    return (
+      <div className="grid gap-3">
+        <DsInput
+          label="默认张数"
+          min={0}
+          onChange={(event) =>
+            patchField({
+              default: event.target.value === '' ? undefined : Number(event.target.value),
+              type: 'integer',
+            })
+          }
+          type="number"
+          value={field.default === undefined || field.default === null ? '' : String(field.default)}
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <DsInput
+            label="最小值"
+            min={0}
+            onChange={(event) =>
+              patchField({
+                min: event.target.value === '' ? undefined : Number(event.target.value),
+                type: 'integer',
+              })
+            }
+            type="number"
+            value={field.min ?? ''}
+          />
+          <DsInput
+            label="最大值"
+            min={0}
+            onChange={(event) =>
+              patchField({
+                max: event.target.value === '' ? undefined : Number(event.target.value),
+                type: 'integer',
+              })
+            }
+            type="number"
+            value={field.max ?? ''}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      <label className="grid gap-2 text-sm font-bold">
+        <span>选项</span>
+        <textarea
+          className="ds-input min-h-28 py-3"
+          onChange={(event) =>
+            patchField({
+              options: parseSchemaOptionLines(event.target.value),
+              type: 'select',
+            })
+          }
+          value={formatSchemaOptionLines(field.options ?? [])}
+        />
+      </label>
+      <DsInput
+        label="默认值"
+        onChange={(event) =>
+          patchField({
+            default: event.target.value || undefined,
+            type: 'select',
+          })
+        }
+        placeholder="需要匹配某个 option value"
+        value={field.default === undefined || field.default === null ? '' : String(field.default)}
+      />
+    </div>
+  );
+}
+
 function parseJsonObject(value: string): Record<string, unknown> {
   const parsed = JSON.parse(value || '{}') as unknown;
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -710,4 +957,116 @@ function areParameterValuesEqual(
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
   return leftKeys.length === rightKeys.length && leftKeys.every((key) => left[key] === right[key]);
+}
+
+function findStudioQuickParameterField(
+  schema: ParameterSchemaField[],
+  config: StudioQuickParameterConfig,
+) {
+  const usedKeys = getStudioQuickParameterUsedKeys(schema, config.kind);
+  return (
+    schema.find((field) => field.key === config.defaultField.key && !usedKeys.has(field.key)) ??
+    schema.find((field) => !usedKeys.has(field.key) && config.match(field, schema, usedKeys))
+  );
+}
+
+function getStudioQuickParameterUsedKeys(
+  schema: ParameterSchemaField[],
+  beforeKind: StudioQuickParameterKind,
+) {
+  const usedKeys = new Set<string>();
+  for (const config of STUDIO_QUICK_PARAMETER_CONFIGS) {
+    if (config.kind === beforeKind) {
+      break;
+    }
+    const field =
+      schema.find((item) => item.key === config.defaultField.key && !usedKeys.has(item.key)) ??
+      schema.find((item) => !usedKeys.has(item.key) && config.match(item, schema, usedKeys));
+    if (field) {
+      usedKeys.add(field.key);
+    }
+  }
+  return usedKeys;
+}
+
+function upsertStudioQuickParameterField(
+  schema: ParameterSchemaField[],
+  config: StudioQuickParameterConfig,
+  field: ParameterSchemaField,
+) {
+  const existingField = findStudioQuickParameterField(schema, config);
+  if (!existingField) {
+    return [...schema, field];
+  }
+  return schema.map((item) => (item.key === existingField.key ? field : item));
+}
+
+function removeStudioQuickParameterField(
+  schema: ParameterSchemaField[],
+  config: StudioQuickParameterConfig,
+) {
+  const field = findStudioQuickParameterField(schema, config);
+  if (!field) {
+    return schema;
+  }
+  return schema.filter((item) => item.key !== field.key);
+}
+
+function formatSchemaOptionLines(options: ParameterSchemaOption[]) {
+  return options.map((option) => `${option.label}|${String(option.value)}`).join('\n');
+}
+
+function parseSchemaOptionLines(rawValue: string): ParameterSchemaOption[] {
+  return rawValue
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [label, value] = line.includes('|') ? line.split('|', 2) : [line, line];
+      return {
+        label: label.trim(),
+        value: value.trim(),
+      };
+    });
+}
+
+function fieldSearchText(field: ParameterSchemaField) {
+  return `${field.key} ${field.label} ${field.description ?? ''}`.toLowerCase();
+}
+
+function isCountParameter(field: ParameterSchemaField) {
+  const text = fieldSearchText(field);
+  return /\b(n|count|num|number|quantity|images?)\b/.test(text) || /张数|数量/.test(text);
+}
+
+function isRatioParameter(field: ParameterSchemaField) {
+  const text = fieldSearchText(field);
+  if (isResolutionValueField(field)) {
+    return false;
+  }
+  return /\b(aspect|ratio)\b/.test(text) || /比例|画幅|尺寸/.test(text) || isRatioValueField(field);
+}
+
+function isResolutionParameter(field: ParameterSchemaField) {
+  const text = fieldSearchText(field);
+  return (
+    /\b(size|resolution|dimension|quality)\b/.test(text) ||
+    /分辨率|清晰度|像素/.test(text) ||
+    /\b(width|height)\b/.test(text) ||
+    isResolutionValueField(field)
+  );
+}
+
+function isRatioValueField(field: ParameterSchemaField) {
+  return getFieldExampleValues(field).some((value) => /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(value));
+}
+
+function isResolutionValueField(field: ParameterSchemaField) {
+  return getFieldExampleValues(field).some((value) => /^\d{3,5}\s*x\s*\d{3,5}$/i.test(value));
+}
+
+function getFieldExampleValues(field: ParameterSchemaField) {
+  return [field.default, ...(field.options ?? []).map((option) => option.value)]
+    .filter((value): value is string | number | boolean => value !== undefined && value !== null)
+    .map((value) => String(value).trim());
 }
