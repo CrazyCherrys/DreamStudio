@@ -1,15 +1,22 @@
+import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 
 import { PrismaClient } from '@prisma/client';
 
 import { getOptionalEnv } from '@dreamstudio/config';
 
 const prisma = new PrismaClient();
+const scrypt = promisify(scryptCallback);
 
 const localStorageRoot = getOptionalEnv('LOCAL_STORAGE_ROOT', '/data');
 const inputPath = join(localStorageRoot, 'image', 'input');
 const outputPath = join(localStorageRoot, 'image', 'output');
+const INITIAL_ADMIN_DEFAULT_USERNAME = 'Cherry';
+const INITIAL_ADMIN_DEFAULT_PASSWORD = 'DreamStudio';
+const PASSWORD_HASH_PREFIX = 'scrypt';
+const PASSWORD_KEY_LENGTH = 64;
 
 const defaultSettings = [
   {
@@ -95,6 +102,8 @@ async function main() {
     });
   }
 
+  const initialAdmin = await ensureInitialAdmin();
+
   console.log(
     JSON.stringify({
       level: 'info',
@@ -102,8 +111,101 @@ async function main() {
       event: 'm0_initialized',
       settings: defaultSettings.length,
       local_storage_root: localStorageRoot,
+      initial_admin: initialAdmin,
     }),
   );
+}
+
+function getInitialAdminConfig() {
+  const username = getOptionalEnv('INITIAL_ADMIN_USERNAME', INITIAL_ADMIN_DEFAULT_USERNAME).trim();
+  const password = getOptionalEnv('INITIAL_ADMIN_PASSWORD', INITIAL_ADMIN_DEFAULT_PASSWORD);
+
+  if (!/^[a-zA-Z0-9_.-]{3,120}$/.test(username)) {
+    throw new Error(
+      'Invalid INITIAL_ADMIN_USERNAME: use 3-120 letters, numbers, underscores, dots, or hyphens',
+    );
+  }
+
+  if (password.length < 8 || password.length > 256) {
+    throw new Error('Invalid INITIAL_ADMIN_PASSWORD: use 8-256 characters');
+  }
+
+  return {
+    username,
+    password,
+  };
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('base64url');
+  const derivedKey = (await scrypt(password, salt, PASSWORD_KEY_LENGTH)) as Buffer;
+  return `${PASSWORD_HASH_PREFIX}$${salt}$${derivedKey.toString('base64url')}`;
+}
+
+async function ensureInitialAdmin() {
+  const existingAdminCount = await prisma.user.count({
+    where: {
+      role: 'super_admin',
+    },
+  });
+
+  if (existingAdminCount > 0) {
+    return {
+      action: 'skipped_existing_super_admin',
+    };
+  }
+
+  const config = getInitialAdminConfig();
+  const passwordHash = await hashPassword(config.password);
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      username: config.username,
+    },
+  });
+
+  if (existingUser) {
+    await prisma.user.update({
+      where: {
+        id: existingUser.id,
+      },
+      data: {
+        passwordHash,
+        role: 'super_admin',
+        status: 'active',
+        disabledAt: null,
+        deletedAt: null,
+      },
+    });
+    await prisma.userSession.updateMany({
+      where: {
+        userId: existingUser.id,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+
+    return {
+      action: 'upgraded_existing_user',
+      username: config.username,
+    };
+  }
+
+  await prisma.user.create({
+    data: {
+      username: config.username,
+      passwordHash,
+      displayName: config.username,
+      role: 'super_admin',
+      status: 'active',
+    },
+  });
+
+  return {
+    action: 'created',
+    username: config.username,
+  };
 }
 
 main()

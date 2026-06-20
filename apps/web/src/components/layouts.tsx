@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { AdminNavigation } from '@/components/admin-navigation';
+
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <main>
@@ -50,19 +52,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen px-4 py-6">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex items-center justify-between">
+    <main className="admin-shell min-h-screen lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
+      <aside className="admin-sidebar min-w-0 border-b border-[var(--ds-border)] bg-[var(--ds-admin-sidebar)] px-4 py-4 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 lg:grid lg:items-start">
           <div>
             <p className="ds-badge">Admin</p>
-            <h1 className="mt-3 text-3xl font-black">管理后台骨架</h1>
+            <h1 className="mt-2 text-xl font-black">管理后台</h1>
+            <p className="ds-muted mt-1 hidden text-xs font-semibold lg:block">
+              系统配置与运维控制台
+            </p>
           </div>
-          <Link className="ds-button ds-button-secondary" href="/">
+          <Link className="ds-button ds-button-secondary min-h-10 px-3 text-sm" href="/">
             返回首页
           </Link>
-        </header>
+        </div>
+        <div className="mt-4">
+          <AdminNavigation />
+        </div>
+      </aside>
+
+      <section className="admin-content grid min-w-0 content-start gap-5 px-4 py-5 lg:px-6 lg:py-6 xl:px-8">
         {children}
-      </div>
+      </section>
     </main>
   );
 }

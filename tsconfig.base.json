@@ -17,7 +17,8 @@
     "paths": {
       "@dreamstudio/config": ["packages/config/src/index.ts"],
       "@dreamstudio/db": ["packages/db/src/index.ts"],
-      "@dreamstudio/queue": ["packages/queue/src/index.ts"]
+      "@dreamstudio/queue": ["packages/queue/src/index.ts"],
+      "@dreamstudio/storage": ["packages/storage/src/index.ts"]
     }
   }
 }

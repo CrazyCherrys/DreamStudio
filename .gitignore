@@ -7,5 +7,6 @@ coverage/
 .env.*.local
 *.log
 *.tsbuildinfo
+**/*.tsbuildinfo
 tmp/
 packages/db/generated/

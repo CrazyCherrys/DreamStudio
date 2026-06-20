@@ -5,6 +5,7 @@ import { loadConfig } from '@dreamstudio/config';
 
 export const IMAGE_GENERATION_QUEUE = 'image-generation';
 export const ASSET_CLEANUP_QUEUE = 'asset-cleanup';
+export type DreamStudioRedisConnection = IORedis;
 
 export interface ImageGenerationJobPayload {
   job_version: 1;
@@ -21,7 +22,7 @@ export interface AssetCleanupJobPayload {
   limit: number;
 }
 
-export function createRedisConnection() {
+export function createRedisConnection(): DreamStudioRedisConnection {
   const config = loadConfig();
   return new IORedis(config.redisUrl, {
     maxRetriesPerRequest: null,
@@ -67,11 +68,7 @@ export function createImageGenerationQueue(connection = createBullConnectionOpti
   return new Queue<ImageGenerationJobPayload>(IMAGE_GENERATION_QUEUE, {
     connection,
     defaultJobOptions: {
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 5000,
-      },
+      attempts: 1,
       removeOnComplete: 1000,
       removeOnFail: 5000,
     },

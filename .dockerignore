@@ -6,6 +6,7 @@ packages/*/dist/
 coverage/
 *.log
 *.tsbuildinfo
+**/*.tsbuildinfo
 .env
 .env.local
 .git/

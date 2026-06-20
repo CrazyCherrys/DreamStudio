@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w @dreamstudio/config && npm run build -w @dreamstudio/db && npm run build -w @dreamstudio/queue && npm run build -w @dreamstudio/storage && npm run build -w @dreamstudio/api && npm run build -w @dreamstudio/web && npm run build -w @dreamstudio/worker",
     "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
     "db:init:m0": "tsx scripts/init-m0.ts",
     "db:migrate:deploy": "prisma migrate deploy --schema packages/db/prisma/schema.prisma",

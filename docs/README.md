@@ -14,6 +14,11 @@
 - `08-dreamstudio-v1-implementation-plan.md`：v1 实施计划与开发任务拆分确认版，定义 M0-M7 任务、验收标准、风险和开发顺序。
 - `09-dreamstudio-v1-env-and-deployment.md`：v1 环境变量、部署与运维确认版，定义启动变量、Compose 形态、初始化、存储、反向代理、主密钥风险和可选备份建议。
 - `10-dreamstudio-m1-auth-task-list.md`：M1 认证与用户基础开发任务清单，用于 M0 验收后进入注册、登录、会话、CSRF 和路由守卫开发准备。
+- `11-dreamstudio-m2-new-api-config-task-list.md`：M2 new-api 配置与系统设置开发任务清单，用于 M1 完成后进入用户密钥配置、连接测试、系统设置和管理员代配置开发准备。
+- `12-dreamstudio-m3-model-catalog-task-list.md`：M3 模型目录与参数 Schema 开发任务清单，用于 M2 完成后进入模型分类、模型管理、模型候选快照和参数 Schema 表单开发准备。
+- `13-dreamstudio-m4-storage-assets-task-list.md`：M4 存储、资产与上传开发任务清单，用于 M3 完成后进入本地/S3 存储、参考图上传、资产库、下载/删除和清理队列开发验收。
+- `14-dreamstudio-m5-image-task-worker-task-list.md`：M5 图片任务与 Worker 主闭环开发任务清单，用于 M4 完成后进入图片任务提交、new-api 图片调用、结果图存储入库和任务页面开发验收。
+- `15-dreamstudio-m6-admin-logs-task-list.md`：M6 管理后台与日志审计完善开发任务清单，用于 M5 完成后进入用户管理、请求日志、敏感内容 reveal 和审计日志页面开发验收。
 
 ## 已清理文档
 

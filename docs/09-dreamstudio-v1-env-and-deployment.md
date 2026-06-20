@@ -70,6 +70,7 @@ v1 不采用：
 | `LOCAL_STORAGE_ROOT` | 本地存储根路径 | `/data` |
 | `LOG_LEVEL` | 日志等级 | `info` |
 | `TRUST_PROXY` | 是否信任反向代理 | `false` |
+| `APP_ALLOWED_ORIGINS` | 额外允许的浏览器来源，逗号分隔 | 空，按需配置 |
 
 ### 2.2 不放入长期环境变量的配置
 
@@ -324,9 +325,15 @@ dreamstudio
 - `INITIAL_ADMIN_USERNAME`
 - `INITIAL_ADMIN_PASSWORD`
 
+默认值：
+
+- `INITIAL_ADMIN_USERNAME=Cherry`
+- `INITIAL_ADMIN_PASSWORD=DreamStudio`
+
 规则：
 
 - 仅在没有任何超级管理员时生效。
+- 如果同名普通用户已存在，则升级为 `super_admin`、恢复 `active` 状态、重置为初始化密码并撤销旧会话。
 - 初始化完成后应提示管理员修改密码。
 - 不应在日志中打印密码。
 

@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { RequestMethod } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 
-import { loadConfig } from '@dreamstudio/config';
+import { isAllowedAppOrigin, loadConfig } from '@dreamstudio/config';
 
 import { AppModule } from './modules/app.module';
 import { AllExceptionsFilter } from './platform/all-exceptions.filter';
@@ -15,7 +15,23 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
+  app.enableCors({
+    origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
 
+      try {
+        callback(null, isAllowedAppOrigin(origin, config));
+      } catch {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    allowedHeaders: ['content-type', 'x-csrf-token', 'x-request-id'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  });
   app.use(new RequestIdMiddleware().use);
   app.setGlobalPrefix('api/v1', {
     exclude: [
