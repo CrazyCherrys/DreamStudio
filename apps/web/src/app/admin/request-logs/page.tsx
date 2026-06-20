@@ -125,7 +125,7 @@ function AdminRequestLogsContent() {
       </form>
 
       {error ? (
-        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -134,7 +134,7 @@ function AdminRequestLogsContent() {
         {loading ? <p className="ds-muted font-semibold">正在读取请求日志...</p> : null}
         {logs.map((log) => (
           <article
-            className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-4"
+            className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4"
             key={log.id}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -150,7 +150,7 @@ function AdminRequestLogsContent() {
             <p className="mt-3 break-words text-sm font-semibold">
               {log.prompt_summary ?? '无 Prompt 摘要'}
             </p>
-            <pre className="mt-3 max-h-32 overflow-auto rounded-[var(--ds-radius-sm)] bg-white p-3 text-xs">
+            <pre className="mt-3 max-h-32 overflow-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-3 text-xs">
               {stringifyPreview(log.sanitized_params)}
             </pre>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">

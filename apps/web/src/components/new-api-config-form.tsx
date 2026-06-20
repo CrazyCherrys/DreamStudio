@@ -25,7 +25,7 @@ export function StatusBadge({ status }: { status: PublicNewApiConfig['status'] }
 
   return (
     <span
-      className={`inline-flex min-h-8 items-center rounded-[var(--ds-radius-sm)] border bg-white/70 px-3 text-sm font-black ${className}`}
+      className={`inline-flex min-h-8 items-center rounded-[var(--ds-radius-sm)] border bg-[var(--ds-surface-raised)] px-3 text-sm font-black ${className}`}
     >
       {statusLabel(status)}
     </span>
@@ -154,7 +154,7 @@ export function NewApiConfigForm({ mode }: { mode: 'onboarding' | 'settings' }) 
         <span className="ds-badge">new-api</span>
         <p className="ds-muted mt-4 font-semibold">暂时无法读取配置。</p>
         {error ? (
-          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
             {error}
           </p>
         ) : null}
@@ -179,15 +179,15 @@ export function NewApiConfigForm({ mode }: { mode: 'onboarding' | 'settings' }) 
 
       {config ? (
         <dl className="mt-6 grid gap-3 md:grid-cols-3">
-          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4">
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4">
             <dt className="ds-muted text-sm font-semibold">密钥</dt>
             <dd className="mt-1 font-black">{config.masked_api_key ?? '未配置'}</dd>
           </div>
-          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4">
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4">
             <dt className="ds-muted text-sm font-semibold">最近测试</dt>
             <dd className="mt-1 font-black">{formatDateTime(config.last_tested_at)}</dd>
           </div>
-          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4">
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4">
             <dt className="ds-muted text-sm font-semibold">默认 Base URL</dt>
             <dd className="mt-1 break-all font-black">
               {config.default_new_api_base_url ?? '管理员未配置'}
@@ -213,7 +213,7 @@ export function NewApiConfigForm({ mode }: { mode: 'onboarding' | 'settings' }) 
             value={baseUrl}
           />
         ) : (
-          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4">
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4">
             <p className="text-sm font-bold">Base URL</p>
             <p className="mt-1 break-all font-black">
               {config.default_new_api_base_url ?? '管理员未配置'}
@@ -222,24 +222,24 @@ export function NewApiConfigForm({ mode }: { mode: 'onboarding' | 'settings' }) 
         )}
 
         {config?.last_test_error ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
             {config.last_test_error}
           </p>
         ) : null}
         {testResult ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 px-4 py-3 text-sm font-semibold">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold">
             {testResult.ok
               ? `测试通过，模型数量 ${testResult.model_count ?? '未知'}`
               : testResult.error}
           </p>
         ) : null}
         {message ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
             {message}
           </p>
         ) : null}
         {error ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
             {error}
           </p>
         ) : null}

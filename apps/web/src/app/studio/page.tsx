@@ -16,19 +16,22 @@ import {
   type ImageTask,
 } from '@/lib/image-tasks';
 import {
-  endpointTypeLabel,
-  fetchPublicCategories,
+  endpointTypeShortLabel,
+  favoriteModel,
   fetchPublicModels,
-  transferModeLabel,
+  modalityLabel,
   type PublicAiModel,
-  type PublicModelCategory,
+  type ModelModality,
+  unfavoriteModel,
 } from '@/lib/model-catalog';
+
+type StudioModelFilter = 'all' | ModelModality | 'favorite';
 
 function StudioContent() {
   const { csrfToken } = useAuth();
-  const [categories, setCategories] = useState<PublicModelCategory[]>([]);
   const [models, setModels] = useState<PublicAiModel[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<StudioModelFilter>('all');
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
   const [selectedModel, setSelectedModel] = useState<PublicAiModel | null>(null);
   const [parameterValues, setParameterValues] = useState<
     Record<string, string | number | boolean | null>
@@ -49,12 +52,10 @@ function StudioContent() {
       setLoading(true);
       setError(null);
       try {
-        const [nextCategories, nextModels, referenceList] = await Promise.all([
-          fetchPublicCategories(),
-          fetchPublicModels(),
+        const [nextModels, referenceList] = await Promise.all([
+          fetchPublicModels({ modality: 'image' }),
           fetchAssets('reference_image'),
         ]);
-        setCategories(nextCategories.items);
         setModels(nextModels.items);
         setSelectedModel(nextModels.items[0] ?? null);
         setReferenceAssets(referenceList.items);
@@ -80,13 +81,38 @@ function StudioContent() {
     return () => clearInterval(timer);
   }, [activeTasks]);
 
-  const filteredModels = useMemo(
-    () =>
-      selectedCategoryId
-        ? models.filter((model) => model.category_id === selectedCategoryId)
-        : models,
-    [models, selectedCategoryId],
-  );
+  const filteredModels = useMemo(() => {
+    const query = modelSearchQuery.trim().toLowerCase();
+    return models.filter((model) => {
+      const matchesFilter =
+        selectedFilter === 'all'
+          ? true
+          : selectedFilter === 'favorite'
+            ? model.is_favorite
+            : model.modality === selectedFilter;
+      if (!matchesFilter) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+      return [model.display_name, model.model_id, model.provider_name, model.description]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [models, modelSearchQuery, selectedFilter]);
+
+  useEffect(() => {
+    if (selectedModel && filteredModels.some((model) => model.id === selectedModel.id)) {
+      return;
+    }
+    const nextSelectedModel = filteredModels[0] ?? null;
+    setSelectedModel(nextSelectedModel);
+    setParameterValues({});
+    if (!nextSelectedModel?.supports_reference_image) {
+      setSelectedReferenceIds(new Set());
+    }
+  }, [filteredModels, selectedModel]);
 
   const updateParameterValues = useCallback(
     (value: Record<string, string | number | boolean | null>) => {
@@ -95,17 +121,8 @@ function StudioContent() {
     [],
   );
 
-  function selectCategory(categoryId: string | null) {
-    setSelectedCategoryId(categoryId);
-    const nextModels = categoryId
-      ? models.filter((model) => model.category_id === categoryId)
-      : models;
-    const nextSelectedModel = nextModels[0] ?? null;
-    setSelectedModel(nextSelectedModel);
-    setParameterValues({});
-    if (!nextSelectedModel?.supports_reference_image) {
-      setSelectedReferenceIds(new Set());
-    }
+  function selectFilter(filter: StudioModelFilter) {
+    setSelectedFilter(filter);
   }
 
   function selectModel(model: PublicAiModel) {
@@ -113,6 +130,30 @@ function StudioContent() {
     setParameterValues({});
     if (!model.supports_reference_image) {
       setSelectedReferenceIds(new Set());
+    }
+  }
+
+  async function toggleModelFavorite(model: PublicAiModel) {
+    if (!csrfToken) {
+      setError('登录状态已失效，请重新登录');
+      return;
+    }
+    try {
+      if (model.is_favorite) {
+        await unfavoriteModel(model.id, csrfToken);
+      } else {
+        await favoriteModel(model.id, csrfToken);
+      }
+      setModels((current) =>
+        current.map((item) =>
+          item.id === model.id ? { ...item, is_favorite: !model.is_favorite } : item,
+        ),
+      );
+      setSelectedModel((current) =>
+        current?.id === model.id ? { ...current, is_favorite: !model.is_favorite } : current,
+      );
+    } catch (requestError) {
+      setError(requestError instanceof ApiClientError ? requestError.message : '更新收藏失败');
     }
   }
 
@@ -141,6 +182,10 @@ function StudioContent() {
     }
     if (!selectedModel) {
       setError('请选择模型');
+      return;
+    }
+    if (!selectedImageModelSupported) {
+      setError('当前模型暂不支持图片任务');
       return;
     }
     if (!prompt.trim()) {
@@ -207,7 +252,13 @@ function StudioContent() {
     });
   }
 
-  const canSubmit = Boolean(selectedModel && prompt.trim() && !submitting);
+  const selectedImageModelSupported = Boolean(
+    selectedModel?.modality === 'image' &&
+    selectedModel.endpoint_types.some(
+      (type) => type === 'openai_image_generations' || type === 'openai_image_edits',
+    ),
+  );
+  const canSubmit = Boolean(selectedImageModelSupported && prompt.trim() && !submitting);
   const resultTask = activeTasks.find((task) => task.result_assets.length > 0) ?? null;
   const runningCount = activeTasks.filter(
     (task) => task.status === 'pending' || task.status === 'running',
@@ -220,12 +271,14 @@ function StudioContent() {
   return (
     <main className="studio-workspace">
       <StudioModelSidebar
-        categories={categories}
         filteredModels={filteredModels}
         loading={loading}
-        onSelectCategory={selectCategory}
+        modelSearchQuery={modelSearchQuery}
+        onSearchChange={setModelSearchQuery}
+        onSelectFilter={selectFilter}
         onSelectModel={selectModel}
-        selectedCategoryId={selectedCategoryId}
+        onToggleFavorite={toggleModelFavorite}
+        selectedFilter={selectedFilter}
         selectedModel={selectedModel}
       />
 
@@ -351,72 +404,113 @@ function StudioTopbar({
 }
 
 function StudioModelSidebar({
-  categories,
   filteredModels,
   loading,
-  onSelectCategory,
+  modelSearchQuery,
+  onSearchChange,
+  onSelectFilter,
   onSelectModel,
-  selectedCategoryId,
+  onToggleFavorite,
+  selectedFilter,
   selectedModel,
 }: {
-  categories: PublicModelCategory[];
   filteredModels: PublicAiModel[];
   loading: boolean;
-  onSelectCategory: (categoryId: string | null) => void;
+  modelSearchQuery: string;
+  onSearchChange: (value: string) => void;
+  onSelectFilter: (filter: StudioModelFilter) => void;
   onSelectModel: (model: PublicAiModel) => void;
-  selectedCategoryId: string | null;
+  onToggleFavorite: (model: PublicAiModel) => void;
+  selectedFilter: StudioModelFilter;
   selectedModel: PublicAiModel | null;
 }) {
+  const filters: Array<{ key: StudioModelFilter; label: string }> = [
+    { key: 'all', label: '全部' },
+    { key: 'chat', label: '聊天' },
+    { key: 'image', label: '图片' },
+    { key: 'video', label: '视频' },
+    { key: 'favorite', label: '我的' },
+  ];
+
   return (
     <aside className="studio-sidebar">
       <div className="studio-sidebar-head">
         <span className="studio-kicker">模型栏</span>
-        <h1>图片模型</h1>
+        <h1>模型选择</h1>
       </div>
 
       <div className="studio-category-tabs">
-        <button
-          className={selectedCategoryId === null ? 'is-active' : ''}
-          onClick={() => onSelectCategory(null)}
-          type="button"
-        >
-          全部
-        </button>
-        {categories.map((category) => (
+        {filters.map((filter) => (
           <button
-            className={selectedCategoryId === category.id ? 'is-active' : ''}
-            key={category.id}
-            onClick={() => onSelectCategory(category.id)}
+            className={selectedFilter === filter.key ? 'is-active' : ''}
+            key={filter.key}
+            onClick={() => onSelectFilter(filter.key)}
             type="button"
           >
-            {category.name}
+            {filter.label}
           </button>
         ))}
       </div>
 
+      <label className="studio-model-search" aria-label="搜索模型或功能">
+        <span>⌕</span>
+        <input
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="搜索模型或功能"
+          value={modelSearchQuery}
+        />
+      </label>
+
       <div className="studio-model-list">
         {loading ? <p className="studio-sidebar-note">正在读取模型目录...</p> : null}
         {!loading && filteredModels.length === 0 ? (
-          <p className="studio-sidebar-note">暂无可用模型。</p>
+          <p className="studio-sidebar-note">
+            {selectedFilter === 'favorite' ? '暂无收藏模型。' : '暂无可用模型。'}
+          </p>
         ) : null}
         {filteredModels.map((model) => (
-          <button
+          <div
             className={`studio-model-card ${selectedModel?.id === model.id ? 'is-active' : ''}`}
             key={model.id}
-            onClick={() => onSelectModel(model)}
-            type="button"
           >
-            <span className="studio-model-icon">{model.display_name.slice(0, 1)}</span>
-            <span className="studio-model-copy">
-              <strong>{model.display_name}</strong>
-              <small>{model.model_id}</small>
+            <button
+              aria-label={model.is_favorite ? '取消收藏模型' : '收藏模型'}
+              className={`studio-model-favorite ${model.is_favorite ? 'is-active' : ''}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                void onToggleFavorite(model);
+              }}
+              type="button"
+            >
+              ☆
+            </button>
+            <button
+              className="studio-model-select"
+              onClick={() => onSelectModel(model)}
+              type="button"
+            >
+              <span className="studio-model-icon">
+                {model.icon_url ? (
+                  <img alt={model.display_name} src={model.icon_url} />
+                ) : (
+                  model.display_name.slice(0, 1)
+                )}
+              </span>
+              <span className="studio-model-copy">
+                <strong>{model.display_name}</strong>
+                <small>{model.description || model.model_id}</small>
+              </span>
               <span className="studio-model-tags">
-                <span>{endpointTypeLabel(model.endpoint_type)}</span>
-                <span>{transferModeLabel(model.reference_transfer_mode)}</span>
+                <span className={`studio-model-tag studio-model-tag-${model.modality}`}>
+                  {modalityLabel(model.modality)}
+                </span>
+                {model.endpoint_types.map((endpointType) => (
+                  <span key={endpointType}>{endpointTypeShortLabel(endpointType)}</span>
+                ))}
                 {model.is_recommended ? <span>推荐</span> : null}
               </span>
-            </span>
-          </button>
+            </button>
+          </div>
         ))}
       </div>
     </aside>

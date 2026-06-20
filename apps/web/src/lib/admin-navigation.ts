@@ -19,14 +19,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     description: '配置默认 new-api 地址、注册开关和任务参数。',
   },
   {
-    title: '模型分类',
-    href: '/admin/model-categories' as Route,
-    description: '维护创作台模型分类、排序和启用状态。',
-  },
-  {
     title: '模型目录',
     href: '/admin/models' as Route,
-    description: '维护图片模型、参数 Schema 和展示状态。',
+    description: '维护模型类型、图标、描述、端点能力和参数 Schema。',
   },
   {
     title: '模型同步',

@@ -110,8 +110,8 @@ function StudioTasksContent() {
           <button
             className={`min-h-10 rounded-[var(--ds-radius-sm)] border px-3 text-sm font-black ${
               status === item
-                ? 'border-[var(--ds-brand)] bg-[var(--ds-brand)] text-white'
-                : 'border-[var(--ds-border)] bg-white/70'
+                ? 'border-[var(--ds-brand)] bg-[var(--ds-brand)] text-[#031615]'
+                : 'border-[var(--ds-border)] bg-[var(--ds-surface-raised)]'
             }`}
             key={item}
             onClick={() => setStatus(item)}
@@ -123,12 +123,12 @@ function StudioTasksContent() {
       </section>
 
       {message ? (
-        <p className="mb-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+        <p className="mb-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="mb-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="mb-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -201,7 +201,7 @@ function TaskListCard({
         </dl>
 
         {task.error_message ? (
-          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 p-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-3 text-sm font-semibold text-[var(--ds-danger)]">
             {task.error_message}
           </p>
         ) : null}
@@ -262,13 +262,13 @@ function TaskListCard({
 
       <div className="grid gap-3">
         {task.result_assets.length === 0 ? (
-          <div className="grid aspect-[4/3] place-items-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 text-sm font-semibold text-[var(--ds-muted)]">
+          <div className="grid aspect-[4/3] place-items-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] text-sm font-semibold text-[var(--ds-muted)]">
             暂无结果图
           </div>
         ) : (
           task.result_assets.slice(0, 2).map((asset) => (
             <a
-              className="block aspect-[4/3] rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-2"
+              className="block aspect-[4/3] rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-2"
               href={asset.download_url}
               key={asset.id}
             >

@@ -259,29 +259,15 @@ v1 使用 PostgreSQL 17 作为主数据库。
 
 ## 5. 模型目录
 
-### 5.1 model_categories
+### 5.1 固定模型类型
 
-保存模型分类。
+模型类型不再使用可配置的 `model_categories` 业务表。系统固定支持以下类型：
 
-核心字段：
+- `chat`：聊天模型。
+- `image`：图片模型。
+- `video`：视频模型。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | uuid pk | 分类 ID |
-| `name` | varchar | 分类名称 |
-| `slug` | varchar unique | 分类标识 |
-| `icon` | varchar nullable | 图标标识 |
-| `sort_order` | integer | 排序 |
-| `is_enabled` | boolean | 是否启用 |
-| `created_at` | timestamptz | 创建时间 |
-| `updated_at` | timestamptz | 更新时间 |
-| `deleted_at` | timestamptz nullable | 软删除时间 |
-
-索引：
-
-- unique `slug`
-- index `sort_order`
-- index `is_enabled`
+Studio 的“全部、聊天、图片、视频、我的”是固定筛选；“我的”来自用户收藏关系，不是管理员维护的分类。历史 `model_categories` 表在迁移中废弃。
 
 ### 5.2 ai_models
 
@@ -292,11 +278,13 @@ v1 使用 PostgreSQL 17 作为主数据库。
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | uuid pk | 模型记录 ID |
-| `category_id` | uuid fk model_categories.id nullable | 分类 ID |
-| `model_id` | varchar | 上游模型 ID |
+| `model_id` | varchar | 上游模型 ID，用于 API 请求 |
 | `display_name` | varchar | 前台展示名称 |
 | `provider_name` | varchar nullable | 厂商名称 |
-| `endpoint_type` | model_endpoint_type | 接口类型 |
+| `modality` | model_modality | 固定模型类型：chat、image、video |
+| `icon_url` | varchar nullable | 模型图标 URL |
+| `description` | text nullable | 模型描述 |
+| `endpoint_types` | model_endpoint_type[] | 支持的端点类型，可多选 |
 | `reference_transfer_mode` | reference_transfer_mode | 参考图传递方式 |
 | `supports_reference_image` | boolean | 是否支持参考图 |
 | `is_enabled` | boolean | 是否启用 |
@@ -310,19 +298,38 @@ v1 使用 PostgreSQL 17 作为主数据库。
 
 索引：
 
-- partial unique `model_id`, `endpoint_type` where `deleted_at is null`
-- index `category_id`
-- index `endpoint_type`
+- index `modality`
 - index `is_enabled`
 - index `is_recommended`
 - index `sort_order`
+- index `deleted_at`
 
 规则：
 
 - 只有启用模型展示给普通用户。
 - 模型参数以 `parameter_schema` 为准。
+- 一个模型可同时声明 `openai_image_generations` 和 `openai_image_edits`。
+- 图片任务提交时根据当前操作落成单个 `endpoint_type_snapshot`。
 - Gemini 风格接口进入 v1 后段兼容目标，不作为第一验收路径。
 
+### 5.3 user_model_favorites
+
+保存用户收藏模型，用于 Studio 的“我的”筛选。
+
+核心字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `user_id` | uuid fk users.id | 用户 ID |
+| `model_id` | uuid fk ai_models.id | 模型记录 ID |
+| `created_at` | timestamptz | 收藏时间 |
+
+索引和约束：
+
+- primary key `user_id, model_id`
+- index `model_id`
+
+### 5.4 model_sync_snapshots
 ### 5.3 model_sync_snapshots
 
 保存管理员从 `new-api` 拉取模型候选列表的快照，方便排查和导入。
@@ -701,7 +708,8 @@ erDiagram
   users ||--o{ assets : owns
   users ||--o{ request_logs : generates
   users ||--o{ audit_logs : acts
-  model_categories ||--o{ ai_models : contains
+  users ||--o{ user_model_favorites : favorites
+  ai_models ||--o{ user_model_favorites : favorited_by
   ai_models ||--o{ image_tasks : used_by
   image_tasks ||--o{ image_task_attempts : has
   image_tasks ||--o{ assets : produces
@@ -740,13 +748,11 @@ erDiagram
 
 以下约束需要使用 raw migration 创建：
 
-- `ai_models(model_id, endpoint_type) where deleted_at is null`
 - `image_tasks(user_id, client_request_id) where client_request_id is not null`
 
 原因：
 
 - PostgreSQL 中普通 unique index 允许多个 `NULL`。
-- `unique(model_id, endpoint_type, deleted_at)` 不能保证未删除模型唯一。
 - `client_request_id` 允许为空，但非空时需要按用户维度保证幂等。
 
 ### 13.3 软删除
@@ -754,7 +760,6 @@ erDiagram
 软删除字段：
 
 - `users.deleted_at`
-- `model_categories.deleted_at`
 - `ai_models.deleted_at`
 - `image_tasks.deleted_at`
 - `assets.deleted_at`
@@ -769,8 +774,8 @@ erDiagram
 2. `users`
 3. `user_sessions`
 4. `user_new_api_configs`
-5. `model_categories`
-6. `ai_models`
+5. `ai_models`
+6. `user_model_favorites`
 7. `image_tasks`
 8. `image_task_attempts`
 9. `assets`

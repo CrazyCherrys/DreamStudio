@@ -48,7 +48,7 @@ function TaskDetailContent() {
 
       {loading ? <p className="ds-muted font-semibold">正在读取任务详情...</p> : null}
       {error ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -71,7 +71,7 @@ function TaskDetail({ task }: { task: ImageTask }) {
           </span>
         </div>
         {task.error_message ? (
-          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 p-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-3 text-sm font-semibold text-[var(--ds-danger)]">
             {task.error_message}
           </p>
         ) : null}
@@ -80,7 +80,7 @@ function TaskDetail({ task }: { task: ImageTask }) {
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="ds-card p-5">
           <h3 className="text-xl font-black">参数快照</h3>
-          <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-white/70 p-4 text-xs">
+          <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-4 text-xs">
             {JSON.stringify(task.sanitized_parameter_snapshot, null, 2)}
           </pre>
         </div>
@@ -102,7 +102,7 @@ function TaskDetail({ task }: { task: ImageTask }) {
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {task.result_assets.map((asset) => (
               <a
-                className="block rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-3"
+                className="block rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3"
                 href={asset.download_url}
                 key={asset.id}
               >
@@ -126,7 +126,7 @@ function TaskDetail({ task }: { task: ImageTask }) {
           <div className="mt-4 grid gap-3">
             {task.attempts.map((attempt) => (
               <div
-                className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-4 text-sm"
+                className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 text-sm"
                 key={attempt.id}
               >
                 <div className="flex flex-wrap justify-between gap-3">

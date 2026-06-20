@@ -1,6 +1,6 @@
 # DreamStudio M3 模型目录与参数 Schema 开发任务清单
 
-本文档在 M2 new-api 配置与系统设置完成后使用，目标是让 DreamStudio 具备可维护的图片模型目录、模型分类、参数 Schema 和模型候选拉取能力。M3 只完成“模型可配置、可展示、参数表单可渲染、参数可校验”的基础，不提交图片任务，不调用 Worker 生图，不处理资产上传。
+本文档在 M2 new-api 配置与系统设置完成后使用，目标是让 DreamStudio 具备可维护的固定类型模型目录、参数 Schema 和模型候选拉取能力。M3 只完成“模型可配置、可展示、参数表单可渲染、参数可校验”的基础，不提交图片任务，不调用 Worker 生图，不处理资产上传。
 
 当前状态：已实现并通过 M3 验证脚本、构建和 Docker Compose 启动验证。
 
@@ -10,7 +10,6 @@
 
 M3 完成后需要满足：
 
-- 管理员可以创建、编辑、禁用和软删除模型分类。
 - 管理员可以创建、编辑、禁用和软删除图片模型。
 - 管理员可以配置模型端点类型、参考图能力、默认参数和参数 Schema。
 - 管理员可以从 `new-api` 拉取模型候选快照。
@@ -26,7 +25,7 @@ M3 完成后需要满足：
 
 M3 实现：
 
-- 模型分类。
+- 固定模型类型。
 - 模型目录。
 - 模型候选快照。
 - 参数 Schema 标准。
@@ -55,30 +54,20 @@ M3 不实现：
 
 M3 需要补齐以下数据结构：
 
-- `model_categories`
 - `ai_models`
+- `user_model_favorites`
 - `model_sync_snapshots`
-
-`model_categories` 需要支持：
-
-- `id`
-- `name`
-- `slug`
-- `icon`
-- `sort_order`
-- `is_enabled`
-- `created_at`
-- `updated_at`
-- `deleted_at`
 
 `ai_models` 需要支持：
 
 - `id`
-- `category_id`
 - `model_id`
 - `display_name`
 - `provider_name`
-- `endpoint_type`
+- `modality`
+- `icon_url`
+- `description`
+- `endpoint_types`
 - `reference_transfer_mode`
 - `supports_reference_image`
 - `is_enabled`
@@ -89,6 +78,12 @@ M3 需要补齐以下数据结构：
 - `created_at`
 - `updated_at`
 - `deleted_at`
+
+`user_model_favorites` 需要支持：
+
+- `user_id`
+- `model_id`
+- `created_at`
 
 `model_sync_snapshots` 需要支持：
 
@@ -101,26 +96,27 @@ M3 需要补齐以下数据结构：
 
 索引和约束：
 
-- `model_categories.slug` 在未软删除范围内唯一，或全局唯一并禁止复用。
-- `ai_models(model_id, endpoint_type)` 在 `deleted_at is null` 范围内唯一。
-- `model_categories.sort_order`
-- `model_categories.is_enabled`
-- `ai_models.category_id`
-- `ai_models.endpoint_type`
+- `ai_models.modality`
 - `ai_models.is_enabled`
 - `ai_models.is_recommended`
 - `ai_models.sort_order`
+- `ai_models.deleted_at`
+- `user_model_favorites(user_id, model_id)` 主键
+- `user_model_favorites.model_id`
 - `model_sync_snapshots.operator_id`
 - `model_sync_snapshots.created_at`
 
 规则：
 
-- 分类和模型删除均为软删除。
+- 模型删除为软删除。
 - 普通用户接口只返回启用、未软删除的数据。
 - 管理员接口可查看启用和禁用数据，但默认不返回已软删除数据。
 - 模型候选快照只供管理员使用。
+- Studio 的“我的”来自 `user_model_favorites`，不是模型分类。
 
 ---
+
+## 4. 后端 API 任务---
 
 ## 4. 后端 API 任务
 
@@ -128,36 +124,28 @@ M3 需要补齐以下数据结构：
 
 需要实现：
 
-- `GET /api/v1/model-categories`
 - `GET /api/v1/models`
 - `GET /api/v1/models/{model_record_id}`
 
 规则：
 
 - 要求登录。
-- 普通用户只看到启用且未软删除分类。
 - 普通用户只看到启用且未软删除模型。
-- 禁用分类下的模型不出现在普通用户列表。
+- 可按固定类型、搜索词、推荐状态和收藏状态筛选模型。
 - 响应包含前端渲染模型列表和参数表单所需字段。
 - 不返回管理员专用字段和模型候选快照。
 
-### 4.2 管理员模型分类接口
+### 4.2 管理员模型分类接口（废弃）
 
 需要实现：
 
-- `GET /api/v1/admin/model-categories`
-- `POST /api/v1/admin/model-categories`
-- `PATCH /api/v1/admin/model-categories/{category_id}`
-- `DELETE /api/v1/admin/model-categories/{category_id}`
+- 不再实现管理员模型分类 CRUD。
+- 模型类型固定为聊天、图片、视频，由 `/admin/models` 选择。
 
 规则：
 
-- 全部要求 `super_admin`。
-- 写操作要求 CSRF。
-- `slug` 只允许小写字母、数字和短横线。
-- 删除为软删除。
-- 禁用分类后，普通用户不再看到该分类及其下模型。
-- 创建、更新、删除建议写审计日志，便于后续排查。
+- 该接口组不再实现。
+- 历史 URL 可显示废弃说明并引导到 `/admin/models`。
 
 ### 4.3 管理员模型接口
 
@@ -174,8 +162,8 @@ M3 需要补齐以下数据结构：
 - 全部要求 `super_admin`。
 - 写操作要求 CSRF。
 - 删除为软删除。
-- 未软删除模型中 `model_id + endpoint_type` 唯一。
-- `endpoint_type` 支持 `openai_image_generations`、`openai_image_edits`、`gemini_generate_content`。
+- 模型端点改为 `endpoint_types` 多选数组。
+- `endpoint_types` 支持 `openai_image_generations`、`openai_image_edits`、`gemini_generate_content`。
 - M3 第一验收路径优先支持 `openai_image_generations` 和 `openai_image_edits`。
 - `gemini_generate_content` 保留字段兼容，不作为第一验收路径。
 - `parameter_schema` 必须通过后端校验。
@@ -264,19 +252,9 @@ M3 需要提供后端工具：
 
 ## 6. 前端页面任务
 
-### 6.1 管理员模型分类页
+### 6.1 管理员模型分类页（废弃）
 
-需要实现：
-
-- `/admin/model-categories`
-
-页面能力：
-
-- 分类列表。
-- 新增分类。
-- 编辑分类名称、slug、图标、排序、启用状态。
-- 禁用分类。
-- 软删除分类。
+不再实现 `/admin/model-categories` 管理入口。历史 URL 可以显示废弃说明并引导到 `/admin/models`。
 
 ### 6.2 管理员模型管理页
 
@@ -291,9 +269,10 @@ M3 需要提供后端工具：
 - 编辑模型。
 - 启用或禁用模型。
 - 设置推荐。
-- 设置分类。
-- 设置模型 ID、展示名、厂商名称。
-- 设置接口类型。
+- 设置固定模型类型：聊天、图片、视频。
+- 上传或填写模型图标。
+- 设置模型 ID、展示名、厂商名称和描述。
+- 多选端点类型。
 - 设置参考图传递方式。
 - 设置是否支持参考图。
 - 设置排序。
@@ -324,9 +303,9 @@ M3 需要提供后端工具：
 
 页面能力：
 
-- 加载模型分类。
 - 加载启用模型。
-- 按分类筛选模型。
+- 按全部、聊天、图片、视频、我的筛选模型。
+- 使用搜索框快速搜索模型。
 - 展示推荐模型标记。
 - 选中模型后展示模型参数表单。
 - 根据模型 `parameter_schema` 渲染参数字段。
@@ -381,19 +360,15 @@ M3 完成时至少验证：
 
 `scripts/verify-m3.ts` 至少验证：
 
-- 管理员可以创建分类。
-- 管理员可以编辑分类。
-- 管理员可以禁用分类。
-- 管理员可以软删除分类。
 - 管理员可以创建模型。
 - 管理员可以编辑模型。
 - 管理员可以禁用模型。
 - 管理员可以软删除模型。
-- 未软删除模型中 `model_id + endpoint_type` 唯一。
+- 模型端点改为 `endpoint_types` 多选数组。
 - 合法 `parameter_schema` 可以保存。
 - 非法 `parameter_schema` 被拒绝。
 - `default_params` 按 Schema 校验。
-- 普通用户只能看到启用分类和启用模型。
+- 普通用户只能看到启用模型。
 - 禁用模型不会展示给普通用户。
 - 模型候选快照可以拉取并保存 `raw_response`。
 - 候选模型不会自动进入普通用户模型列表。
@@ -401,7 +376,6 @@ M3 完成时至少验证：
 
 `scripts/verify-m3-routes.ts` 至少验证：
 
-- 超级管理员可以访问 `/admin/model-categories`。
 - 超级管理员可以访问 `/admin/models`。
 - 超级管理员可以访问 `/admin/model-sync`。
 - 普通用户不能访问管理页面。
@@ -414,21 +388,19 @@ M3 完成时至少验证：
 
 管理员：
 
-- 创建一个分类，例如“图像生成”。
-- 创建一个 `openai_image_generations` 模型，例如 `gpt-image-1`。
+- 创建一个图片类型模型，例如 `gpt-image-1`，端点选择 `openai_image_generations`。
 - 配置一个包含 `prompt_style`、`size`、`n` 的参数 Schema。
 - 禁用模型后，普通用户列表不再展示。
-- 软删除模型后，可重新创建相同 `model_id + endpoint_type`。
 - 拉取一次模型候选快照，确认候选不自动启用。
 
 普通用户：
 
 - 登录后进入 `/studio`。
-- 能看到启用分类。
 - 能看到启用模型。
+- 可以使用全部、聊天、图片、视频、我的和搜索框筛选模型。
 - 选择模型后，能看到按 Schema 渲染的参数表单。
 - 不能看到禁用分类和禁用模型。
-- 不能访问 `/admin/model-categories`、`/admin/models`、`/admin/model-sync`。
+- 不能访问 `/admin/models`、`/admin/model-sync`。
 
 安全：
 

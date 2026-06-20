@@ -89,7 +89,7 @@ function AdminRequestLogDetailContent() {
 
       {loading ? <p className="ds-muted font-semibold">正在读取请求日志详情...</p> : null}
       {error ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -120,7 +120,7 @@ function AdminRequestLogDetailContent() {
               />
             </dl>
             {detail.error_message ? (
-              <p className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 p-3 text-sm font-semibold text-[var(--ds-danger)]">
+              <p className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-3 text-sm font-semibold text-[var(--ds-danger)]">
                 {detail.error_message}
               </p>
             ) : null}
@@ -129,13 +129,13 @@ function AdminRequestLogDetailContent() {
           <section className="grid gap-5 lg:grid-cols-2">
             <div className="ds-card admin-panel p-6">
               <h3 className="text-xl font-black">Prompt 摘要</h3>
-              <p className="mt-4 whitespace-pre-wrap break-words rounded-[var(--ds-radius-sm)] bg-white/70 p-4 text-sm">
+              <p className="mt-4 whitespace-pre-wrap break-words rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-4 text-sm">
                 {detail.prompt_summary ?? '无 Prompt 摘要'}
               </p>
             </div>
             <div className="ds-card admin-panel p-6">
               <h3 className="text-xl font-black">脱敏参数</h3>
-              <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-white/70 p-4 text-xs">
+              <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-4 text-xs">
                 {stringifyPreview(detail.sanitized_params)}
               </pre>
             </div>
@@ -169,7 +169,7 @@ function AdminRequestLogDetailContent() {
               ) : null}
             </div>
             {revealed ? (
-              <div className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white p-4">
+              <div className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-4">
                 <div className="flex flex-wrap justify-between gap-3">
                   <strong>{revealed.title}</strong>
                   <span className="text-sm font-semibold text-[var(--ds-danger)]">

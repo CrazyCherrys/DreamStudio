@@ -101,7 +101,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           value={password}
         />
         {error ? (
-          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
             {error}
           </div>
         ) : null}

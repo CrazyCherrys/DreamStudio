@@ -6,119 +6,29 @@ import { DsButton, DsInput } from '@/components/ui';
 import {
   emptySchemaField,
   endpointTypeLabel,
+  modalityLabel,
   transferModeLabel,
   type AdminAiModel,
-  type AdminModelCategory,
   type AiModelPayload,
-  type ModelCategoryPayload,
   type ModelEndpointType,
+  type ModelModality,
   type ModelSyncSnapshotDetail,
   type ModelSyncSnapshotPayload,
   type ModelSyncSnapshotSummary,
   type ParameterFieldType,
   type ParameterSchemaField,
-  type PublicAiModel,
-  type PublicModelCategory,
   type ReferenceTransferMode,
+  uploadModelIcon,
 } from '@/lib/model-catalog';
 
 const FIELD_TYPES: ParameterFieldType[] = ['string', 'number', 'integer', 'boolean', 'select'];
+const MODEL_MODALITIES: ModelModality[] = ['chat', 'image', 'video'];
 const ENDPOINT_TYPES: ModelEndpointType[] = [
   'openai_image_generations',
   'openai_image_edits',
   'gemini_generate_content',
 ];
 const TRANSFER_MODES: ReferenceTransferMode[] = ['none', 'multipart', 'url'];
-
-export function ModelCategoryTabs({
-  categories,
-  selectedCategoryId,
-  onSelect,
-}: {
-  categories: PublicModelCategory[];
-  selectedCategoryId: string | null;
-  onSelect: (categoryId: string | null) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <button
-        className={`min-h-10 rounded-[var(--ds-radius-sm)] border px-3 text-sm font-black ${
-          selectedCategoryId === null
-            ? 'border-[var(--ds-brand)] bg-[var(--ds-brand)] text-white'
-            : 'border-[var(--ds-border)] bg-white/70'
-        }`}
-        onClick={() => onSelect(null)}
-        type="button"
-      >
-        全部
-      </button>
-      {categories.map((category) => (
-        <button
-          className={`min-h-10 rounded-[var(--ds-radius-sm)] border px-3 text-sm font-black ${
-            selectedCategoryId === category.id
-              ? 'border-[var(--ds-brand)] bg-[var(--ds-brand)] text-white'
-              : 'border-[var(--ds-border)] bg-white/70'
-          }`}
-          key={category.id}
-          onClick={() => onSelect(category.id)}
-          type="button"
-        >
-          {category.name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-export function ModelPicker({
-  models,
-  selectedModelId,
-  onSelect,
-}: {
-  models: PublicAiModel[];
-  selectedModelId: string | null;
-  onSelect: (model: PublicAiModel) => void;
-}) {
-  if (models.length === 0) {
-    return (
-      <p className="ds-muted rounded-[var(--ds-radius-sm)] bg-white/60 p-4 text-sm">
-        暂无可用模型。
-      </p>
-    );
-  }
-
-  return (
-    <div className="grid gap-3">
-      {models.map((model) => (
-        <button
-          className={`rounded-[var(--ds-radius-sm)] border p-4 text-left transition ${
-            selectedModelId === model.id
-              ? 'border-[var(--ds-brand)] bg-[var(--ds-brand-soft)]'
-              : 'border-[var(--ds-border)] bg-white/70 hover:border-[var(--ds-border-strong)]'
-          }`}
-          key={model.id}
-          onClick={() => onSelect(model)}
-          type="button"
-        >
-          <span className="block font-black">{model.display_name}</span>
-          <span className="ds-muted mt-1 block break-all text-xs font-semibold">
-            {model.model_id}
-          </span>
-          <span className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-            <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 px-2 py-1">
-              {endpointTypeLabel(model.endpoint_type)}
-            </span>
-            {model.is_recommended ? (
-              <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-2 py-1 text-[var(--ds-success)]">
-                推荐
-              </span>
-            ) : null}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function ParameterSchemaForm({
   schema,
@@ -151,7 +61,7 @@ export function ParameterSchemaForm({
 
   if (schema.length === 0) {
     return (
-      <p className="ds-muted rounded-[var(--ds-radius-sm)] bg-white/60 p-4 text-sm">
+      <p className="ds-muted rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-muted)] p-4 text-sm">
         该模型暂无可配置参数。
       </p>
     );
@@ -208,7 +118,7 @@ export function SchemaBuilder({
         </DsButton>
       </div>
       {schema.length === 0 ? (
-        <p className="ds-muted rounded-[var(--ds-radius-sm)] bg-white/60 p-4 text-sm">
+        <p className="ds-muted rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-muted)] p-4 text-sm">
           暂无参数字段。
         </p>
       ) : (
@@ -278,7 +188,7 @@ export function SchemaFieldEditor({
   }
 
   return (
-    <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/65 p-4">
+    <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <DsInput
           label="key"
@@ -360,7 +270,7 @@ export function SchemaFieldEditor({
           onChange={(event) => updateDefault(event.target.value)}
           value={field.default === undefined || field.default === null ? '' : String(field.default)}
         />
-        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 px-4 py-3 text-sm font-black">
+        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-black">
           <input
             checked={field.required}
             onChange={(event) => patchField({ required: event.target.checked })}
@@ -380,7 +290,7 @@ export function SchemaPreview({ schema }: { schema: ParameterSchemaField[] }) {
   return (
     <div className="grid gap-3">
       <h3 className="text-lg font-black">JSON 预览</h3>
-      <pre className="max-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/75 p-4 text-xs">
+      <pre className="max-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 text-xs">
         {JSON.stringify(schema, null, 2)}
       </pre>
     </div>
@@ -388,22 +298,24 @@ export function SchemaPreview({ schema }: { schema: ParameterSchemaField[] }) {
 }
 
 export function ModelForm({
-  categories,
+  csrfToken,
   initialModel,
   onSubmit,
   submitting,
 }: {
-  categories: AdminModelCategory[];
+  csrfToken: string | null;
   initialModel?: AdminAiModel | null;
   onSubmit: (payload: AiModelPayload) => Promise<void>;
   submitting: boolean;
 }) {
   const [form, setForm] = useState<AiModelPayload>(() => ({
-    category_id: initialModel?.category_id ?? categories[0]?.id ?? null,
+    modality: initialModel?.modality ?? 'image',
     model_id: initialModel?.model_id ?? '',
     display_name: initialModel?.display_name ?? '',
     provider_name: initialModel?.provider_name ?? '',
-    endpoint_type: initialModel?.endpoint_type ?? 'openai_image_generations',
+    icon_url: initialModel?.icon_url ?? null,
+    description: initialModel?.description ?? '',
+    endpoint_types: initialModel?.endpoint_types ?? ['openai_image_generations'],
     reference_transfer_mode: initialModel?.reference_transfer_mode ?? 'none',
     supports_reference_image: initialModel?.supports_reference_image ?? false,
     is_enabled: initialModel?.is_enabled ?? true,
@@ -415,13 +327,8 @@ export function ModelForm({
   const [defaultParamsJson, setDefaultParamsJson] = useState(() =>
     JSON.stringify(initialModel?.default_params ?? {}, null, 2),
   );
-
-  useEffect(() => {
-    setForm((current) => ({
-      ...current,
-      category_id: current.category_id ?? categories[0]?.id ?? null,
-    }));
-  }, [categories]);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [iconError, setIconError] = useState<string | null>(null);
 
   function patchForm(patch: Partial<AiModelPayload>) {
     setForm((current) => ({
@@ -430,11 +337,53 @@ export function ModelForm({
     }));
   }
 
+  function toggleEndpointType(type: ModelEndpointType) {
+    setForm((current) => {
+      const enabled = current.endpoint_types.includes(type);
+      const nextEndpointTypes = enabled
+        ? current.endpoint_types.filter((item) => item !== type)
+        : [...current.endpoint_types, type];
+
+      return {
+        ...current,
+        endpoint_types: nextEndpointTypes.length > 0 ? nextEndpointTypes : current.endpoint_types,
+      };
+    });
+  }
+
+  async function uploadIcon(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+    if (!csrfToken) {
+      setIconError('登录状态已失效，请重新登录');
+      return;
+    }
+
+    setUploadingIcon(true);
+    setIconError(null);
+    try {
+      const uploaded = await uploadModelIcon(file, csrfToken);
+      patchForm({ icon_url: uploaded.url });
+    } catch (error) {
+      setIconError(error instanceof Error ? error.message : '上传图标失败');
+    } finally {
+      setUploadingIcon(false);
+    }
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsedDefaultParams = parseJsonObject(defaultParamsJson);
     await onSubmit({
       ...form,
+      model_id: form.model_id.trim(),
+      display_name: form.display_name.trim(),
+      provider_name: form.provider_name?.trim() || null,
+      icon_url: form.icon_url?.trim() || null,
+      description: form.description?.trim() || null,
       default_params: parsedDefaultParams,
     });
   }
@@ -459,43 +408,26 @@ export function ModelForm({
           onChange={(event) => patchForm({ provider_name: event.target.value || null })}
           value={form.provider_name ?? ''}
         />
+        <label className="grid gap-2 text-sm font-bold">
+          <span>模型类型</span>
+          <select
+            className="ds-input"
+            onChange={(event) => patchForm({ modality: event.target.value as ModelModality })}
+            value={form.modality}
+          >
+            {MODEL_MODALITIES.map((modality) => (
+              <option key={modality} value={modality}>
+                {modalityLabel(modality)}
+              </option>
+            ))}
+          </select>
+        </label>
         <DsInput
           label="排序"
           onChange={(event) => patchForm({ sort_order: Number(event.target.value) })}
           type="number"
           value={form.sort_order}
         />
-        <label className="grid gap-2 text-sm font-bold">
-          <span>分类</span>
-          <select
-            className="ds-input"
-            onChange={(event) => patchForm({ category_id: event.target.value || null })}
-            value={form.category_id ?? ''}
-          >
-            <option value="">无分类</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-bold">
-          <span>端点类型</span>
-          <select
-            className="ds-input"
-            onChange={(event) =>
-              patchForm({ endpoint_type: event.target.value as ModelEndpointType })
-            }
-            value={form.endpoint_type}
-          >
-            {ENDPOINT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {endpointTypeLabel(type)}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="grid gap-2 text-sm font-bold">
           <span>参考图传递</span>
           <select
@@ -514,8 +446,70 @@ export function ModelForm({
         </label>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-[84px_1fr]">
+        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] text-2xl font-black">
+          {form.icon_url ? (
+            <img
+              alt={form.display_name || '模型图标'}
+              className="h-full w-full object-cover"
+              src={form.icon_url}
+            />
+          ) : (
+            form.display_name.slice(0, 1) || 'M'
+          )}
+        </div>
+        <div className="grid gap-3">
+          <DsInput
+            label="图标 URL"
+            onChange={(event) => patchForm({ icon_url: event.target.value || null })}
+            value={form.icon_url ?? ''}
+          />
+          <label className="flex w-fit cursor-pointer items-center justify-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-black">
+            {uploadingIcon ? '上传中...' : '上传图标'}
+            <input
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              className="sr-only"
+              disabled={uploadingIcon}
+              onChange={uploadIcon}
+              type="file"
+            />
+          </label>
+          {iconError ? (
+            <p className="text-sm font-semibold text-[var(--ds-danger)]">{iconError}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <label className="grid gap-2 text-sm font-bold">
+        <span>模型描述</span>
+        <textarea
+          className="ds-input min-h-28 py-3"
+          onChange={(event) => patchForm({ description: event.target.value || null })}
+          value={form.description ?? ''}
+        />
+      </label>
+
+      <fieldset className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+        <legend className="px-1 text-sm font-black">端点类型</legend>
+        <div className="grid gap-3 md:grid-cols-3">
+          {ENDPOINT_TYPES.map((type) => (
+            <label
+              className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold"
+              key={type}
+            >
+              <input
+                checked={form.endpoint_types.includes(type)}
+                onChange={() => toggleEndpointType(type)}
+                type="checkbox"
+              />
+              {endpointTypeLabel(type)}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div className="grid gap-3 md:grid-cols-3">
-        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-4 font-bold">
+        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
           <input
             checked={form.supports_reference_image}
             onChange={(event) => patchForm({ supports_reference_image: event.target.checked })}
@@ -523,7 +517,7 @@ export function ModelForm({
           />
           支持参考图
         </label>
-        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-4 font-bold">
+        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
           <input
             checked={form.is_enabled}
             onChange={(event) => patchForm({ is_enabled: event.target.checked })}
@@ -531,7 +525,7 @@ export function ModelForm({
           />
           启用
         </label>
-        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-4 font-bold">
+        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
           <input
             checked={form.is_recommended}
             onChange={(event) => patchForm({ is_recommended: event.target.checked })}
@@ -562,84 +556,6 @@ export function ModelForm({
     </form>
   );
 }
-
-export function ModelCategoryForm({
-  initialCategory,
-  onSubmit,
-  submitting,
-}: {
-  initialCategory?: AdminModelCategory | null;
-  onSubmit: (payload: ModelCategoryPayload) => Promise<void>;
-  submitting: boolean;
-}) {
-  const [form, setForm] = useState<ModelCategoryPayload>({
-    name: initialCategory?.name ?? '',
-    slug: initialCategory?.slug ?? '',
-    icon: initialCategory?.icon ?? '',
-    sort_order: initialCategory?.sort_order ?? 0,
-    is_enabled: initialCategory?.is_enabled ?? true,
-  });
-
-  function patchForm(patch: Partial<ModelCategoryPayload>) {
-    setForm((current) => ({
-      ...current,
-      ...patch,
-    }));
-  }
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await onSubmit({
-      ...form,
-      icon: form.icon || null,
-      slug: form.slug.trim(),
-      name: form.name.trim(),
-    });
-  }
-
-  return (
-    <form className="grid gap-4" onSubmit={submit}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <DsInput
-          label="名称"
-          onChange={(event) => patchForm({ name: event.target.value })}
-          required
-          value={form.name}
-        />
-        <DsInput
-          label="slug"
-          onChange={(event) => patchForm({ slug: event.target.value })}
-          placeholder="general"
-          required
-          value={form.slug}
-        />
-        <DsInput
-          label="图标"
-          onChange={(event) => patchForm({ icon: event.target.value })}
-          value={form.icon ?? ''}
-        />
-        <DsInput
-          label="排序"
-          onChange={(event) => patchForm({ sort_order: Number(event.target.value) })}
-          type="number"
-          value={form.sort_order}
-        />
-      </div>
-      <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-4 font-bold">
-        <input
-          checked={form.is_enabled}
-          onChange={(event) => patchForm({ is_enabled: event.target.checked })}
-          type="checkbox"
-        />
-        启用分类
-      </label>
-      <DsButton className="w-fit" disabled={submitting} type="submit">
-        {submitting ? '保存中...' : initialCategory ? '保存分类' : '创建分类'}
-      </DsButton>
-    </form>
-  );
-}
-
 export function ModelSyncSnapshotPanel({
   snapshots,
   selectedSnapshot,
@@ -692,7 +608,7 @@ export function ModelSyncSnapshotPanel({
         <div className="grid max-h-[540px] gap-2 overflow-auto">
           {snapshots.map((snapshot) => (
             <button
-              className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-3 text-left text-sm"
+              className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3 text-left text-sm"
               key={snapshot.id}
               onClick={() => onSelect(snapshot.id)}
               type="button"
@@ -708,7 +624,7 @@ export function ModelSyncSnapshotPanel({
             </button>
           ))}
         </div>
-        <pre className="min-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/75 p-4 text-xs">
+        <pre className="min-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 text-xs">
           {selectedSnapshot
             ? JSON.stringify(selectedSnapshot.raw_response, null, 2)
             : '选择一个快照查看 raw_response'}
@@ -727,7 +643,7 @@ function renderParameterInput(
 
   if (field.type === 'boolean') {
     return (
-      <label className="flex min-h-12 items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 px-4 font-bold">
+      <label className="flex min-h-12 items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 font-bold">
         <input
           checked={Boolean(value)}
           id={id}

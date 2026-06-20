@@ -1,8 +1,21 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import type { Request } from 'express';
-import { ModelEndpointType, Prisma, ReferenceTransferMode } from '@prisma/client';
+import { createHash, randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { extname, join } from 'node:path';
 
+import { HttpException, HttpStatus, Injectable, StreamableFile } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import {
+  ModelEndpointType,
+  ModelModality,
+  Prisma,
+  ReferenceTransferMode,
+  type AiModel,
+} from '@prisma/client';
+
+import { loadConfig } from '@dreamstudio/config';
 import { prisma } from '@dreamstudio/db';
+import { DEFAULT_MAX_IMAGE_BYTES } from '@dreamstudio/storage';
 
 import { apiError, validationFailed } from '../auth/auth.errors';
 import type { SessionContext } from '../auth/auth.types';
@@ -16,53 +29,56 @@ import {
 } from './parameter-schema';
 import type {
   AdminAiModel,
-  AdminModelCategory,
   AiModelBody,
-  ModelCategoryBody,
   ModelSyncSnapshotBody,
   ModelSyncSnapshotDetail,
   ModelSyncSnapshotSummary,
   PublicAiModel,
-  PublicModelCategory,
 } from './model-catalog.types';
 
 type ValidationDetail = { field: string; message: string };
-type SerializablePublicModel = {
-  id: string;
-  modelId: string;
-  displayName: string;
-  providerName: string | null;
-  categoryId: string | null;
-  endpointType: ModelEndpointType;
-  referenceTransferMode: ReferenceTransferMode;
-  supportsReferenceImage: boolean;
-  isRecommended: boolean;
-  defaultParams: Prisma.JsonValue;
-  parameterSchema: Prisma.JsonValue;
-};
-type SerializableAdminCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-  sortOrder: number;
-  isEnabled: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-};
-type SerializableAdminModel = SerializablePublicModel & {
-  isEnabled: boolean;
-  sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-  category: SerializableAdminCategory | null;
+type SerializablePublicModel = Pick<
+  AiModel,
+  | 'id'
+  | 'modelId'
+  | 'displayName'
+  | 'providerName'
+  | 'modality'
+  | 'iconUrl'
+  | 'description'
+  | 'endpointTypes'
+  | 'referenceTransferMode'
+  | 'supportsReferenceImage'
+  | 'isRecommended'
+  | 'defaultParams'
+  | 'parameterSchema'
+>;
+type SerializableAdminModel = SerializablePublicModel &
+  Pick<AiModel, 'isEnabled' | 'sortOrder' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+
+type FavoriteAwareModel = SerializablePublicModel & {
+  favorites?: Array<{ userId: string; modelId: string }>;
 };
 
 const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_DESCRIPTION_LENGTH = 1200;
+const MAX_ICON_URL_LENGTH = 500;
+const MODEL_ICON_DIR = 'model-icons';
+const MODEL_ICON_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+]);
+const MODEL_ICON_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'image/svg+xml': '.svg',
+};
 
 @Injectable()
 export class ModelCatalogService {
@@ -71,162 +87,57 @@ export class ModelCatalogService {
     private readonly newApiConfigService: NewApiConfigService,
   ) {}
 
-  async listPublicCategories(): Promise<{ items: PublicModelCategory[] }> {
-    const categories = await prisma.modelCategory.findMany({
-      where: {
-        deletedAt: null,
-        isEnabled: true,
-      },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    });
-
-    return {
-      items: categories.map((category) => this.serializePublicCategory(category)),
-    };
-  }
-
-  async listAdminCategories(): Promise<{ items: AdminModelCategory[] }> {
-    const categories = await prisma.modelCategory.findMany({
-      where: {
-        deletedAt: null,
-      },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    });
-
-    return {
-      items: categories.map((category) => this.serializeAdminCategory(category)),
-    };
-  }
-
-  async createCategory(body: ModelCategoryBody, session: SessionContext, request: Request) {
-    const input = this.validateCategoryBody(body, {
-      partial: false,
-    }) as Prisma.ModelCategoryUncheckedCreateInput;
-
-    try {
-      const category = await prisma.modelCategory.create({
-        data: input,
-      });
-
-      await this.auditLogService.write({
-        action: 'admin_create_model_category',
-        targetType: 'model_category',
-        targetId: category.id,
-        session,
-        request,
-        metadata: {
-          slug: category.slug,
-          is_enabled: category.isEnabled,
-        },
-      });
-
-      return {
-        item: this.serializeAdminCategory(category),
-      };
-    } catch (error) {
-      this.rethrowKnownConflict(error, '分类 slug 已存在');
-      throw error;
-    }
-  }
-
-  async updateCategory(
-    categoryId: string,
-    body: ModelCategoryBody,
+  async listPublicModels(
+    query: Record<string, unknown>,
     session: SessionContext,
-    request: Request,
-  ) {
-    this.assertUuid(categoryId, 'category_id');
-    const input = this.validateCategoryBody(body, { partial: true });
-    await this.assertCategoryExists(categoryId);
-
-    try {
-      const category = await prisma.modelCategory.update({
-        where: {
-          id: categoryId,
-        },
-        data: input,
-      });
-
-      await this.auditLogService.write({
-        action: 'admin_update_model_category',
-        targetType: 'model_category',
-        targetId: category.id,
-        session,
-        request,
-        metadata: {
-          changed_fields: Object.keys(input),
-          is_enabled: category.isEnabled,
-        },
-      });
-
-      return {
-        item: this.serializeAdminCategory(category),
-      };
-    } catch (error) {
-      this.rethrowKnownConflict(error, '分类 slug 已存在');
-      throw error;
-    }
-  }
-
-  async deleteCategory(categoryId: string, session: SessionContext, request: Request) {
-    this.assertUuid(categoryId, 'category_id');
-    await this.assertCategoryExists(categoryId);
-    const category = await prisma.modelCategory.update({
-      where: {
-        id: categoryId,
-      },
-      data: {
-        isEnabled: false,
-        deletedAt: new Date(),
-      },
-    });
-
-    await this.auditLogService.write({
-      action: 'admin_delete_model_category',
-      targetType: 'model_category',
-      targetId: category.id,
-      session,
-      request,
-      metadata: {
-        slug: category.slug,
-      },
-    });
-
-    return {
-      deleted: true,
-      item: this.serializeAdminCategory(category),
-    };
-  }
-
-  async listPublicModels(query: Record<string, unknown>): Promise<{ items: PublicAiModel[] }> {
-    const categoryId = this.readOptionalUuid(query.category_id, 'category_id');
-    const recommended = this.readOptionalBooleanString(query.recommended);
+  ): Promise<{ items: PublicAiModel[] }> {
+    const modality = this.readOptionalModality(query.modality);
+    const recommended = this.readOptionalBooleanString(query.recommended, 'recommended');
+    const favorite = this.readOptionalBooleanString(query.favorite, 'favorite');
+    const search = this.readOptionalSearch(query.q);
+    const endpointType = this.readOptionalEndpointType(query.endpoint_type);
     const models = await prisma.aiModel.findMany({
       where: {
         deletedAt: null,
         isEnabled: true,
-        ...(categoryId ? { categoryId } : {}),
+        ...(modality ? { modality } : {}),
         ...(recommended === undefined ? {} : { isRecommended: recommended }),
-        ...(categoryId
+        ...(endpointType ? { endpointTypes: { has: endpointType } } : {}),
+        ...(favorite === true
           ? {
-              category: {
-                deletedAt: null,
-                isEnabled: true,
+              favorites: {
+                some: {
+                  userId: session.userId,
+                },
               },
             }
-          : {
-              OR: [
-                {
-                  categoryId: null,
-                },
-                {
-                  category: {
-                    deletedAt: null,
-                    isEnabled: true,
+          : favorite === false
+            ? {
+                favorites: {
+                  none: {
+                    userId: session.userId,
                   },
                 },
+              }
+            : {}),
+        ...(search
+          ? {
+              OR: [
+                { modelId: { contains: search, mode: 'insensitive' } },
+                { displayName: { contains: search, mode: 'insensitive' } },
+                { providerName: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
               ],
-            }),
+            }
+          : {}),
+      },
+      include: {
+        favorites: {
+          where: {
+            userId: session.userId,
+          },
+          take: 1,
+        },
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -236,24 +147,21 @@ export class ModelCatalogService {
     };
   }
 
-  async getPublicModel(modelId: string): Promise<{ item: PublicAiModel }> {
+  async getPublicModel(modelId: string, session: SessionContext): Promise<{ item: PublicAiModel }> {
     this.assertUuid(modelId, 'model_record_id');
     const model = await prisma.aiModel.findFirst({
       where: {
         id: modelId,
         deletedAt: null,
         isEnabled: true,
-        OR: [
-          {
-            categoryId: null,
+      },
+      include: {
+        favorites: {
+          where: {
+            userId: session.userId,
           },
-          {
-            category: {
-              deletedAt: null,
-              isEnabled: true,
-            },
-          },
-        ],
+          take: 1,
+        },
       },
     });
 
@@ -266,17 +174,60 @@ export class ModelCatalogService {
     };
   }
 
+  async favoriteModel(modelId: string, session: SessionContext) {
+    await this.assertPublicModelExists(modelId);
+    await prisma.userModelFavorite.upsert({
+      where: {
+        userId_modelId: {
+          userId: session.userId,
+          modelId,
+        },
+      },
+      create: {
+        userId: session.userId,
+        modelId,
+      },
+      update: {},
+    });
+
+    return {
+      favorited: true,
+    };
+  }
+
+  async unfavoriteModel(modelId: string, session: SessionContext) {
+    this.assertUuid(modelId, 'model_record_id');
+    await prisma.userModelFavorite.deleteMany({
+      where: {
+        userId: session.userId,
+        modelId,
+      },
+    });
+
+    return {
+      favorited: false,
+    };
+  }
+
   async listAdminModels(query: Record<string, unknown>): Promise<{ items: AdminAiModel[] }> {
-    const categoryId = this.readOptionalUuid(query.category_id, 'category_id');
+    const modality = this.readOptionalModality(query.modality);
     const endpointType = this.readOptionalEndpointType(query.endpoint_type);
+    const search = this.readOptionalSearch(query.q);
     const models = await prisma.aiModel.findMany({
       where: {
         deletedAt: null,
-        ...(categoryId ? { categoryId } : {}),
-        ...(endpointType ? { endpointType } : {}),
-      },
-      include: {
-        category: true,
+        ...(modality ? { modality } : {}),
+        ...(endpointType ? { endpointTypes: { has: endpointType } } : {}),
+        ...(search
+          ? {
+              OR: [
+                { modelId: { contains: search, mode: 'insensitive' } },
+                { displayName: { contains: search, mode: 'insensitive' } },
+                { providerName: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -292,9 +243,6 @@ export class ModelCatalogService {
       where: {
         id: modelId,
         deletedAt: null,
-      },
-      include: {
-        category: true,
       },
     });
 
@@ -312,34 +260,27 @@ export class ModelCatalogService {
       partial: false,
     })) as Prisma.AiModelUncheckedCreateInput;
 
-    try {
-      const model = await prisma.aiModel.create({
-        data: input,
-        include: {
-          category: true,
-        },
-      });
+    const model = await prisma.aiModel.create({
+      data: input,
+    });
 
-      await this.auditLogService.write({
-        action: 'admin_create_ai_model',
-        targetType: 'ai_model',
-        targetId: model.id,
-        session,
-        request,
-        metadata: {
-          model_id: model.modelId,
-          endpoint_type: model.endpointType,
-          is_enabled: model.isEnabled,
-        },
-      });
+    await this.auditLogService.write({
+      action: 'admin_create_ai_model',
+      targetType: 'ai_model',
+      targetId: model.id,
+      session,
+      request,
+      metadata: {
+        model_id: model.modelId,
+        modality: model.modality,
+        endpoint_types: model.endpointTypes,
+        is_enabled: model.isEnabled,
+      },
+    });
 
-      return {
-        item: this.serializeAdminModel(model),
-      };
-    } catch (error) {
-      this.rethrowKnownConflict(error, '未软删除模型中 model_id + endpoint_type 必须唯一');
-      throw error;
-    }
+    return {
+      item: this.serializeAdminModel(model),
+    };
   }
 
   async updateModel(
@@ -352,38 +293,31 @@ export class ModelCatalogService {
     await this.assertModelExists(modelRecordId);
     const input = await this.validateModelBody(body, { partial: true, modelId: modelRecordId });
 
-    try {
-      const model = await prisma.aiModel.update({
-        where: {
-          id: modelRecordId,
-        },
-        data: input,
-        include: {
-          category: true,
-        },
-      });
+    const model = await prisma.aiModel.update({
+      where: {
+        id: modelRecordId,
+      },
+      data: input,
+    });
 
-      await this.auditLogService.write({
-        action: 'admin_update_ai_model',
-        targetType: 'ai_model',
-        targetId: model.id,
-        session,
-        request,
-        metadata: {
-          changed_fields: Object.keys(input),
-          model_id: model.modelId,
-          endpoint_type: model.endpointType,
-          is_enabled: model.isEnabled,
-        },
-      });
+    await this.auditLogService.write({
+      action: 'admin_update_ai_model',
+      targetType: 'ai_model',
+      targetId: model.id,
+      session,
+      request,
+      metadata: {
+        changed_fields: Object.keys(input),
+        model_id: model.modelId,
+        modality: model.modality,
+        endpoint_types: model.endpointTypes,
+        is_enabled: model.isEnabled,
+      },
+    });
 
-      return {
-        item: this.serializeAdminModel(model),
-      };
-    } catch (error) {
-      this.rethrowKnownConflict(error, '未软删除模型中 model_id + endpoint_type 必须唯一');
-      throw error;
-    }
+    return {
+      item: this.serializeAdminModel(model),
+    };
   }
 
   async deleteModel(modelRecordId: string, session: SessionContext, request: Request) {
@@ -397,9 +331,6 @@ export class ModelCatalogService {
         isEnabled: false,
         deletedAt: new Date(),
       },
-      include: {
-        category: true,
-      },
     });
 
     await this.auditLogService.write({
@@ -410,7 +341,8 @@ export class ModelCatalogService {
       request,
       metadata: {
         model_id: model.modelId,
-        endpoint_type: model.endpointType,
+        modality: model.modality,
+        endpoint_types: model.endpointTypes,
       },
     });
 
@@ -418,6 +350,56 @@ export class ModelCatalogService {
       deleted: true,
       item: this.serializeAdminModel(model),
     };
+  }
+
+  async uploadModelIcon(
+    file: Express.Multer.File | undefined,
+    session: SessionContext,
+    request: Request,
+  ) {
+    if (!file) {
+      throw validationFailed([{ field: 'file', message: '请选择图标文件' }]);
+    }
+    if (!MODEL_ICON_MIME_TYPES.has(file.mimetype)) {
+      throw validationFailed([{ field: 'file', message: '图标仅支持 JPG、PNG、WebP、GIF 或 SVG' }]);
+    }
+    if (file.size > DEFAULT_MAX_IMAGE_BYTES) {
+      throw validationFailed([{ field: 'file', message: '图标文件不能超过 10MB' }]);
+    }
+
+    const config = loadConfig();
+    const iconRoot = join(config.localStorageRoot, MODEL_ICON_DIR);
+    await mkdir(iconRoot, { recursive: true });
+    const extension =
+      MODEL_ICON_EXTENSIONS[file.mimetype] ?? normalizeFileExtension(file.originalname);
+    const digest = createHash('sha256').update(file.buffer).digest('hex').slice(0, 16);
+    const filename = `${Date.now()}-${digest}-${randomUUID()}${extension}`;
+    await writeFile(join(iconRoot, filename), file.buffer);
+
+    await this.auditLogService.write({
+      action: 'admin_upload_model_icon',
+      targetType: 'ai_model_icon',
+      targetId: null,
+      session,
+      request,
+      metadata: {
+        filename,
+        mime_type: file.mimetype,
+        size_bytes: file.size,
+      },
+    });
+
+    return {
+      url: `/api/v1/model-icons/${filename}`,
+    };
+  }
+
+  async downloadModelIcon(filename: string, response: Response) {
+    const safeFilename = this.readSafeIconFilename(filename);
+    const path = join(loadConfig().localStorageRoot, MODEL_ICON_DIR, safeFilename);
+    response.setHeader('cache-control', 'public, max-age=86400');
+    response.setHeader('content-type', contentTypeFromExtension(safeFilename));
+    return new StreamableFile(createReadStream(path));
   }
 
   async createSnapshot(
@@ -485,53 +467,6 @@ export class ModelCatalogService {
     };
   }
 
-  private validateCategoryBody(body: ModelCategoryBody, options: { partial: boolean }) {
-    const details: ValidationDetail[] = [];
-    const input: Prisma.ModelCategoryUncheckedUpdateInput = {};
-
-    if (!options.partial || body.name !== undefined) {
-      const name = this.readString(body.name, 'name', details, { min: 1, max: 120 });
-      if (name !== null) {
-        input.name = name;
-      }
-    }
-
-    if (!options.partial || body.slug !== undefined) {
-      const slug = this.readString(body.slug, 'slug', details, { min: 1, max: 120 });
-      if (slug !== null) {
-        if (!SLUG_PATTERN.test(slug)) {
-          details.push({
-            field: 'slug',
-            message: 'slug 只允许小写字母、数字和短横线，且不能以短横线开头或结尾',
-          });
-        }
-        input.slug = slug;
-      }
-    }
-
-    if (body.icon !== undefined) {
-      input.icon = this.readNullableString(body.icon, 'icon', details, { max: 80 });
-    }
-
-    if (!options.partial || body.sort_order !== undefined) {
-      input.sortOrder = this.readInteger(body.sort_order, 'sort_order', details, {
-        fallback: 0,
-        min: -100000,
-        max: 100000,
-      });
-    }
-
-    if (!options.partial || body.is_enabled !== undefined) {
-      input.isEnabled = this.readBoolean(body.is_enabled, 'is_enabled', details, true);
-    }
-
-    if (details.length > 0) {
-      throw validationFailed(details);
-    }
-
-    return input;
-  }
-
   private async validateModelBody(
     body: AiModelBody,
     options: { partial: boolean; modelId?: string },
@@ -547,14 +482,9 @@ export class ModelCatalogService {
           })
         : null;
     const input: Prisma.AiModelUncheckedUpdateInput = {};
-    const rawCategoryId =
-      body.category_id === undefined && options.partial ? undefined : body.category_id;
 
-    if (rawCategoryId !== undefined) {
-      input.categoryId = this.readNullableUuid(rawCategoryId, 'category_id', details);
-      if (typeof input.categoryId === 'string') {
-        await this.assertCategoryExists(input.categoryId);
-      }
+    if (!options.partial || body.modality !== undefined) {
+      input.modality = this.readModality(body.modality, details);
     }
 
     if (!options.partial || body.model_id !== undefined) {
@@ -580,8 +510,20 @@ export class ModelCatalogService {
       });
     }
 
-    if (!options.partial || body.endpoint_type !== undefined) {
-      input.endpointType = this.readEndpointType(body.endpoint_type, details);
+    if (body.icon_url !== undefined) {
+      input.iconUrl = this.readNullableString(body.icon_url, 'icon_url', details, {
+        max: MAX_ICON_URL_LENGTH,
+      });
+    }
+
+    if (!options.partial || body.description !== undefined) {
+      input.description = this.readNullableString(body.description, 'description', details, {
+        max: MAX_DESCRIPTION_LENGTH,
+      });
+    }
+
+    if (!options.partial || body.endpoint_types !== undefined) {
+      input.endpointTypes = this.readEndpointTypes(body.endpoint_types, details);
     }
 
     if (!options.partial || body.reference_transfer_mode !== undefined) {
@@ -738,23 +680,26 @@ export class ModelCatalogService {
     return 0;
   }
 
-  private async assertCategoryExists(categoryId: string) {
-    const category = await prisma.modelCategory.findFirst({
+  private async assertPublicModelExists(modelId: string) {
+    this.assertUuid(modelId, 'model_record_id');
+    const model = await prisma.aiModel.findFirst({
       where: {
-        id: categoryId,
+        id: modelId,
         deletedAt: null,
+        isEnabled: true,
       },
       select: {
         id: true,
       },
     });
 
-    if (!category) {
-      throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型分类不存在');
+    if (!model) {
+      throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型不存在或已禁用');
     }
   }
 
   private async assertModelExists(modelId: string) {
+    this.assertUuid(modelId, 'model_record_id');
     const model = await prisma.aiModel.findFirst({
       where: {
         id: modelId,
@@ -770,53 +715,20 @@ export class ModelCatalogService {
     }
   }
 
-  private serializePublicCategory(category: {
-    id: string;
-    name: string;
-    slug: string;
-    icon: string | null;
-    sortOrder: number;
-  }): PublicModelCategory {
-    return {
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      icon: category.icon,
-      sort_order: category.sortOrder,
-    };
-  }
-
-  private serializeAdminCategory(category: {
-    id: string;
-    name: string;
-    slug: string;
-    icon: string | null;
-    sortOrder: number;
-    isEnabled: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-    deletedAt: Date | null;
-  }): AdminModelCategory {
-    return {
-      ...this.serializePublicCategory(category),
-      is_enabled: category.isEnabled,
-      created_at: category.createdAt.toISOString(),
-      updated_at: category.updatedAt.toISOString(),
-      deleted_at: category.deletedAt?.toISOString() ?? null,
-    };
-  }
-
-  private serializePublicModel(model: SerializablePublicModel): PublicAiModel {
+  private serializePublicModel(model: FavoriteAwareModel): PublicAiModel {
     return {
       id: model.id,
       model_id: model.modelId,
       display_name: model.displayName,
       provider_name: model.providerName,
-      category_id: model.categoryId,
-      endpoint_type: model.endpointType,
+      modality: model.modality,
+      icon_url: model.iconUrl,
+      description: model.description,
+      endpoint_types: model.endpointTypes,
       reference_transfer_mode: model.referenceTransferMode,
       supports_reference_image: model.supportsReferenceImage,
       is_recommended: model.isRecommended,
+      is_favorite: Boolean(model.favorites?.length),
       default_params: model.defaultParams,
       parameter_schema: normalizeParameterSchema(model.parameterSchema),
     };
@@ -825,12 +737,12 @@ export class ModelCatalogService {
   private serializeAdminModel(model: SerializableAdminModel): AdminAiModel {
     return {
       ...this.serializePublicModel(model),
+      is_favorite: false,
       is_enabled: model.isEnabled,
       sort_order: model.sortOrder,
       created_at: model.createdAt.toISOString(),
       updated_at: model.updatedAt.toISOString(),
       deleted_at: model.deletedAt?.toISOString() ?? null,
-      category: model.category ? this.serializeAdminCategory(model.category) : null,
     };
   }
 
@@ -951,46 +863,7 @@ export class ModelCatalogService {
     return value;
   }
 
-  private readNullableUuid(
-    value: unknown,
-    field: string,
-    details: ValidationDetail[],
-  ): string | null {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-
-    const text = typeof value === 'string' ? value.trim() : '';
-    if (!UUID_PATTERN.test(text)) {
-      details.push({
-        field,
-        message: `${field} 必须是 uuid`,
-      });
-      return null;
-    }
-
-    return text;
-  }
-
-  private readOptionalUuid(value: unknown, field: string): string | undefined {
-    if (value === undefined || value === null || value === '') {
-      return undefined;
-    }
-
-    const text = typeof value === 'string' ? value.trim() : '';
-    if (!UUID_PATTERN.test(text)) {
-      throw validationFailed([
-        {
-          field,
-          message: `${field} 必须是 uuid`,
-        },
-      ]);
-    }
-
-    return text;
-  }
-
-  private readOptionalBooleanString(value: unknown): boolean | undefined {
+  private readOptionalBooleanString(value: unknown, field: string): boolean | undefined {
     if (value === undefined || value === null || value === '') {
       return undefined;
     }
@@ -1005,10 +878,55 @@ export class ModelCatalogService {
 
     throw validationFailed([
       {
-        field: 'recommended',
-        message: 'recommended 必须是 true 或 false',
+        field,
+        message: `${field} 必须是 true 或 false`,
       },
     ]);
+  }
+
+  private readModality(value: unknown, details: ValidationDetail[]): ModelModality {
+    if (value === ModelModality.chat || value === 'chat') {
+      return ModelModality.chat;
+    }
+    if (value === ModelModality.image || value === 'image' || value === undefined) {
+      return ModelModality.image;
+    }
+    if (value === ModelModality.video || value === 'video') {
+      return ModelModality.video;
+    }
+
+    details.push({
+      field: 'modality',
+      message: 'modality 只支持 chat、image、video',
+    });
+    return ModelModality.image;
+  }
+
+  private readOptionalModality(value: unknown): ModelModality | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+    const details: ValidationDetail[] = [];
+    const modality = this.readModality(value, details);
+    if (details.length > 0) {
+      throw validationFailed(details);
+    }
+    return modality;
+  }
+
+  private readEndpointTypes(value: unknown, details: ValidationDetail[]): ModelEndpointType[] {
+    const values = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+    const endpointTypes = [...new Set(values.map((item) => this.readEndpointType(item, details)))];
+
+    if (endpointTypes.length === 0) {
+      details.push({
+        field: 'endpoint_types',
+        message: 'endpoint_types 至少选择一个端点类型',
+      });
+      return [ModelEndpointType.openai_image_generations];
+    }
+
+    return endpointTypes;
   }
 
   private readEndpointType(value: unknown, details: ValidationDetail[]): ModelEndpointType {
@@ -1025,8 +943,8 @@ export class ModelCatalogService {
     }
 
     details.push({
-      field: 'endpoint_type',
-      message: 'endpoint_type 不受支持',
+      field: 'endpoint_types',
+      message: 'endpoint_types 包含不支持的端点类型',
     });
     return ModelEndpointType.openai_image_generations;
   }
@@ -1072,6 +990,24 @@ export class ModelCatalogService {
     return ReferenceTransferMode.none;
   }
 
+  private readOptionalSearch(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    const text = String(value).trim();
+    if (!text) {
+      return undefined;
+    }
+    return text.slice(0, 120);
+  }
+
+  private readSafeIconFilename(value: string) {
+    if (!/^[a-zA-Z0-9._-]+$/.test(value)) {
+      throw validationFailed([{ field: 'filename', message: '图标文件名无效' }]);
+    }
+    return value;
+  }
+
   private validateBaseUrl(value: unknown): string {
     const raw = typeof value === 'string' ? value.trim() : '';
     if (!raw) {
@@ -1113,45 +1049,71 @@ export class ModelCatalogService {
     }
   }
 
-  private rethrowKnownConflict(error: unknown, message: string): never | void {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      throw apiError(HttpStatus.CONFLICT, 'conflict', message);
+  private sanitizeUpstreamError(error: unknown) {
+    if (error instanceof Error) {
+      return error.message.slice(0, 300);
     }
-  }
-
-  private throwSchemaValidationError(error: unknown): never {
-    if (error instanceof Error && 'details' in error) {
-      throw validationFailed((error as Error & { details: ValidationDetail[] }).details);
-    }
-
-    throw error;
+    return '无法连接 new-api';
   }
 
   private summarizeUpstreamStatus(status: number) {
     if (status === 401 || status === 403) {
       return 'new-api 认证失败，请检查 API Key';
     }
-
     if (status === 404) {
-      return 'new-api /v1/models 不存在，请检查 Base URL';
+      return 'new-api 未提供 /v1/models 接口';
     }
-
-    if (status === 429) {
-      return 'new-api 请求受限，请稍后重试';
-    }
-
     if (status >= 500) {
-      return 'new-api 服务异常，请稍后重试';
+      return 'new-api 服务暂时不可用';
     }
-
     return `new-api 返回 HTTP ${status}`;
   }
 
-  private sanitizeUpstreamError(error: unknown) {
-    if (!(error instanceof Error)) {
-      return '连接 new-api 失败';
+  private throwSchemaValidationError(error: unknown): never {
+    if (error instanceof Error) {
+      let details: ValidationDetail[] | null = null;
+      try {
+        details = JSON.parse(error.message) as ValidationDetail[];
+      } catch {
+        details = null;
+      }
+
+      throw validationFailed(
+        details ?? [
+          {
+            field: 'parameter_schema',
+            message: error.message,
+          },
+        ],
+      );
     }
 
-    return error.message.replace(/Bearer\s+[^\s]+/gi, 'Bearer [redacted]').slice(0, 240);
+    throw validationFailed([
+      {
+        field: 'parameter_schema',
+        message: '参数 Schema 不合法',
+      },
+    ]);
   }
+}
+
+function normalizeFileExtension(filename: string) {
+  const extension = extname(filename).toLowerCase();
+  return extension && /^\.[a-z0-9]+$/.test(extension) ? extension : '.png';
+}
+
+function contentTypeFromExtension(filename: string) {
+  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (filename.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (filename.endsWith('.gif')) {
+    return 'image/gif';
+  }
+  if (filename.endsWith('.svg')) {
+    return 'image/svg+xml';
+  }
+  return 'image/png';
 }

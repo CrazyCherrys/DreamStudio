@@ -20,8 +20,8 @@ export function AdminNavigation() {
             aria-current={active ? 'page' : undefined}
             className={`min-h-10 shrink-0 rounded-[var(--ds-radius-sm)] border px-3 py-2 text-sm font-black leading-5 transition lg:flex lg:w-full lg:items-center ${
               active
-                ? 'border-[var(--ds-brand)] bg-[var(--ds-brand)] text-white shadow-sm'
-                : 'border-transparent text-[var(--ds-text-muted)] hover:border-[var(--ds-border)] hover:bg-white/70 hover:text-[var(--ds-text)]'
+                ? 'border-[var(--ds-brand)] bg-[var(--ds-brand)] text-[#031615] shadow-sm'
+                : 'border-transparent text-[var(--ds-text-muted)] hover:border-[var(--ds-border)] hover:bg-[var(--ds-surface-raised)] hover:text-[var(--ds-text)]'
             }`}
             href={item.href}
             key={item.href}

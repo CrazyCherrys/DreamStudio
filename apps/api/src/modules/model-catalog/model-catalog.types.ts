@@ -1,21 +1,20 @@
-import type { ModelEndpointType, NewApiConfigStatus, ReferenceTransferMode } from '@prisma/client';
+import type {
+  ModelEndpointType,
+  ModelModality,
+  NewApiConfigStatus,
+  ReferenceTransferMode,
+} from '@prisma/client';
 
 import type { ParameterSchemaField } from './parameter-schema';
 
-export interface ModelCategoryBody {
-  name?: unknown;
-  slug?: unknown;
-  icon?: unknown;
-  sort_order?: unknown;
-  is_enabled?: unknown;
-}
-
 export interface AiModelBody {
-  category_id?: unknown;
+  modality?: unknown;
   model_id?: unknown;
   display_name?: unknown;
   provider_name?: unknown;
-  endpoint_type?: unknown;
+  icon_url?: unknown;
+  description?: unknown;
+  endpoint_types?: unknown;
   reference_transfer_mode?: unknown;
   supports_reference_image?: unknown;
   is_enabled?: unknown;
@@ -30,31 +29,19 @@ export interface ModelSyncSnapshotBody {
   api_key?: unknown;
 }
 
-export interface PublicModelCategory {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-  sort_order: number;
-}
-
-export interface AdminModelCategory extends PublicModelCategory {
-  is_enabled: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
 export interface PublicAiModel {
   id: string;
   model_id: string;
   display_name: string;
   provider_name: string | null;
-  category_id: string | null;
-  endpoint_type: ModelEndpointType;
+  modality: ModelModality;
+  icon_url: string | null;
+  description: string | null;
+  endpoint_types: ModelEndpointType[];
   reference_transfer_mode: ReferenceTransferMode;
   supports_reference_image: boolean;
   is_recommended: boolean;
+  is_favorite: boolean;
   default_params: unknown;
   parameter_schema: ParameterSchemaField[];
 }
@@ -65,7 +52,6 @@ export interface AdminAiModel extends PublicAiModel {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  category: AdminModelCategory | null;
 }
 
 export interface ModelSyncSnapshotSummary {

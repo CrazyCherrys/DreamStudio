@@ -75,12 +75,12 @@ function ReferenceImageUploader({
         </p>
       ) : null}
       {message ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -149,7 +149,7 @@ function AssetGrid({
       {items.map((asset) => (
         <article className="ds-card overflow-hidden" key={asset.id}>
           <button
-            className="block aspect-[4/3] w-full bg-white/60"
+            className="block aspect-[4/3] w-full bg-[var(--ds-surface-muted)]"
             onClick={() => onPreview(asset)}
             type="button"
           >
@@ -225,7 +225,7 @@ function AssetPreviewDialog({ asset, onClose }: { asset: AssetItem | null; onClo
             关闭
           </DsButton>
         </div>
-        <div className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-3">
+        <div className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3">
           <img
             alt={asset.filename}
             className="mx-auto max-h-[58vh] object-contain"
@@ -387,12 +387,12 @@ function StudioAssetsContent() {
           />
 
           {message ? (
-            <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+            <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
               {message}
             </p>
           ) : null}
           {error ? (
-            <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+            <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
               {error}
             </p>
           ) : null}

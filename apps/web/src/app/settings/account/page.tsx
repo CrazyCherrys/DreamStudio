@@ -57,11 +57,11 @@ function AccountSettingsContent() {
       <div className="grid max-w-[880px] gap-5">
         <DsFormSection title="账号信息">
           <dl className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4">
+            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4">
               <dt className="ds-muted text-sm font-semibold">用户名</dt>
               <dd className="mt-1 font-black">{user?.username}</dd>
             </div>
-            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4">
+            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4">
               <dt className="ds-muted text-sm font-semibold">角色</dt>
               <dd className="mt-1 font-black">{user?.role}</dd>
             </div>
@@ -91,12 +91,12 @@ function AccountSettingsContent() {
               value={newPassword}
             />
             {message ? (
-              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
                 {message}
               </p>
             ) : null}
             {error ? (
-              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
                 {error}
               </p>
             ) : null}

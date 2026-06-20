@@ -10,8 +10,8 @@
 - `04-dreamstudio-v1-data-model.md`：v1 数据模型确认版，定义 PostgreSQL 表、枚举、索引、关系和 Prisma 映射注意事项。
 - `05-dreamstudio-v1-api-contract.md`：v1 API 契约确认版，定义 Web/API/Worker/new-api 调用边界、接口路径、响应格式、权限和脱敏规则。
 - `06-dreamstudio-v1-ia-and-roadmap.md`：v1 页面流程、信息架构与开发里程碑确认版，定义路由、页面职责、关键交互和开发顺序。
-- `07-dreamstudio-v1-ui-design-system.md`：v1 UI 视觉方向与组件规范确认版，定义视觉定位、布局、组件、状态、动效和可访问性规则。
-- `08-dreamstudio-v1-implementation-plan.md`：v1 实施计划与开发任务拆分确认版，定义 M0-M7 任务、验收标准、风险和开发顺序。
+- `07-dreamstudio-v1-ui-design-system.md`：v1 UI 视觉方向与组件规范确认版，定义当前默认暗色主题、布局、组件、状态、动效和可访问性规则。
+- `08-dreamstudio-v1-implementation-plan.md`：v1 实施计划与开发任务拆分确认版，定义 M0-M7 任务、验收标准、风险、开发顺序和当前暗色 UI 扩展规则。
 - `09-dreamstudio-v1-env-and-deployment.md`：v1 环境变量、部署与运维确认版，定义启动变量、Compose 形态、初始化、存储、反向代理、主密钥风险和可选备份建议。
 - `10-dreamstudio-m1-auth-task-list.md`：M1 认证与用户基础开发任务清单，用于 M0 验收后进入注册、登录、会话、CSRF 和路由守卫开发准备。
 - `11-dreamstudio-m2-new-api-config-task-list.md`：M2 new-api 配置与系统设置开发任务清单，用于 M1 完成后进入用户密钥配置、连接测试、系统设置和管理员代配置开发准备。

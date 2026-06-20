@@ -4,6 +4,8 @@
 
 当前版本状态：确认版。
 
+当前 UI 实现状态：全站默认视觉主题已经切换为暗色体系。后续里程碑新增 Web 页面时，应沿用 `apps/web/src/app/globals.css` 中的暗色 `--ds-*` token、共享 `ds-*` 组件样式、后台暗色 shell 和 Studio 暗色工作区规则，不要按旧浅色或浅米色默认主题继续扩展。
+
 第八阶段的目标是让开发人员可以按顺序开工，不再从 PRD、架构和接口文档中临时拼凑任务。
 
 ---
@@ -124,8 +126,9 @@ Web：
 - 初始化 Next.js App Router。
 - 接入 Tailwind CSS。
 - 接入 shadcn/ui。
-- 建立 DreamStudio CSS 变量。
+- 建立 DreamStudio CSS 变量，并以暗色 token 作为当前默认主题。
 - 建立 `PublicLayout`、`AuthLayout`、`AppLayout`、`AdminLayout` 骨架。
+- 首页、认证页、M0 状态页、后台 shell、Studio、任务和资产页面使用暗色视觉基准。
 
 API：
 
@@ -167,6 +170,7 @@ Worker：
 - Worker 能连接 Redis 并监听队列。
 - Docker Compose 能启动 `dreamstudio` 单应用容器。
 - 日志中能区分 Web/API/Worker。
+- Web 默认页面不再出现浅米色默认主题、白底提示框、白底表格行或白底代码块。
 
 ### 3.4 主要风险
 
@@ -239,6 +243,10 @@ API：
 - `DsInput`
 - `DsButton`
 - `DsFormSection`
+
+视觉：
+
+- 认证页、禁用页和账号设置页沿用全局暗色 `ds-*` surface、按钮、输入框和状态提示。
 
 ### 4.4 验收标准
 
@@ -331,6 +339,10 @@ API：
 - 测试失败。
 - 已保存但异常。
 
+视觉：
+
+- new-api 配置页和系统设置页使用暗色表单块、暗色状态提示和青绿色主操作。
+
 ### 5.4 验收标准
 
 - 用户密钥不会明文入库。
@@ -358,20 +370,14 @@ API：
 
 数据库：
 
-- 创建 `model_categories`。
-- 创建 `ai_models`。
+- 创建 `ai_models`，包含固定 `modality`、`icon_url`、`description` 和 `endpoint_types`。
+- 创建 `user_model_favorites`。
 - 创建 `model_sync_snapshots`。
-- 增加 `ai_models(model_id, endpoint_type) where deleted_at is null` 部分唯一索引。
 
 API：
 
-- `GET /api/v1/model-categories`
 - `GET /api/v1/models`
 - `GET /api/v1/models/{model_record_id}`
-- `GET /api/v1/admin/model-categories`
-- `POST /api/v1/admin/model-categories`
-- `PATCH /api/v1/admin/model-categories/{category_id}`
-- `DELETE /api/v1/admin/model-categories/{category_id}`
 - `GET /api/v1/admin/models`
 - `POST /api/v1/admin/models`
 - `GET /api/v1/admin/models/{model_record_id}`
@@ -391,13 +397,12 @@ Schema 校验：
 
 普通用户：
 
-- 创作台模型分类。
-- 创作台模型列表。
+- 创作台固定筛选：全部、聊天、图片、视频、我的。
+- 创作台模型搜索和模型列表。
 - `ParameterSchemaForm` 渲染。
 
 管理员：
 
-- `/admin/model-categories`
 - `/admin/models`
 - `/admin/model-sync`
 - 表单式参数 Schema 配置器。
@@ -405,12 +410,17 @@ Schema 校验：
 
 组件：
 
-- `ModelCategoryTabs`
+- `FixedModelFilterTabs`
+- `ModelSearchInput`
 - `ModelPicker`
 - `ParameterSchemaForm`
 - `SchemaBuilder`
 - `SchemaFieldEditor`
 - `SchemaPreview`
+
+视觉：
+
+- 模型筛选、模型列表和参数 Schema 表单使用暗色卡片、暗色输入框、青绿色选中态和暗色 JSON 预览。
 
 ### 6.4 验收标准
 
@@ -494,6 +504,10 @@ API：
 - 参考图只在上传流程和任务详情中展示。
 - 删除资产前二次确认。
 - 无结果图时给出进入创作台的入口。
+
+视觉：
+
+- 资产缩略图容器、上传提示、存储设置表单和批量删除工具条使用暗色 surface，不使用白底预览区。
 
 ### 7.4 验收标准
 
@@ -593,6 +607,11 @@ Worker：
 - 失败任务可重新提交。
 - 成功任务展示结果图。
 
+视觉：
+
+- Studio 主工作区使用更深背景和沉稳侧栏，选中模型与主生成按钮使用青绿色，运行中/提示强调使用低亮度琥珀色。
+- 任务列表、任务详情、参数快照和结果图预览使用暗色卡片与暗色代码块。
+
 ### 8.4 验收标准
 
 - 用户关闭页面后任务继续执行。
@@ -671,6 +690,10 @@ Worker：
 
 - 只做导航面板和关键配置入口。
 - 不做复杂统计图表。
+
+视觉：
+
+- 管理后台使用暗色 sidebar/content shell，表格行、日志详情、审计参数和 reveal 内容使用暗色 raised surface 与暗色代码块。
 
 ### 9.4 验收标准
 
@@ -797,7 +820,7 @@ E2E：
 
 - 使用 DreamStudio CSS 变量。
 - shadcn/ui 必须二次封装。
-- 首页采用温暖工作室视觉方向。
+- 首页采用暗色工作室视觉方向。
 - 创作台采用三栏布局。
 - 资产仓库只展示结果图。
 - Schema 配置器使用表单式配置。

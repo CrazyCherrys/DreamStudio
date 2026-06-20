@@ -15,7 +15,7 @@
 - DreamStudio 用户注册、登录和会话。
 - 用户自己的 `new-api` 配置。
 - 管理员代用户配置或重置 `new-api` 密钥。
-- 图片模型分类、模型目录和模型参数 Schema。
+- 固定模型类型、模型目录、模型收藏和模型参数 Schema。
 - 参考图上传。
 - AI 图片任务创建、查询、取消和重新提交。
 - 结果图和参考图资产管理。
@@ -488,41 +488,28 @@ POST /api/v1/me/new-api-config/test
 
 ## 6. 普通用户模型接口
 
-### 6.1 获取模型分类
+### 6.1 模型类型与筛选
 
-```http
-GET /api/v1/model-categories
-```
+模型类型固定为：
 
-响应：
+- `chat`
+- `image`
+- `video`
 
-```json
-{
-  "success": true,
-  "data": {
-    "items": [
-      {
-        "id": "uuid",
-        "name": "通用绘画",
-        "slug": "general",
-        "icon": "palette",
-        "sort_order": 10
-      }
-    ]
-  },
-  "request_id": "req_01hxyz"
-}
-```
-
-规则：
-
-- 只返回启用且未软删除的分类。
+不再提供动态模型分类配置接口。`/api/v1/model-categories` 废弃，前端 Studio 使用固定筛选：全部、聊天、图片、视频、我的。
 
 ### 6.2 获取可用模型列表
 
 ```http
-GET /api/v1/models?category_id=uuid&recommended=true
+GET /api/v1/models?modality=image&q=gpt&favorite=false&recommended=true
 ```
+
+查询参数：
+
+- `modality`：可选，`chat | image | video`。
+- `q`：可选，搜索展示名称、模型 ID、厂商和描述。
+- `favorite`：可选，`true` 返回我的收藏，`false` 返回未收藏。
+- `recommended`：可选，按推荐状态过滤。
 
 响应：
 
@@ -536,11 +523,14 @@ GET /api/v1/models?category_id=uuid&recommended=true
         "model_id": "gpt-image-1",
         "display_name": "GPT Image",
         "provider_name": "OpenAI",
-        "category_id": "uuid",
-        "endpoint_type": "openai_image_generations",
-        "supports_reference_image": false,
-        "reference_transfer_mode": "none",
+        "modality": "image",
+        "icon_url": "/api/v1/model-icons/example.png",
+        "description": "适合高质量图片生成和编辑。",
+        "endpoint_types": ["openai_image_generations", "openai_image_edits"],
+        "supports_reference_image": true,
+        "reference_transfer_mode": "multipart",
         "is_recommended": true,
+        "is_favorite": false,
         "default_params": {
           "size": "1024x1024",
           "n": 1
@@ -558,6 +548,20 @@ GET /api/v1/models?category_id=uuid&recommended=true
 - 普通用户只看到启用模型。
 - `parameter_schema` 是前端渲染参数面板的唯一来源。
 - `default_params` 用于创建任务时的默认值。
+- `is_favorite` 只表示当前登录用户是否收藏。
+
+### 6.2.1 收藏模型
+
+```http
+PUT /api/v1/models/{model_record_id}/favorite
+DELETE /api/v1/models/{model_record_id}/favorite
+```
+
+规则：
+
+- 要求登录。
+- 非 GET 请求要求 CSRF。
+- 只能收藏启用且未软删除模型。
 
 ### 6.3 获取模型详情
 
@@ -925,7 +929,9 @@ DELETE /api/v1/admin/users/{user_id}/new-api-config
 
 ## 10. 管理员模型接口
 
-### 10.1 分类管理
+### 10.1 模型分类配置废弃
+
+以下接口废弃，不再作为当前实现要求：
 
 ```http
 GET /api/v1/admin/model-categories
@@ -934,11 +940,7 @@ PATCH /api/v1/admin/model-categories/{category_id}
 DELETE /api/v1/admin/model-categories/{category_id}
 ```
 
-规则：
-
-- 删除为软删除。
-- 分类 `slug` 唯一。
-- 禁用分类后，普通用户不再看到该分类。
+模型类型固定为 `chat | image | video`，管理员只在模型目录中选择类型。
 
 ### 10.2 模型管理
 
@@ -954,13 +956,15 @@ DELETE /api/v1/admin/models/{model_record_id}
 
 ```json
 {
-  "category_id": "uuid",
+  "modality": "image",
   "model_id": "gpt-image-1",
   "display_name": "GPT Image",
   "provider_name": "OpenAI",
-  "endpoint_type": "openai_image_generations",
-  "reference_transfer_mode": "none",
-  "supports_reference_image": false,
+  "icon_url": "/api/v1/model-icons/example.png",
+  "description": "适合高质量图片生成和编辑。",
+  "endpoint_types": ["openai_image_generations", "openai_image_edits"],
+  "reference_transfer_mode": "multipart",
+  "supports_reference_image": true,
   "is_enabled": true,
   "is_recommended": true,
   "sort_order": 10,
@@ -974,11 +978,35 @@ DELETE /api/v1/admin/models/{model_record_id}
 
 规则：
 
-- 未软删除模型中，`model_id + endpoint_type` 唯一。
+- `modality` 只允许 `chat`、`image`、`video`。
+- `endpoint_types` 至少包含一个端点，可同时包含生成和编辑。
 - `parameter_schema` 必须能被前端渲染，也必须能被后端校验。
 - `openai_image_generations` 默认不需要参考图。
 - `openai_image_edits` 通常需要参考图或 mask 类文件能力。
 - `gemini_generate_content` 保留为后段兼容目标，不作为第一验收路径。
+
+### 10.2.1 上传模型图标
+
+```http
+POST /api/v1/admin/model-icons
+Content-Type: multipart/form-data
+```
+
+表单字段：
+
+- `file`：JPG、PNG、WebP、GIF 或 SVG。
+
+响应：
+
+```json
+{
+  "success": true,
+  "data": {
+    "url": "/api/v1/model-icons/filename.png"
+  },
+  "request_id": "req_01hxyz"
+}
+```
 
 ### 10.3 拉取 new-api 模型候选
 
@@ -1463,8 +1491,8 @@ GET /api/v1/auth/me
 创作台加载顺序：
 
 1. `GET /api/v1/me/new-api-config`
-2. `GET /api/v1/model-categories`
-3. `GET /api/v1/models`
+2. `GET /api/v1/models`
+3. 前端使用固定筛选和搜索框过滤模型。
 4. 用户选择模型后按 `parameter_schema` 渲染参数表单。
 
 ### 17.3 任务状态刷新
@@ -1507,7 +1535,7 @@ v1 基线方案：
 - 密钥明文不会被任何查询接口返回。
 - 用户连接测试使用 `GET /v1/models`。
 - 管理员可以拉取 `new-api` 模型候选，但不会自动暴露给普通用户。
-- 管理员可以维护模型分类、模型启用状态和参数 Schema。
+- 管理员可以维护固定类型模型、模型启用状态、图标、描述、端点能力和参数 Schema。
 - 普通用户可以上传参考图。
 - 普通用户可以创建图片任务。
 - Worker 可以通过队列 payload 执行任务。

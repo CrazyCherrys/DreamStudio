@@ -125,7 +125,6 @@ GET /api/v1/auth/me
 | `/admin` | 管理后台首页 |
 | `/admin/users` | 用户管理 |
 | `/admin/users/{user_id}` | 用户详情 |
-| `/admin/model-categories` | 模型分类管理 |
 | `/admin/models` | 模型管理 |
 | `/admin/model-sync` | 模型候选拉取 |
 | `/admin/system-settings` | 系统设置 |
@@ -271,7 +270,7 @@ app/
 
 推荐布局：
 
-- 左侧：模型分类和模型列表。
+- 左侧：固定筛选、搜索框和模型列表。
 - 中间：prompt、参考图、参数表单和生成按钮。
 - 右侧：最近任务状态和结果预览。
 
@@ -282,7 +281,8 @@ app/
 
 核心组件：
 
-- `ModelCategoryTabs`
+- `FixedModelFilterTabs`
+- `ModelSearchInput`
 - `ModelPicker`
 - `PromptEditor`
 - `ReferenceImageUploader`
@@ -294,8 +294,7 @@ app/
 页面加载接口：
 
 1. `GET /api/v1/me/new-api-config`
-2. `GET /api/v1/model-categories`
-3. `GET /api/v1/models`
+2. `GET /api/v1/models`
 
 任务提交接口：
 
@@ -490,20 +489,9 @@ v1 结论：
 - 管理员不能查看已保存密钥明文。
 - 代配置或清空密钥必须写审计日志。
 
-### 6.4 模型分类 `/admin/model-categories`
+### 6.4 模型分类配置废弃
 
-功能：
-
-- 新增分类。
-- 编辑分类名称、slug、图标、排序、启用状态。
-- 软删除分类。
-
-接口：
-
-- `GET /api/v1/admin/model-categories`
-- `POST /api/v1/admin/model-categories`
-- `PATCH /api/v1/admin/model-categories/{category_id}`
-- `DELETE /api/v1/admin/model-categories/{category_id}`
+`/admin/model-categories` 不再作为管理入口。模型类型固定为聊天、图片、视频，管理员在 `/admin/models` 中选择模型类型。
 
 ### 6.5 模型管理 `/admin/models`
 
@@ -512,9 +500,12 @@ v1 结论：
 - 模型列表。
 - 新增模型。
 - 编辑模型。
+- 上传或填写模型图标。
+- 配置模型 ID、展示名称、厂商和描述。
+- 选择固定模型类型：聊天、图片、视频。
 - 启用或禁用模型。
 - 设置推荐。
-- 配置接口类型。
+- 多选端点类型。
 - 配置参考图传递方式。
 - 配置默认参数。
 - 配置参数 Schema。
@@ -526,10 +517,12 @@ v1 结论：
 - `GET /api/v1/admin/models/{model_record_id}`
 - `PATCH /api/v1/admin/models/{model_record_id}`
 - `DELETE /api/v1/admin/models/{model_record_id}`
+- `POST /api/v1/admin/model-icons`
 
 规则：
 
 - 默认优先支持 `openai_image_generations` 和 `openai_image_edits`。
+- 同一模型可以同时支持生成和编辑端点。
 - `gemini_generate_content` 不作为第一验收路径。
 - v1 不采用纯 JSON 编辑器作为模型参数 Schema 的主要编辑方式。
 - v1 需要提供表单式或可视化参数 Schema 配置器。
@@ -722,7 +715,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A["进入 /studio"] --> B["加载模型分类和模型"]
+  A["进入 /studio"] --> B["加载模型列表"]
   B --> C["选择模型"]
   C --> D["按 parameter_schema 渲染参数"]
   D --> E["上传参考图 可选"]
@@ -834,7 +827,7 @@ flowchart TD
 
 包含：
 
-- 模型分类。
+- 固定模型类型。
 - 模型管理。
 - 表单式或可视化参数 Schema 配置器。
 - 模型候选拉取。

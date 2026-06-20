@@ -92,7 +92,7 @@ function SystemSettingsContent() {
       <section className="ds-card admin-panel p-6">
         <span className="ds-badge">System</span>
         <h2 className="mt-4 text-2xl font-black">系统设置</h2>
-        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error ?? '读取系统设置失败'}
         </p>
         <DsButton className="mt-5" onClick={loadSettings} type="button" variant="secondary">
@@ -124,7 +124,7 @@ function SystemSettingsContent() {
         />
 
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4 font-bold">
+          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4 font-bold">
             <input
               checked={settings.allow_user_custom_new_api_base_url}
               onChange={(event) =>
@@ -134,7 +134,7 @@ function SystemSettingsContent() {
             />
             允许用户自定义 Base URL
           </label>
-          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4 font-bold">
+          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4 font-bold">
             <input
               checked={settings.registration_enabled}
               onChange={(event) => updateSetting('registration_enabled', event.target.checked)}
@@ -161,12 +161,12 @@ function SystemSettingsContent() {
         </div>
 
         {message ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
             {message}
           </p>
         ) : null}
         {error ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
             {error}
           </p>
         ) : null}

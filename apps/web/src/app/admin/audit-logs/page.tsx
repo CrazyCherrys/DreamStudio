@@ -120,7 +120,7 @@ function AdminAuditLogsContent() {
       </form>
 
       {error ? (
-        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -146,7 +146,7 @@ function AdminAuditLogsContent() {
               </tr>
             ) : null}
             {logs.map((log) => (
-              <tr className="bg-white/70" key={log.id}>
+              <tr className="bg-[var(--ds-surface-raised)]" key={log.id}>
                 <td className="rounded-l-[var(--ds-radius-sm)] px-3 py-3">
                   <strong>{auditActionLabel(log.action)}</strong>
                   <p className="ds-muted mt-1">{log.action}</p>
@@ -161,7 +161,7 @@ function AdminAuditLogsContent() {
                 </td>
                 <td className="px-3 py-3">{formatDateTime(log.created_at)}</td>
                 <td className="rounded-r-[var(--ds-radius-sm)] px-3 py-3">
-                  <pre className="max-h-28 max-w-sm overflow-auto whitespace-pre-wrap rounded-[var(--ds-radius-sm)] bg-white p-2 text-xs">
+                  <pre className="max-h-28 max-w-sm overflow-auto whitespace-pre-wrap rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-2 text-xs">
                     {stringifyPreview(log.metadata)}
                   </pre>
                 </td>

@@ -36,10 +36,10 @@ export default function HomePage() {
               {['月光狐狸', '陶土花园', '风中灯塔', '纸艺飞船', '薄雾森林', '静物练习'].map(
                 (title, index) => (
                   <div
-                    className="aspect-[4/5] rounded-2xl border border-white/80 bg-gradient-to-br from-[#fff7e6] via-[#d7f3ed] to-[#f7d28b] p-3 shadow-sm"
+                    className="aspect-[4/5] rounded-2xl border border-[var(--ds-border-strong)] bg-gradient-to-br from-[#10201d] via-[#0b332e] to-[#3a2b13] p-3 shadow-sm"
                     key={title}
                   >
-                    <div className="h-full rounded-xl bg-white/30 p-2">
+                    <div className="h-full rounded-xl bg-[rgba(255,255,255,0.055)] p-2">
                       <div className="h-2 w-10 rounded-full bg-[var(--ds-brand)]/50" />
                       <div className="mt-auto pt-16 text-xs font-bold text-[var(--ds-text)]/70">
                         0{index + 1} · {title}
@@ -50,16 +50,16 @@ export default function HomePage() {
               )}
             </div>
             <div className="mt-4 grid gap-3">
-              <div className="rounded-2xl border border-[var(--ds-border)] bg-white/80 p-4">
+              <div className="rounded-2xl border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
                 <div className="flex items-center justify-between">
                   <strong>image-generation</strong>
                   <span className="text-sm text-[var(--ds-accent)]">running</span>
                 </div>
-                <div className="mt-3 h-2 rounded-full bg-[#efe3d3]">
+                <div className="mt-3 h-2 rounded-full bg-[var(--ds-surface-muted)]">
                   <div className="h-2 w-2/3 rounded-full bg-[var(--ds-brand)]" />
                 </div>
               </div>
-              <div className="rounded-2xl border border-[var(--ds-border)] bg-white/70 p-4">
+              <div className="rounded-2xl border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
                 <strong>asset-cleanup</strong>
                 <p className="ds-muted mt-1 text-sm">过期文件清理队列占位已建立。</p>
               </div>

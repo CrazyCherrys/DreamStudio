@@ -6,6 +6,7 @@ export type ModelEndpointType =
   | 'openai_image_generations'
   | 'openai_image_edits'
   | 'gemini_generate_content';
+export type ModelModality = 'chat' | 'image' | 'video';
 export type ReferenceTransferMode = 'none' | 'multipart' | 'url';
 export type ParameterFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'select';
 
@@ -27,31 +28,19 @@ export interface ParameterSchemaField {
   placeholder?: string;
 }
 
-export interface PublicModelCategory {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-  sort_order: number;
-}
-
-export interface AdminModelCategory extends PublicModelCategory {
-  is_enabled: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
 export interface PublicAiModel {
   id: string;
   model_id: string;
   display_name: string;
   provider_name: string | null;
-  category_id: string | null;
-  endpoint_type: ModelEndpointType;
+  modality: ModelModality;
+  icon_url: string | null;
+  description: string | null;
+  endpoint_types: ModelEndpointType[];
   reference_transfer_mode: ReferenceTransferMode;
   supports_reference_image: boolean;
   is_recommended: boolean;
+  is_favorite: boolean;
   default_params: Record<string, unknown>;
   parameter_schema: ParameterSchemaField[];
 }
@@ -62,7 +51,6 @@ export interface AdminAiModel extends PublicAiModel {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  category: AdminModelCategory | null;
 }
 
 export interface ModelSyncSnapshotSummary {
@@ -77,20 +65,14 @@ export interface ModelSyncSnapshotDetail extends ModelSyncSnapshotSummary {
   raw_response: unknown;
 }
 
-export interface ModelCategoryPayload {
-  name: string;
-  slug: string;
-  icon: string | null;
-  sort_order: number;
-  is_enabled: boolean;
-}
-
 export interface AiModelPayload {
-  category_id: string | null;
+  modality: ModelModality;
   model_id: string;
   display_name: string;
   provider_name: string | null;
-  endpoint_type: ModelEndpointType;
+  icon_url: string | null;
+  description: string | null;
+  endpoint_types: ModelEndpointType[];
   reference_transfer_mode: ReferenceTransferMode;
   supports_reference_image: boolean;
   is_enabled: boolean;
@@ -105,19 +87,26 @@ export interface ModelSyncSnapshotPayload {
   api_key?: string;
 }
 
-export function fetchPublicCategories() {
-  return apiRequest<{ items: PublicModelCategory[] }>('/api/v1/model-categories', {
-    cache: 'no-store',
-  });
-}
-
-export function fetchPublicModels(query: { category_id?: string; recommended?: boolean } = {}) {
+export function fetchPublicModels(
+  query: {
+    modality?: ModelModality;
+    recommended?: boolean;
+    favorite?: boolean;
+    q?: string;
+  } = {},
+) {
   const params = new URLSearchParams();
-  if (query.category_id) {
-    params.set('category_id', query.category_id);
+  if (query.modality) {
+    params.set('modality', query.modality);
   }
   if (query.recommended !== undefined) {
     params.set('recommended', String(query.recommended));
+  }
+  if (query.favorite !== undefined) {
+    params.set('favorite', String(query.favorite));
+  }
+  if (query.q) {
+    params.set('q', query.q);
   }
 
   return apiRequest<{ items: PublicAiModel[] }>(`/api/v1/models${withQuery(params)}`, {
@@ -125,40 +114,18 @@ export function fetchPublicModels(query: { category_id?: string; recommended?: b
   });
 }
 
-export function fetchAdminCategories() {
-  return apiRequest<{ items: AdminModelCategory[] }>('/api/v1/admin/model-categories', {
-    cache: 'no-store',
-  });
-}
-
-export function createAdminCategory(payload: ModelCategoryPayload, csrfToken: string) {
-  return apiRequest<{ item: AdminModelCategory }>('/api/v1/admin/model-categories', {
-    method: 'POST',
+export function favoriteModel(modelId: string, csrfToken: string) {
+  return apiRequest<{ favorited: boolean }>(`/api/v1/models/${modelId}/favorite`, {
+    method: 'PUT',
     csrfToken,
-    body: JSON.stringify(payload),
   });
 }
 
-export function updateAdminCategory(
-  categoryId: string,
-  payload: Partial<ModelCategoryPayload>,
-  csrfToken: string,
-) {
-  return apiRequest<{ item: AdminModelCategory }>(`/api/v1/admin/model-categories/${categoryId}`, {
-    method: 'PATCH',
+export function unfavoriteModel(modelId: string, csrfToken: string) {
+  return apiRequest<{ favorited: boolean }>(`/api/v1/models/${modelId}/favorite`, {
+    method: 'DELETE',
     csrfToken,
-    body: JSON.stringify(payload),
   });
-}
-
-export function deleteAdminCategory(categoryId: string, csrfToken: string) {
-  return apiRequest<{ deleted: boolean; item: AdminModelCategory }>(
-    `/api/v1/admin/model-categories/${categoryId}`,
-    {
-      method: 'DELETE',
-      csrfToken,
-    },
-  );
 }
 
 export function fetchAdminModels() {
@@ -194,6 +161,16 @@ export function deleteAdminModel(modelId: string, csrfToken: string) {
   });
 }
 
+export function uploadModelIcon(file: File, csrfToken: string) {
+  const formData = new FormData();
+  formData.set('file', file);
+  return apiRequest<{ url: string }>('/api/v1/admin/model-icons', {
+    method: 'POST',
+    csrfToken,
+    body: formData,
+  });
+}
+
 export function createModelSyncSnapshot(payload: ModelSyncSnapshotPayload, csrfToken: string) {
   return apiRequest<{ snapshot: ModelSyncSnapshotSummary }>('/api/v1/admin/model-sync-snapshots', {
     method: 'POST',
@@ -217,14 +194,36 @@ export function fetchModelSyncSnapshot(snapshotId: string) {
   );
 }
 
+export function modalityLabel(value: ModelModality) {
+  switch (value) {
+    case 'chat':
+      return '聊天';
+    case 'video':
+      return '视频';
+    default:
+      return '图片';
+  }
+}
+
 export function endpointTypeLabel(value: ModelEndpointType) {
   switch (value) {
     case 'openai_image_edits':
-      return 'OpenAI 图片编辑';
+      return '图片编辑';
     case 'gemini_generate_content':
-      return 'Gemini generateContent';
+      return 'Gemini';
     default:
-      return 'OpenAI 图片生成';
+      return '图片生成';
+  }
+}
+
+export function endpointTypeShortLabel(value: ModelEndpointType) {
+  switch (value) {
+    case 'openai_image_edits':
+      return '编辑';
+    case 'gemini_generate_content':
+      return 'Gemini';
+    default:
+      return '生成';
   }
 }
 

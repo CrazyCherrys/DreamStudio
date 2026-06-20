@@ -47,7 +47,7 @@ export default async function M0StatusPage() {
             >
               {health.ok ? 'OK' : 'Unavailable'} · {health.status}
             </p>
-            <pre className="mt-5 overflow-auto rounded-2xl bg-[#1f1b16] p-4 text-xs leading-6 text-[#fffdf8]">
+            <pre className="mt-5 overflow-auto rounded-2xl bg-[var(--ds-surface-muted)] p-4 text-xs leading-6 text-[var(--ds-text)]">
               {JSON.stringify(health.body, null, 2)}
             </pre>
           </article>
@@ -63,7 +63,7 @@ export default async function M0StatusPage() {
                 'Redis + BullMQ',
               ].map((item) => (
                 <div
-                  className="rounded-2xl border border-[var(--ds-border)] bg-white/60 p-4"
+                  className="rounded-2xl border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4"
                   key={item}
                 >
                   <strong>{item}</strong>

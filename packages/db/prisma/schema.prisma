@@ -38,6 +38,14 @@ enum ModelEndpointType {
   @@map("model_endpoint_type")
 }
 
+enum ModelModality {
+  chat
+  image
+  video
+
+  @@map("model_modality")
+}
+
 enum ReferenceTransferMode {
   none
   multipart
@@ -114,6 +122,7 @@ model User {
   assets             Asset[]
   imageTasks         ImageTask[]
   requestLogs        RequestLog[]
+  modelFavorites     UserModelFavorite[]
 
   @@index([role])
   @@index([status])
@@ -172,31 +181,15 @@ model UserNewApiConfig {
   @@map("user_new_api_configs")
 }
 
-model ModelCategory {
-  id        String    @id @default(uuid()) @db.Uuid
-  name      String    @db.VarChar(120)
-  slug      String    @unique @db.VarChar(120)
-  icon      String?   @db.VarChar(80)
-  sortOrder Int       @default(0) @map("sort_order")
-  isEnabled Boolean   @default(true) @map("is_enabled")
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  models    AiModel[]
-
-  @@index([sortOrder])
-  @@index([isEnabled])
-  @@index([deletedAt])
-  @@map("model_categories")
-}
-
 model AiModel {
   id                     String                @id @default(uuid()) @db.Uuid
-  categoryId             String?               @map("category_id") @db.Uuid
   modelId                String                @map("model_id") @db.VarChar(240)
   displayName            String                @map("display_name") @db.VarChar(160)
   providerName           String?               @map("provider_name") @db.VarChar(120)
-  endpointType           ModelEndpointType     @map("endpoint_type")
+  modality               ModelModality         @default(image)
+  iconUrl                String?               @map("icon_url") @db.VarChar(500)
+  description            String?
+  endpointTypes          ModelEndpointType[]   @map("endpoint_types")
   referenceTransferMode  ReferenceTransferMode @default(none) @map("reference_transfer_mode")
   supportsReferenceImage Boolean               @default(false) @map("supports_reference_image")
   isEnabled              Boolean               @default(true) @map("is_enabled")
@@ -207,16 +200,27 @@ model AiModel {
   createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt              DateTime?             @map("deleted_at") @db.Timestamptz(6)
-  category               ModelCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   imageTasks             ImageTask[]
+  favorites              UserModelFavorite[]
 
-  @@index([categoryId])
-  @@index([endpointType])
+  @@index([modality])
   @@index([isEnabled])
   @@index([isRecommended])
   @@index([sortOrder])
   @@index([deletedAt])
   @@map("ai_models")
+}
+
+model UserModelFavorite {
+  userId    String   @map("user_id") @db.Uuid
+  modelId   String   @map("model_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model     AiModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@id([userId, modelId])
+  @@index([modelId])
+  @@map("user_model_favorites")
 }
 
 model ModelSyncSnapshot {

@@ -3,10 +3,10 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { NewApiConfigModule } from '../new-api-config/new-api-config.module';
 import {
-  AdminModelCategoriesController,
+  AdminModelIconsController,
   AdminModelsController,
   AdminModelSyncSnapshotsController,
-  PublicModelCategoriesController,
+  PublicModelIconsController,
   PublicModelsController,
 } from './model-catalog.controller';
 import { ModelCatalogService } from './model-catalog.service';
@@ -14,10 +14,10 @@ import { ModelCatalogService } from './model-catalog.service';
 @Module({
   imports: [AuthModule, NewApiConfigModule],
   controllers: [
-    PublicModelCategoriesController,
     PublicModelsController,
-    AdminModelCategoriesController,
+    PublicModelIconsController,
     AdminModelsController,
+    AdminModelIconsController,
     AdminModelSyncSnapshotsController,
   ],
   providers: [ModelCatalogService],

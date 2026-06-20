@@ -129,7 +129,7 @@ function StorageSettingsContent() {
       <section className="ds-card admin-panel p-6">
         <span className="ds-badge">Storage</span>
         <h2 className="mt-4 text-2xl font-black">存储设置</h2>
-        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error ?? '读取存储设置失败'}
         </p>
         <DsButton className="mt-5" onClick={loadSettings} type="button" variant="secondary">
@@ -204,7 +204,7 @@ function StorageSettingsContent() {
               />
             </div>
 
-            <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/60 p-4 font-bold">
+            <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4 font-bold">
               <input
                 checked={settings.s3_force_path_style}
                 onChange={(event) => update('s3_force_path_style', event.target.checked)}
@@ -254,12 +254,12 @@ function StorageSettingsContent() {
         </div>
 
         {message ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
             {message}
           </p>
         ) : null}
         {error ? (
-          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
             {error}
           </p>
         ) : null}

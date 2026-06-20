@@ -12,18 +12,16 @@ import {
   createAdminModel,
   deleteAdminModel,
   endpointTypeLabel,
-  fetchAdminCategories,
   fetchAdminModels,
+  modalityLabel,
   transferModeLabel,
   updateAdminModel,
   type AdminAiModel,
-  type AdminModelCategory,
   type AiModelPayload,
 } from '@/lib/model-catalog';
 
 function AdminModelsContent() {
   const { csrfToken } = useAuth();
-  const [categories, setCategories] = useState<AdminModelCategory[]>([]);
   const [models, setModels] = useState<AdminAiModel[]>([]);
   const [editingModel, setEditingModel] = useState<AdminAiModel | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -35,11 +33,7 @@ function AdminModelsContent() {
     setLoading(true);
     setError(null);
     try {
-      const [nextCategories, nextModels] = await Promise.all([
-        fetchAdminCategories(),
-        fetchAdminModels(),
-      ]);
-      setCategories(nextCategories.items);
+      const nextModels = await fetchAdminModels();
       setModels(nextModels.items);
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '读取模型目录失败');
@@ -106,7 +100,7 @@ function AdminModelsContent() {
         <h2 className="mt-4 text-2xl font-black">{editingModel ? '编辑模型' : '新增模型'}</h2>
         <div className="mt-5">
           <ModelForm
-            categories={categories}
+            csrfToken={csrfToken}
             initialModel={editingModel}
             key={editingModel?.id ?? 'new-model'}
             onSubmit={saveModel}
@@ -137,12 +131,12 @@ function AdminModelsContent() {
         </div>
 
         {message ? (
-          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
             {message}
           </p>
         ) : null}
         {error ? (
-          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
             {error}
           </p>
         ) : null}
@@ -151,20 +145,38 @@ function AdminModelsContent() {
           {loading ? <p className="ds-muted font-semibold">正在读取模型目录...</p> : null}
           {models.map((model) => (
             <article
-              className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-4"
+              className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4"
               key={model.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black">{model.display_name}</h3>
-                  <p className="ds-muted mt-1 break-all text-sm">{model.model_id}</p>
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] text-lg font-black">
+                    {model.icon_url ? (
+                      <img
+                        alt={model.display_name}
+                        className="h-full w-full object-cover"
+                        src={model.icon_url}
+                      />
+                    ) : (
+                      model.display_name.slice(0, 1)
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-black">{model.display_name}</h3>
+                    <p className="ds-muted mt-1 break-all text-sm">{model.model_id}</p>
+                    {model.description ? (
+                      <p className="ds-muted mt-2 line-clamp-2 text-sm leading-6">
+                        {model.description}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs font-black">
-                  <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 px-2 py-1">
+                  <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-2 py-1">
                     {model.is_enabled ? '启用' : '禁用'}
                   </span>
                   {model.is_recommended ? (
-                    <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-2 py-1 text-[var(--ds-success)]">
+                    <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-2 py-1 text-[var(--ds-success)]">
                       推荐
                     </span>
                   ) : null}
@@ -172,12 +184,14 @@ function AdminModelsContent() {
               </div>
               <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
                 <div>
-                  <dt className="ds-muted font-semibold">分类</dt>
-                  <dd className="font-black">{model.category?.name ?? '无分类'}</dd>
+                  <dt className="ds-muted font-semibold">类型</dt>
+                  <dd className="font-black">{modalityLabel(model.modality)}</dd>
                 </div>
                 <div>
                   <dt className="ds-muted font-semibold">端点</dt>
-                  <dd className="font-black">{endpointTypeLabel(model.endpoint_type)}</dd>
+                  <dd className="font-black">
+                    {model.endpoint_types.map(endpointTypeLabel).join(' / ')}
+                  </dd>
                 </div>
                 <div>
                   <dt className="ds-muted font-semibold">参考图</dt>

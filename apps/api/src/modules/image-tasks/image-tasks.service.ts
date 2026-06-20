@@ -4,6 +4,7 @@ import { HttpStatus, Injectable, OnModuleDestroy } from '@nestjs/common';
 import {
   ImageTaskStatus,
   ModelEndpointType,
+  ModelModality,
   Prisma,
   type Asset,
   type ImageTask,
@@ -249,24 +250,11 @@ export class ImageTasksService implements OnModuleDestroy {
         id: modelRecordId,
         isEnabled: true,
         deletedAt: null,
-        OR: [
-          {
-            categoryId: null,
-          },
-          {
-            category: {
-              isEnabled: true,
-              deletedAt: null,
-            },
-          },
-        ],
+        modality: ModelModality.image,
       },
     });
     if (!model) {
       throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型不存在或已禁用');
-    }
-    if (model.endpointType === ModelEndpointType.gemini_generate_content) {
-      throw apiError(HttpStatus.BAD_REQUEST, 'endpoint_not_supported', 'M5 暂不支持该模型端点类型');
     }
 
     const schema = normalizeParameterSchema(model.parameterSchema);
@@ -303,6 +291,8 @@ export class ImageTasksService implements OnModuleDestroy {
       }
     }
 
+    const endpointType = this.resolveImageEndpointType(model.endpointTypes, referenceAssetIds);
+
     const encryptedPrompt = this.encryptionService.encryptSecret(prompt);
     const encryptedNegativePrompt = negativePrompt
       ? this.encryptionService.encryptSecret(negativePrompt)
@@ -317,6 +307,7 @@ export class ImageTasksService implements OnModuleDestroy {
       encryptedNegativePrompt,
       parameters: parameterResult.value as Prisma.InputJsonObject,
       referenceAssetIds,
+      endpointType,
       clientRequestId,
     };
   }
@@ -331,7 +322,7 @@ export class ImageTasksService implements OnModuleDestroy {
           userId,
           modelRecordId: input.model.id,
           modelIdSnapshot: input.model.modelId,
-          endpointTypeSnapshot: input.model.endpointType,
+          endpointTypeSnapshot: input.endpointType,
           newApiBaseUrlSnapshot: input.newApiConfig.newApiBaseUrl,
           promptSummary: summarizeText(input.prompt),
           encryptedPrompt: input.encryptedPrompt.encrypted,
@@ -370,6 +361,36 @@ export class ImageTasksService implements OnModuleDestroy {
       }
       throw error;
     }
+  }
+
+  private resolveImageEndpointType(
+    endpointTypes: ModelEndpointType[],
+    referenceAssetIds: string[],
+  ): ModelEndpointType {
+    const supportsGenerations = endpointTypes.includes(ModelEndpointType.openai_image_generations);
+    const supportsEdits = endpointTypes.includes(ModelEndpointType.openai_image_edits);
+
+    if (referenceAssetIds.length > 0 && supportsEdits) {
+      return ModelEndpointType.openai_image_edits;
+    }
+
+    if (referenceAssetIds.length > 0 && !supportsEdits) {
+      throw apiError(
+        HttpStatus.BAD_REQUEST,
+        'endpoint_not_supported',
+        '当前模型不支持图片编辑端点',
+      );
+    }
+
+    if (supportsGenerations) {
+      return ModelEndpointType.openai_image_generations;
+    }
+
+    if (supportsEdits) {
+      return ModelEndpointType.openai_image_edits;
+    }
+
+    throw apiError(HttpStatus.BAD_REQUEST, 'endpoint_not_supported', '当前模型暂不支持图片任务');
   }
 
   private async enqueueTask(task: ImageTask) {

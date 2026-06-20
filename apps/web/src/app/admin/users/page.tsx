@@ -92,7 +92,7 @@ function AdminUsersContent() {
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -119,7 +119,7 @@ function AdminUsersContent() {
               </tr>
             ) : null}
             {users.map((user) => (
-              <tr className="bg-white/70" key={user.id}>
+              <tr className="bg-[var(--ds-surface-raised)]" key={user.id}>
                 <td className="rounded-l-[var(--ds-radius-sm)] px-3 py-3">
                   <strong>{user.username}</strong>
                   <p className="ds-muted mt-1">{user.display_name ?? '无展示名'}</p>

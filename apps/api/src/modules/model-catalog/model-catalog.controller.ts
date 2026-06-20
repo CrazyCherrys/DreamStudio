@@ -7,29 +7,26 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Request, Response } from 'express';
+import multer from 'multer';
+
+import { DEFAULT_MAX_IMAGE_BYTES } from '@dreamstudio/storage';
 
 import { CsrfGuard } from '../auth/csrf.guard';
 import { SessionAuthGuard } from '../auth/session-auth.guard';
 import { SuperAdminGuard } from '../auth/super-admin.guard';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { ModelCatalogService } from './model-catalog.service';
-import type { AiModelBody, ModelCategoryBody, ModelSyncSnapshotBody } from './model-catalog.types';
-
-@Controller('model-categories')
-@UseGuards(SessionAuthGuard)
-export class PublicModelCategoriesController {
-  constructor(private readonly modelCatalogService: ModelCatalogService) {}
-
-  @Get()
-  listCategories() {
-    return this.modelCatalogService.listPublicCategories();
-  }
-}
+import type { AiModelBody, ModelSyncSnapshotBody } from './model-catalog.types';
 
 @Controller('models')
 @UseGuards(SessionAuthGuard)
@@ -37,50 +34,32 @@ export class PublicModelsController {
   constructor(private readonly modelCatalogService: ModelCatalogService) {}
 
   @Get()
-  listModels(@Query() query: Record<string, unknown>) {
-    return this.modelCatalogService.listPublicModels(query);
+  listModels(@Query() query: Record<string, unknown>, @Req() request: AuthenticatedRequest) {
+    return this.modelCatalogService.listPublicModels(query, request.auth!);
   }
 
   @Get(':modelRecordId')
-  getModel(@Param('modelRecordId') modelRecordId: string) {
-    return this.modelCatalogService.getPublicModel(modelRecordId);
-  }
-}
-
-@Controller('admin/model-categories')
-@UseGuards(SessionAuthGuard, SuperAdminGuard)
-export class AdminModelCategoriesController {
-  constructor(private readonly modelCatalogService: ModelCatalogService) {}
-
-  @Get()
-  listCategories() {
-    return this.modelCatalogService.listAdminCategories();
+  getModel(@Param('modelRecordId') modelRecordId: string, @Req() request: AuthenticatedRequest) {
+    return this.modelCatalogService.getPublicModel(modelRecordId, request.auth!);
   }
 
-  @Post()
+  @Put(':modelRecordId/favorite')
   @HttpCode(200)
   @UseGuards(CsrfGuard)
-  createCategory(@Body() body: ModelCategoryBody, @Req() request: AuthenticatedRequest & Request) {
-    return this.modelCatalogService.createCategory(body, request.auth!, request);
+  favoriteModel(
+    @Param('modelRecordId') modelRecordId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.modelCatalogService.favoriteModel(modelRecordId, request.auth!);
   }
 
-  @Patch(':categoryId')
+  @Delete(':modelRecordId/favorite')
   @UseGuards(CsrfGuard)
-  updateCategory(
-    @Param('categoryId') categoryId: string,
-    @Body() body: ModelCategoryBody,
-    @Req() request: AuthenticatedRequest & Request,
+  unfavoriteModel(
+    @Param('modelRecordId') modelRecordId: string,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.modelCatalogService.updateCategory(categoryId, body, request.auth!, request);
-  }
-
-  @Delete(':categoryId')
-  @UseGuards(CsrfGuard)
-  deleteCategory(
-    @Param('categoryId') categoryId: string,
-    @Req() request: AuthenticatedRequest & Request,
-  ) {
-    return this.modelCatalogService.deleteCategory(categoryId, request.auth!, request);
+    return this.modelCatalogService.unfavoriteModel(modelRecordId, request.auth!);
   }
 }
 
@@ -123,6 +102,44 @@ export class AdminModelsController {
     @Req() request: AuthenticatedRequest & Request,
   ) {
     return this.modelCatalogService.deleteModel(modelRecordId, request.auth!, request);
+  }
+}
+
+@Controller('admin/model-icons')
+@UseGuards(SessionAuthGuard, SuperAdminGuard)
+export class AdminModelIconsController {
+  constructor(private readonly modelCatalogService: ModelCatalogService) {}
+
+  @Post()
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: multer.memoryStorage(),
+      limits: {
+        fileSize: DEFAULT_MAX_IMAGE_BYTES,
+        files: 1,
+      },
+    }),
+  )
+  uploadIcon(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.uploadModelIcon(file, request.auth!, request);
+  }
+}
+
+@Controller('model-icons')
+export class PublicModelIconsController {
+  constructor(private readonly modelCatalogService: ModelCatalogService) {}
+
+  @Get(':filename')
+  downloadIcon(
+    @Param('filename') filename: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.modelCatalogService.downloadModelIcon(filename, response);
   }
 }
 

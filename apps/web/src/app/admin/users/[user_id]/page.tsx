@@ -179,12 +179,12 @@ function AdminUserDetailContent() {
 
       {loading ? <p className="ds-muted font-semibold">正在读取用户详情...</p> : null}
       {message ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error}
         </p>
       ) : null}
@@ -243,7 +243,7 @@ function AdminUserDetailContent() {
               <Info label="最近测试" value={formatDateTime(detail.new_api_config.last_tested_at)} />
             </dl>
             {detail.new_api_config.last_test_error ? (
-              <p className="mt-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-white/70 p-3 text-sm font-semibold text-[var(--ds-danger)]">
+              <p className="mt-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-3 text-sm font-semibold text-[var(--ds-danger)]">
                 {detail.new_api_config.last_test_error}
               </p>
             ) : null}
@@ -256,7 +256,7 @@ function AdminUserDetailContent() {
             <div className="mt-4 grid gap-3">
               {detail.session_summary.recent.map((session) => (
                 <div
-                  className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-white/70 p-3 text-sm"
+                  className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3 text-sm"
                   key={session.id}
                 >
                   <div className="flex flex-wrap justify-between gap-3">
