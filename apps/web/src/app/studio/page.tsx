@@ -10,6 +10,7 @@ import {
   type RefObject,
 } from 'react';
 import Link from 'next/link';
+import { CornerDownLeft, Plus, Send } from 'lucide-react';
 
 import { useAuth } from '@/components/auth-provider';
 import { RouteGuard } from '@/components/route-guard';
@@ -38,6 +39,7 @@ type QuickParameterKind = 'count' | 'size' | 'resolution';
 type StudioReferencePreview = Pick<AssetItem, 'id' | 'download_url' | 'filename'>;
 
 const MAX_SELECTED_REFERENCES = 8;
+const STUDIO_ENTER_TO_SEND_STORAGE_KEY = 'dreamstudio.studio.enterToSend';
 
 interface QuickParameterConfig {
   fields: ParameterSchemaField[];
@@ -66,6 +68,7 @@ function StudioContent() {
   const [message, setMessage] = useState<string | null>(null);
   const [showModelIntro, setShowModelIntro] = useState(true);
   const [openQuickParameter, setOpenQuickParameter] = useState<QuickParameterKind | null>(null);
+  const [enterToSend, setEnterToSend] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
@@ -91,6 +94,13 @@ function StudioContent() {
     }
 
     void loadCatalog();
+  }, []);
+
+  useEffect(() => {
+    const storedPreference = window.localStorage.getItem(STUDIO_ENTER_TO_SEND_STORAGE_KEY);
+    if (storedPreference !== null) {
+      setEnterToSend(storedPreference !== 'false');
+    }
   }, []);
 
   useEffect(() => {
@@ -342,6 +352,33 @@ function StudioContent() {
     setSelectedReferences((current) => current.filter((reference) => reference.id !== referenceId));
   }
 
+  function toggleEnterMode() {
+    setEnterToSend((current) => {
+      const nextValue = !current;
+      window.localStorage.setItem(STUDIO_ENTER_TO_SEND_STORAGE_KEY, String(nextValue));
+      return nextValue;
+    });
+  }
+
+  function handlePromptKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (
+      !enterToSend ||
+      event.key !== 'Enter' ||
+      event.shiftKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+    event.preventDefault();
+    if (!canSubmit) {
+      return;
+    }
+    event.currentTarget.form?.requestSubmit();
+  }
+
   const selectedImageModelSupported = Boolean(
     selectedModel?.modality === 'image' &&
     selectedModel.endpoint_types.some(
@@ -404,12 +441,35 @@ function StudioContent() {
               <textarea
                 className="studio-prompt-input"
                 onChange={(event) => setPrompt(event.target.value)}
+                onKeyDown={handlePromptKeyDown}
                 placeholder="描述你想生成的画面..."
                 value={prompt}
               />
-              <button className="studio-submit-button" disabled={!canSubmit} type="submit">
-                {submitting ? '提交中' : '生成'}
-              </button>
+              <div className="studio-composer-actions">
+                <button
+                  aria-label={
+                    enterToSend
+                      ? '当前为回车发送，点击切换为回车换行'
+                      : '当前为回车换行，点击切换为回车发送'
+                  }
+                  aria-pressed={!enterToSend}
+                  className={`studio-enter-toggle ${enterToSend ? '' : 'is-newline-mode'}`}
+                  onClick={toggleEnterMode}
+                  title={enterToSend ? '回车发送' : '回车换行'}
+                  type="button"
+                >
+                  <CornerDownLeft aria-hidden="true" size={19} strokeWidth={2.3} />
+                </button>
+                <button
+                  aria-label={submitting ? '正在提交任务' : '提交生成任务'}
+                  className="studio-submit-button"
+                  disabled={!canSubmit}
+                  title={submitting ? '提交中' : '提交生成任务'}
+                  type="submit"
+                >
+                  <Send aria-hidden="true" size={20} strokeWidth={2.35} />
+                </button>
+              </div>
             </div>
 
             <QuickParameterBar
@@ -732,7 +792,7 @@ function StudioReferenceUploader({
       ? '上传中'
       : references.length > 0
         ? `${references.length}/${MAX_SELECTED_REFERENCES}`
-        : '参考图';
+        : null;
 
   return (
     <div
@@ -743,12 +803,12 @@ function StudioReferenceUploader({
       <div className="studio-reference-stack" tabIndex={references.length > 0 ? 0 : -1}>
         {references.length === 0 ? (
           <label
+            aria-label={disabled ? '当前模型不支持上传' : '上传参考图'}
             className="studio-reference-placeholder"
             htmlFor={inputId}
             title={disabled ? '当前模型不支持上传' : '上传参考图'}
           >
-            <span className="studio-reference-placeholder-plus">+</span>
-            <span>参考图</span>
+            <Plus aria-hidden="true" className="studio-reference-plus-icon" size={26} />
           </label>
         ) : (
           references.map((reference, index) => (
@@ -783,6 +843,7 @@ function StudioReferenceUploader({
         )}
         {references.length > 0 ? (
           <label
+            aria-label={uploadDisabled ? (statusLabel ?? '无法继续上传参考图') : '继续上传参考图'}
             className={`studio-reference-add ${uploadDisabled ? 'is-disabled' : ''}`}
             htmlFor={inputId}
             style={
@@ -798,10 +859,9 @@ function StudioReferenceUploader({
                 '--reference-expanded-rotation': `${references.length % 2 === 0 ? -3 : 3}deg`,
               } as CSSProperties
             }
-            title={uploadDisabled ? statusLabel : '继续上传参考图'}
+            title={uploadDisabled ? (statusLabel ?? '无法继续上传参考图') : '继续上传参考图'}
           >
-            <span className="studio-reference-placeholder-plus">+</span>
-            <span>参考图</span>
+            <Plus aria-hidden="true" className="studio-reference-plus-icon" size={24} />
           </label>
         ) : null}
         {references.length > 0 ? (
@@ -819,7 +879,7 @@ function StudioReferenceUploader({
         onChange={onUpload}
         type="file"
       />
-      <span className="studio-reference-status">{statusLabel}</span>
+      {statusLabel ? <span className="studio-reference-status">{statusLabel}</span> : null}
     </div>
   );
 }
