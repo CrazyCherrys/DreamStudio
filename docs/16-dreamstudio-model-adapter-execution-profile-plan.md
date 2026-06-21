@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 1 数据模型已落地，执行链路仍在旧路径。
+当前状态：阶段 2 初始化数据和默认 Profile 已落地，执行链路仍在旧路径。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -65,7 +65,7 @@ Studio UI 参数
 
 ## 4. 当前代码情况
 
-当前项目已有模型目录、参数 Schema、异步图片任务和 Worker 基础；阶段 1 已先落地 execution profile 数据结构：
+当前项目已有模型目录、参数 Schema、异步图片任务和 Worker 基础；阶段 1 已先落地 execution profile 数据结构，阶段 2 已补齐开发期默认 profile 初始化：
 
 - `ModelEndpointType` 是 Prisma enum，当前固定为 `openai_image_generations`、`openai_image_edits`、`gemini_generate_content`。
 - `AiModel` 同时保存展示属性和执行属性：`modelId`、`endpointTypes`、`referenceTransferMode`、`supportsReferenceImage`、`defaultParams`、`parameterSchema`。
@@ -73,16 +73,22 @@ Studio UI 参数
 - `ImageTask` 已新增可空的 profile/revision 关系和 `adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`。
 - `RequestLog` 已新增可空的 adapter/profile 字段、`resolvedRequestSanitized`、`upstreamResponseSummary`、`profileErrorHint`。
 - 新增迁移为 `packages/db/prisma/migrations/20260621010000_execution_profiles/migration.sql`。
+- `scripts/init-m0.ts` 已创建开发默认图片模型 `gpt-image-2`，并写入默认 `OpenAI Image generation` profile 和 active revision。
+- 初始化脚本还会给当前启用、未删除、`modality=image` 且包含 `openai_image_generations` 端点的模型补齐默认 OpenAI Image generation profile。
+- 初始化补齐 profile 时，`upstream_model_id` 使用该模型自己的 `model_id`；Gemini 或 edit-only 模型不会被硬套 OpenAI generation profile。
+- 初始化补齐 profile 时，`provider_name=OpenAI` 的模型标记为 `openai_official` 来源；其他兼容模型标记为 `third_party_docs` 来源，避免把 OpenAI-compatible 误标成官方模型。
+- 新增 `scripts/verify-model-profiles.ts`，用于检查启用图片模型的默认 profile、active revision、adapter key、Schema v2 快捷 slot 和 request mapping。
 - `parameter_schema` 当前支持 `string`、`number`、`integer`、`boolean`、`select`，用于 Studio 表单和 API 基础校验。
+- Profile/revision 内的 `parameter_schema` 已开始保存 Schema v2 扩展字段；旧 `AiModel.parameterSchema` 暂时仍只保存前端和旧校验器能识别的兼容字段。
 - 创建图片任务时，后端读取当前模型的 `parameterSchema`，校验用户提交参数，并将合法参数写入 `parameterSnapshot`。
-- 当前任务创建逻辑仍未切到 active profile revision，因此新增 profile 快照字段在阶段 1 后仍可能为空。
+- 当前任务创建逻辑仍未切到 active profile revision，因此新增 profile 快照字段在阶段 2 后仍可能为空。
 - Worker 当前通过 `NewApiImageClient` 调用 `/v1/images/generations` 或 `/v1/images/edits`。
 - 文生图请求将 `model`、`prompt` 和 `parameterSnapshot` 直接展开为 JSON。
 - 编辑请求将 `model`、`prompt` 和参数转成 multipart form，参考图字段名固定为 `image`。
 - 响应解析只识别 OpenAI Image 风格的 `data[].url` 和 `data[].b64_json`。
 - Studio 快捷参数当前依赖 key/label/description 猜测“张数、比例、分辨率”，不是稳定配置。
 
-这说明当前系统已经具备“模型级参数白名单”的雏形，并已具备 profile/revision 的数据库承载结构；接下来还缺默认 profile 初始化、API/Studio 读取 profile、任务快照写入、request mapping 和 adapter registry。
+这说明当前系统已经具备“模型级参数白名单”的雏形，并已具备 profile/revision 的数据库承载结构和开发期默认 profile 初始化；接下来还缺 API/Studio 读取 profile、任务快照写入、request mapping compiler 和 adapter registry。
 
 ## 5. 当前痛点
 
@@ -585,14 +591,42 @@ Studio：
 ### 阶段 1：数据模型重塑
 
 - 新增 execution profile 和 revision 数据模型。
-- 调整初始化脚本，让新环境直接创建 `AiModel + 默认 ExecutionProfile + active Revision`。
 - 不为旧数据编写复杂 backfill。
-- 新任务必须依赖 active profile revision。
-- 创建任务时快照 profile revision。
-- Worker 只走 profile snapshot 和 adapter registry。
-- 普通模型接口返回 `default_execution_profile`。
+- 已完成：新增 execution profile/revision 数据模型和任务/request log 快照字段。
 
-### 阶段 2：Parameter Schema v2
+### 阶段 2：初始化数据和默认 Profile
+
+- 调整初始化脚本，让新环境直接创建 `AiModel + 默认 ExecutionProfile + active Revision`。
+- 给启用的 OpenAI generation 图片模型补齐默认 profile。
+- 新增 `scripts/verify-model-profiles.ts` 验证默认 profile 和 active revision。
+- Profile/revision 初始化数据使用 Schema v2；旧模型字段短期保留兼容 schema。
+- 已完成：开发默认 `gpt-image-2` 和现有启用 OpenAI generation 图片模型可通过 verifier。
+
+### 阶段 3：模型 API 改为 Profile 来源
+
+- 普通模型接口返回 `default_execution_profile`。
+- Studio 优先读取 profile 的 `parameter_schema` 和 `default_params`。
+- 如果模型没有 active default profile，普通用户侧不可提交。
+- Admin 模型列表显示默认 profile 状态。
+
+### 阶段 4：任务创建写入 Profile Snapshot
+
+- 新任务必须依赖 active profile revision。
+- 创建任务时快照 profile revision、adapter、request mapping 和脱敏请求结构。
+- 使用 active revision 的 `parameter_schema` 校验用户参数。
+- 重试任务默认沿用原任务 snapshot。
+- 没有 active profile 的模型直接拒绝提交。
+
+### 阶段 5：Adapter Registry 和 OpenAI Image 基础闭环
+
+- 实现 adapter registry。
+- 实现 `openai_images_generation` adapter。
+- 实现 `openai_images_edit` adapter。
+- Worker 只走 profile snapshot 和 adapter registry。
+- 保留 `NewApiImageClient` 作为底层 HTTP 能力可以，但业务分支迁移到 adapter。
+- 增加 mock upstream 测试。
+
+### 阶段 6：Parameter Schema v2
 
 - 扩展后端 schema 类型和校验。
 - 支持 `ui`、`capability`、`send_policy`、`validation`、`deprecated`。
@@ -600,24 +634,33 @@ Studio：
 - 管理后台 schema builder 支持新字段。
 - 初始化数据直接使用 Schema v2；短期保留旧字段解析只用于过渡提交。
 
-### 阶段 3：Request Mapping 和 Adapter Registry
+### 阶段 7：Admin Profile 和 Revision 管理
+
+- Admin 模型详情支持查看 profile、revision 和来源。
+- 支持创建 draft revision、编辑 Schema v2、默认参数和 request mapping。
+- 支持导入模板 JSON，导入结果必须先成为 draft。
+- active revision 发布前必须经过 lint、请求预览和 smoke test。
+
+### 阶段 8：Request Mapping、Preview 和排障日志
 
 - 实现 mapping compiler。
 - 实现 transform 白名单。
-- 实现 adapter registry 和 adapter allowed target lint。
-- Worker adapter registry 接管现有 `NewApiImageClient`。
-- 增加 mock upstream 测试。
+- 实现 adapter allowed target lint。
+- Admin 提供请求预览。
 - request log 写入脱敏后的最终请求结构。
+- 上游 400/422 增加 profile 配置排查提示。
 
-### 阶段 4：OpenAI 官方模板
+### 阶段 9：OpenAI 官方模板和 OpenAI-compatible 模板
 
 - 建立 OpenAI Image generation/edit profile 模板。
 - 建立 OpenAI Responses image profile 模板。
+- 新增第三方兼容模型 profile 模板规范。
+- 明确 OpenAI-compatible 不等于 OpenAI full-compatible。
 - 模板记录官方 source 和 checked time。
 - 支持导入为 draft revision、diff、预览和测试。
 - 不自动发布官方模板变更。
 
-### 阶段 5：Gemini 原生 adapter
+### 阶段 10：Gemini 原生 adapter
 
 - 实现 `gemini_generate_content` adapter。
 - 支持 `contents.parts` 请求。
@@ -626,14 +669,7 @@ Studio：
 - 支持 `inlineData` 响应解析。
 - 如果 v1 仍只允许 new-api transport，则先要求 new-api 网关支持该路径；否则 profile 保持管理员可配置但用户侧不可用。
 
-### 阶段 6：OpenAI-compatible 接入指南
-
-- 新增第三方兼容模型 profile 模板规范。
-- 明确 OpenAI-compatible 不等于 OpenAI full-compatible。
-- 管理后台增加“只发送声明参数”的提示。
-- 上游 400 增加 profile 配置排查提示。
-
-### 阶段 7：文档和运维
+### 阶段 11：文档、验收和发布
 
 - 更新 API 契约文档。
 - 更新数据模型文档。

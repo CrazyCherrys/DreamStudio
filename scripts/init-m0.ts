@@ -3,7 +3,18 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { PrismaClient } from '@prisma/client';
+import {
+  type AiModel,
+  ExecutionProfileOperation,
+  ExecutionProfileRevisionStatus,
+  ExecutionProfileSourceKind,
+  ModelEndpointType,
+  ModelModality,
+  Prisma,
+  PrismaClient,
+  ReferenceTransferMode,
+  type AiModelExecutionProfile,
+} from '@prisma/client';
 
 import { getOptionalEnv } from '@dreamstudio/config';
 
@@ -17,6 +28,13 @@ const INITIAL_ADMIN_DEFAULT_USERNAME = 'Cherry';
 const INITIAL_ADMIN_DEFAULT_PASSWORD = 'DreamStudio';
 const PASSWORD_HASH_PREFIX = 'scrypt';
 const PASSWORD_KEY_LENGTH = 64;
+const DEFAULT_IMAGE_MODEL_ID = 'gpt-image-2';
+const DEFAULT_IMAGE_PROFILE_NAME = 'OpenAI Image generation';
+const DEFAULT_IMAGE_ADAPTER_KEY = 'openai_images_generation';
+const DEFAULT_IMAGE_ADAPTER_VERSION = '1';
+const DEFAULT_IMAGE_RESPONSE_PARSER_KEY = 'openai_image_data';
+const DEFAULT_IMAGE_SOURCE_URL = 'https://developers.openai.com/api/docs/guides/image-generation';
+const DEFAULT_IMAGE_SOURCE_CHECKED_AT = new Date('2026-06-21T00:00:00.000Z');
 
 const defaultSettings = [
   {
@@ -71,6 +89,240 @@ const defaultSettings = [
   },
 ] as const;
 
+const defaultImageParameterSchema = [
+  {
+    key: 'n',
+    label: '张数',
+    type: 'integer',
+    description: '一次请求生成的图片数量。',
+    required: false,
+    default: 1,
+    min: 1,
+    max: 4,
+    ui: {
+      group: 'quick',
+      slot: 'count',
+      order: 10,
+    },
+    capability: 'count',
+    send_policy: 'when_present',
+    validation: {
+      min: 1,
+      max: 4,
+    },
+    help_url: DEFAULT_IMAGE_SOURCE_URL,
+  },
+  {
+    key: 'size',
+    label: '分辨率',
+    type: 'select',
+    description: 'OpenAI Image API 支持通过 size 指定分辨率；开发期模板先列出官方常用尺寸。',
+    required: false,
+    default: '1024x1024',
+    options: [
+      { label: 'Auto', value: 'auto' },
+      { label: '1024 x 1024', value: '1024x1024' },
+      { label: '1536 x 1024', value: '1536x1024' },
+      { label: '1024 x 1536', value: '1024x1536' },
+      { label: '2048 x 2048', value: '2048x2048' },
+      { label: '2048 x 1152', value: '2048x1152' },
+      { label: '3840 x 2160', value: '3840x2160' },
+      { label: '2160 x 3840', value: '2160x3840' },
+    ],
+    ui: {
+      group: 'quick',
+      slot: 'resolution',
+      order: 20,
+    },
+    capability: 'resolution',
+    send_policy: 'when_present',
+    validation: {
+      enum: [
+        'auto',
+        '1024x1024',
+        '1536x1024',
+        '1024x1536',
+        '2048x2048',
+        '2048x1152',
+        '3840x2160',
+        '2160x3840',
+      ],
+    },
+    help_url: DEFAULT_IMAGE_SOURCE_URL,
+  },
+  {
+    key: 'quality',
+    label: '质量',
+    type: 'select',
+    description: '渲染质量。',
+    required: false,
+    default: 'auto',
+    options: [
+      { label: 'Auto', value: 'auto' },
+      { label: 'Low', value: 'low' },
+      { label: 'Medium', value: 'medium' },
+      { label: 'High', value: 'high' },
+    ],
+    ui: {
+      group: 'advanced',
+      slot: 'quality',
+      order: 30,
+    },
+    capability: 'quality',
+    send_policy: 'when_present',
+    validation: {
+      enum: ['auto', 'low', 'medium', 'high'],
+    },
+    help_url: DEFAULT_IMAGE_SOURCE_URL,
+  },
+  {
+    key: 'output_format',
+    label: '输出格式',
+    type: 'select',
+    description: 'Image API 默认返回 PNG，也可请求 JPEG 或 WebP。',
+    required: false,
+    default: 'png',
+    options: [
+      { label: 'PNG', value: 'png' },
+      { label: 'JPEG', value: 'jpeg' },
+      { label: 'WebP', value: 'webp' },
+    ],
+    ui: {
+      group: 'advanced',
+      slot: 'format',
+      order: 40,
+    },
+    capability: 'format',
+    send_policy: 'when_present',
+    validation: {
+      enum: ['png', 'jpeg', 'webp'],
+    },
+    help_url: DEFAULT_IMAGE_SOURCE_URL,
+  },
+  {
+    key: 'output_compression',
+    label: '输出压缩',
+    type: 'integer',
+    description: 'JPEG/WebP 输出压缩级别，范围 0-100。',
+    required: false,
+    default: 100,
+    min: 0,
+    max: 100,
+    ui: {
+      group: 'advanced',
+      slot: 'format',
+      order: 50,
+    },
+    capability: 'format',
+    send_policy: 'when_present',
+    validation: {
+      min: 0,
+      max: 100,
+    },
+    help_url: DEFAULT_IMAGE_SOURCE_URL,
+  },
+  {
+    key: 'background',
+    label: '背景',
+    type: 'select',
+    description:
+      '默认模板只开放 auto 和 opaque；transparent 需要模型文档明确支持后再建新 revision。',
+    required: false,
+    default: 'auto',
+    options: [
+      { label: 'Auto', value: 'auto' },
+      { label: 'Opaque', value: 'opaque' },
+    ],
+    ui: {
+      group: 'advanced',
+      slot: 'background',
+      order: 60,
+    },
+    capability: 'background',
+    send_policy: 'when_present',
+    validation: {
+      enum: ['auto', 'opaque'],
+    },
+    help_url: DEFAULT_IMAGE_SOURCE_URL,
+  },
+  {
+    key: 'moderation',
+    label: '内容审核',
+    type: 'select',
+    description: '控制图片生成审核严格程度。',
+    required: false,
+    default: 'auto',
+    options: [
+      { label: 'Auto', value: 'auto' },
+      { label: 'Low', value: 'low' },
+    ],
+    ui: {
+      group: 'advanced',
+      slot: 'safety',
+      order: 70,
+    },
+    capability: 'safety',
+    send_policy: 'when_present',
+    validation: {
+      enum: ['auto', 'low'],
+    },
+    help_url: DEFAULT_IMAGE_SOURCE_URL,
+  },
+] satisfies Prisma.InputJsonArray;
+
+const defaultImageModelParameterSchema = defaultImageParameterSchema.map((field) => ({
+  key: field.key,
+  label: field.label,
+  type: field.type,
+  description: field.description,
+  required: field.required,
+  default: field.default,
+  ...(field.min === undefined ? {} : { min: field.min }),
+  ...(field.max === undefined ? {} : { max: field.max }),
+  ...(field.options === undefined ? {} : { options: field.options }),
+})) satisfies Prisma.InputJsonArray;
+
+const defaultImageDefaultParams = {
+  n: 1,
+  size: '1024x1024',
+  quality: 'auto',
+  output_format: 'png',
+  output_compression: 100,
+  background: 'auto',
+  moderation: 'auto',
+} satisfies Prisma.InputJsonObject;
+
+const defaultImageRequestMapping = {
+  content_type: 'json',
+  fields: [
+    { source: 'model', target: 'model' },
+    { source: 'prompt', target: 'prompt' },
+    { source: 'params.n', target: 'n', omit_if_null: true },
+    { source: 'params.size', target: 'size', omit_if_null: true },
+    { source: 'params.quality', target: 'quality', omit_if_null: true },
+    { source: 'params.output_format', target: 'output_format', omit_if_null: true },
+    { source: 'params.output_compression', target: 'output_compression', omit_if_null: true },
+    { source: 'params.background', target: 'background', omit_if_null: true },
+    { source: 'params.moderation', target: 'moderation', omit_if_null: true },
+  ],
+} satisfies Prisma.InputJsonObject;
+
+const defaultImageCapabilities = {
+  supports_reference_image: false,
+  max_reference_images: 0,
+  supports_streaming: false,
+  output_formats: ['png', 'jpeg', 'webp'],
+  transparent_background: false,
+} satisfies Prisma.InputJsonObject;
+
+const defaultImageValidationRules = {
+  version: 1,
+  notes: [
+    'The development seed only exposes conservative OpenAI Image generation parameters.',
+    'Transparent backgrounds must be enabled by a model-specific profile revision after source verification.',
+  ],
+} satisfies Prisma.InputJsonObject;
+
 async function main() {
   await mkdir(inputPath, { recursive: true });
   await mkdir(outputPath, { recursive: true });
@@ -103,6 +355,8 @@ async function main() {
   }
 
   const initialAdmin = await ensureInitialAdmin();
+  const defaultImageModel = await ensureDefaultImageModel();
+  const defaultImageProfiles = await ensureDefaultOpenAiGenerationProfiles();
 
   console.log(
     JSON.stringify({
@@ -112,8 +366,250 @@ async function main() {
       settings: defaultSettings.length,
       local_storage_root: localStorageRoot,
       initial_admin: initialAdmin,
+      default_image_model: defaultImageModel,
+      default_image_profiles: defaultImageProfiles,
     }),
   );
+}
+
+async function ensureDefaultImageModel() {
+  const model = await prisma.aiModel.upsert({
+    where: {
+      id: '00000000-0000-4000-8000-00000000f201',
+    },
+    create: {
+      id: '00000000-0000-4000-8000-00000000f201',
+      modelId: DEFAULT_IMAGE_MODEL_ID,
+      displayName: 'GPT Image 2',
+      providerName: 'OpenAI',
+      modality: ModelModality.image,
+      description:
+        'Development default GPT Image generation model. Execution rules live in the default active profile revision.',
+      endpointTypes: [ModelEndpointType.openai_image_generations],
+      referenceTransferMode: ReferenceTransferMode.none,
+      supportsReferenceImage: false,
+      isEnabled: true,
+      isRecommended: true,
+      sortOrder: -1000,
+      defaultParams: defaultImageDefaultParams,
+      parameterSchema: defaultImageModelParameterSchema,
+    },
+    update: {
+      displayName: 'GPT Image 2',
+      providerName: 'OpenAI',
+      modality: ModelModality.image,
+      description:
+        'Development default GPT Image generation model. Execution rules live in the default active profile revision.',
+      endpointTypes: [ModelEndpointType.openai_image_generations],
+      referenceTransferMode: ReferenceTransferMode.none,
+      supportsReferenceImage: false,
+      isEnabled: true,
+      isRecommended: true,
+      sortOrder: -1000,
+      defaultParams: defaultImageDefaultParams,
+      parameterSchema: defaultImageModelParameterSchema,
+      deletedAt: null,
+    },
+  });
+
+  const profile = await upsertDefaultImageExecutionProfile(model);
+  const revision = await upsertDefaultImageExecutionProfileRevision(profile, model);
+
+  return {
+    model_id: model.modelId,
+    model_record_id: model.id,
+    execution_profile_id: profile.id,
+    active_revision_id: revision.id,
+  };
+}
+
+async function upsertDefaultImageExecutionProfile(
+  model: Pick<AiModel, 'id' | 'modelId'>,
+): Promise<AiModelExecutionProfile> {
+  const existingProfile = await prisma.aiModelExecutionProfile.findFirst({
+    where: {
+      aiModelId: model.id,
+      name: DEFAULT_IMAGE_PROFILE_NAME,
+      deletedAt: null,
+    },
+  });
+
+  const data = {
+    aiModelId: model.id,
+    name: DEFAULT_IMAGE_PROFILE_NAME,
+    operation: ExecutionProfileOperation.text_to_image,
+    adapterKey: DEFAULT_IMAGE_ADAPTER_KEY,
+    adapterVersion: DEFAULT_IMAGE_ADAPTER_VERSION,
+    transportKey: 'new_api_bearer',
+    upstreamModelId: model.modelId,
+    upstreamEndpointPath: '/v1/images/generations',
+    referenceTransferMode: ReferenceTransferMode.none,
+    supportsReferenceImage: false,
+    maxReferenceImages: 0,
+    parameterSchema: defaultImageParameterSchema,
+    defaultParams: defaultImageDefaultParams,
+    requestMapping: defaultImageRequestMapping,
+    responseParserKey: DEFAULT_IMAGE_RESPONSE_PARSER_KEY,
+    capabilities: defaultImageCapabilities,
+    validationRules: defaultImageValidationRules,
+    isDefault: true,
+    isEnabled: true,
+    sortOrder: 0,
+    deletedAt: null,
+  };
+
+  await prisma.aiModelExecutionProfile.updateMany({
+    where: {
+      aiModelId: model.id,
+      isDefault: true,
+      ...(existingProfile ? { id: { not: existingProfile.id } } : {}),
+    },
+    data: {
+      isDefault: false,
+    },
+  });
+
+  if (existingProfile) {
+    return prisma.aiModelExecutionProfile.update({
+      where: {
+        id: existingProfile.id,
+      },
+      data,
+    });
+  }
+
+  return prisma.aiModelExecutionProfile.create({
+    data,
+  });
+}
+
+async function upsertDefaultImageExecutionProfileRevision(
+  profile: AiModelExecutionProfile,
+  model: Pick<AiModel, 'modelId' | 'providerName'>,
+) {
+  const now = new Date();
+  const sourceMetadata = getOpenAiGenerationSourceMetadata(model);
+
+  await prisma.aiModelExecutionProfileRevision.updateMany({
+    where: {
+      executionProfileId: profile.id,
+      status: ExecutionProfileRevisionStatus.active,
+      revisionNo: {
+        not: 1,
+      },
+    },
+    data: {
+      status: ExecutionProfileRevisionStatus.archived,
+      archivedAt: now,
+    },
+  });
+
+  return prisma.aiModelExecutionProfileRevision.upsert({
+    where: {
+      executionProfileId_revisionNo: {
+        executionProfileId: profile.id,
+        revisionNo: 1,
+      },
+    },
+    create: {
+      executionProfileId: profile.id,
+      revisionNo: 1,
+      status: ExecutionProfileRevisionStatus.active,
+      sourceKind: sourceMetadata.sourceKind,
+      sourceUrl: sourceMetadata.sourceUrl,
+      sourceCheckedAt: DEFAULT_IMAGE_SOURCE_CHECKED_AT,
+      sourceSummary: sourceMetadata.sourceSummary,
+      adapterKey: DEFAULT_IMAGE_ADAPTER_KEY,
+      adapterVersion: DEFAULT_IMAGE_ADAPTER_VERSION,
+      transportKey: 'new_api_bearer',
+      upstreamModelId: model.modelId,
+      upstreamEndpointPath: '/v1/images/generations',
+      referenceTransferMode: ReferenceTransferMode.none,
+      supportsReferenceImage: false,
+      maxReferenceImages: 0,
+      parameterSchema: defaultImageParameterSchema,
+      defaultParams: defaultImageDefaultParams,
+      requestMapping: defaultImageRequestMapping,
+      responseParserKey: DEFAULT_IMAGE_RESPONSE_PARSER_KEY,
+      capabilities: defaultImageCapabilities,
+      validationRules: defaultImageValidationRules,
+      changeSummary: 'Initial development default OpenAI Image generation profile.',
+      activatedAt: now,
+    },
+    update: {
+      status: ExecutionProfileRevisionStatus.active,
+      sourceKind: sourceMetadata.sourceKind,
+      sourceUrl: sourceMetadata.sourceUrl,
+      sourceCheckedAt: DEFAULT_IMAGE_SOURCE_CHECKED_AT,
+      sourceSummary: sourceMetadata.sourceSummary,
+      adapterKey: DEFAULT_IMAGE_ADAPTER_KEY,
+      adapterVersion: DEFAULT_IMAGE_ADAPTER_VERSION,
+      transportKey: 'new_api_bearer',
+      upstreamModelId: model.modelId,
+      upstreamEndpointPath: '/v1/images/generations',
+      referenceTransferMode: ReferenceTransferMode.none,
+      supportsReferenceImage: false,
+      maxReferenceImages: 0,
+      parameterSchema: defaultImageParameterSchema,
+      defaultParams: defaultImageDefaultParams,
+      requestMapping: defaultImageRequestMapping,
+      responseParserKey: DEFAULT_IMAGE_RESPONSE_PARSER_KEY,
+      capabilities: defaultImageCapabilities,
+      validationRules: defaultImageValidationRules,
+      changeSummary: 'Initial development default OpenAI Image generation profile.',
+      activatedAt: now,
+      archivedAt: null,
+    },
+  });
+}
+
+function getOpenAiGenerationSourceMetadata(model: Pick<AiModel, 'modelId' | 'providerName'>) {
+  const provider = model.providerName?.trim().toLowerCase() ?? '';
+  const isOpenAiOfficial = provider === 'openai';
+
+  if (isOpenAiOfficial) {
+    return {
+      sourceKind: ExecutionProfileSourceKind.openai_official,
+      sourceUrl: DEFAULT_IMAGE_SOURCE_URL,
+      sourceSummary:
+        'OpenAI Image generation guide snapshot: GPT Image models support Image API generation/edit; the development template exposes conservative generation controls for size, quality, output format, compression, moderation, and non-transparent background.',
+    };
+  }
+
+  return {
+    sourceKind: ExecutionProfileSourceKind.third_party_docs,
+    sourceUrl: 'https://github.com/QuantumNous/new-api-docs/blob/main/docs/en/api/openai-image.md',
+    sourceSummary:
+      'Development OpenAI-compatible generation profile seeded from the current model record and new-api OpenAI Image compatibility path. Replace with vendor-specific docs before production use.',
+  };
+}
+
+async function ensureDefaultOpenAiGenerationProfiles() {
+  const models = await prisma.aiModel.findMany({
+    where: {
+      modality: ModelModality.image,
+      isEnabled: true,
+      deletedAt: null,
+      endpointTypes: {
+        has: ModelEndpointType.openai_image_generations,
+      },
+    },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+
+  const results = [];
+  for (const model of models) {
+    const profile = await upsertDefaultImageExecutionProfile(model);
+    const revision = await upsertDefaultImageExecutionProfileRevision(profile, model);
+    results.push({
+      model_id: model.modelId,
+      model_record_id: model.id,
+      execution_profile_id: profile.id,
+      active_revision_id: revision.id,
+    });
+  }
+
+  return results;
 }
 
 function getInitialAdminConfig() {

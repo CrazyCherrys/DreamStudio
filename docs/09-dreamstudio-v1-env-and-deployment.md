@@ -307,7 +307,8 @@ image: ghcr.io/crazycherrys/dreamstudio:latest
 3. 初始化默认系统设置。
 4. 初始化默认存储配置。
 5. 创建默认超级管理员。
-6. 输出初始化结果。
+6. 初始化开发默认图片模型和默认 execution profile。
+7. 输出初始化结果。
 
 ### 6.2 默认系统设置
 
@@ -354,6 +355,27 @@ image: ghcr.io/crazycherrys/dreamstudio:latest
 - 如果同名普通用户已存在，则升级为 `super_admin`、恢复 `active` 状态、重置为初始化密码并撤销旧会话。
 - 初始化完成后应提示管理员修改密码。
 - 不应在日志中打印密码。
+
+### 6.5 默认图片模型和 Execution Profile
+
+当前开发阶段，`npm run db:init:m0` 还会初始化生图适配层的开发默认数据：
+
+- 创建或更新固定开发图片模型 `gpt-image-2`。
+- 为 `gpt-image-2` 创建默认 `OpenAI Image generation` execution profile。
+- 为默认 profile 创建 `revision_no=1` 的 active revision。
+- Profile/revision 使用 `openai_images_generation` adapter、`/v1/images/generations` 上游路径和 OpenAI Image Generation Guide source metadata。
+- 对当前启用、未删除、`modality=image` 且包含 `openai_image_generations` 端点的模型，初始化脚本会补齐默认 OpenAI generation profile。
+- 补齐 profile 时 `upstream_model_id` 使用模型自己的 `model_id`，不会强制改成 `gpt-image-2`。
+- `provider_name=OpenAI` 的模型补齐为 `openai_official` 来源；其他兼容模型补齐为 `third_party_docs` 来源，生产使用前应替换为厂商文档来源。
+
+验证命令：
+
+```bash
+npm run db:init:m0
+npx tsx scripts/verify-model-profiles.ts
+```
+
+如果当前 shell 没有加载 `.env`，需要显式提供 `DATABASE_URL`。
 
 ---
 

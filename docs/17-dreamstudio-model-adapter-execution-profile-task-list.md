@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 1 已完成，下一步进入阶段 2。
+当前状态：阶段 2 已完成，下一步进入阶段 3。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -254,6 +254,15 @@ npm run typecheck
   - 检查默认 profile 有 active revision。
   - 检查 active revision 有 `adapter_key`、`parameter_schema`、`request_mapping`。
 
+阶段 2 实施时按当前代码进一步收紧为：
+
+- `scripts/init-m0.ts` 固定创建开发默认图片模型 `gpt-image-2`。
+- 初始化脚本还会给当前启用、未删除、`modality=image` 且包含 `openai_image_generations` 端点的模型补齐默认 OpenAI Image generation profile。
+- 补齐 profile 时 `upstream_model_id` 使用该模型自己的 `model_id`，不会把兼容模型错误转成 `gpt-image-2`。
+- 补齐 profile 时会按 `provider_name` 选择来源标记：`provider_name=OpenAI` 的模型标记为 `openai_official`，其他兼容模型标记为 `third_party_docs` 并指向 new-api OpenAI Image 兼容文档，后续生产使用前必须替换为厂商文档。
+- Gemini 或 edit-only 模型不能硬套 OpenAI generation profile，应在后续 Gemini/edit adapter 阶段单独创建 profile。
+- Profile/revision 内保存 Schema v2 扩展字段；旧 `AiModel.parameter_schema` 暂时只保存当前 Studio/API 能识别的兼容字段。
+
 ### 4.4 验证操作
 
 ```bash
@@ -261,6 +270,13 @@ npm run db:generate
 npm run db:init:m0
 npx tsx scripts/verify-model-profiles.ts
 npm run typecheck
+```
+
+如果本机 shell 没有加载 `.env`，需要显式带上数据库连接，例如：
+
+```bash
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npm run db:init:m0
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npx tsx scripts/verify-model-profiles.ts
 ```
 
 Docker 环境验证：
@@ -275,19 +291,58 @@ docker compose exec dreamstudio npx tsx scripts/verify-model-profiles.ts
 
 1. 打开 `http://localhost:3000/admin/models`。
 2. 确认至少能看到一个图片模型。
-3. 打开该模型详情或编辑区域。
-4. 确认能看到执行配置相关信息，至少包括：
+3. 打开 `http://localhost:3000/studio`。
+4. 确认模型列表不是空的，并且可以看到默认图片模型，例如 `GPT Image 2`。
+5. 让开发者在终端运行：
+
+```bash
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npx tsx scripts/verify-model-profiles.ts
+```
+
+6. 终端输出里应包含 `"ok":true`，并列出每个启用图片模型的：
    - 默认 profile
    - active revision
    - adapter key
    - 参数 schema
-5. 打开 `http://localhost:3000/studio`。
-6. 确认模型列表不是空的。
+
+注意：阶段 2 尚未实现 Admin profile 管理 UI，所以 `/admin/models` 目前只要求确认模型可见；在页面里查看和编辑 profile 信息属于阶段 7。
 
 ### 4.6 达成效果
 
 - 全新环境初始化后即可得到可执行模型配置。
-- 后续任务创建不再依赖旧 `AiModel.parameterSchema`。
+- 启用的 OpenAI generation 图片模型都有默认 profile 和 active revision。
+- 后续阶段具备让任务创建改读 active profile revision 的数据基础。
+- 阶段 2 尚未让任务创建改读 profile，因此新任务仍可能依赖旧 `AiModel.parameterSchema`，该切换归阶段 4。
+
+### 4.7 实施记录（2026-06-21）
+
+已完成：
+
+- `scripts/init-m0.ts` 创建开发默认图片模型 `gpt-image-2`，并写入默认 `OpenAI Image generation` profile。
+- 默认 profile 使用 `openai_images_generation` adapter、`/v1/images/generations` 上游路径、`openai_image_data` 响应解析 key。
+- 默认 active revision 记录 `source_kind=openai_official`、OpenAI Image Generation Guide 的 `source_url` 和 `source_checked_at=2026-06-21`。
+- 默认 profile/revision 保存 Schema v2 参数字段：`n`、`size`、`quality`、`output_format`、`output_compression`、`background`、`moderation`。
+- 初始化脚本会给现有启用 OpenAI generation 图片模型补齐默认 profile，`upstream_model_id` 保持各自模型 ID。
+- `provider_name=OpenAI` 的模型补齐为 `openai_official` 来源；其他兼容模型补齐为 `third_party_docs` 来源，避免把 OpenAI-compatible 误标成 OpenAI 官方模型。
+- 新增 `scripts/verify-model-profiles.ts`，检查启用图片模型的默认 profile、active revision、adapter key、parameter schema、request mapping 和 Schema v2 快捷 slot。
+
+已验证：
+
+```bash
+npm run db:generate
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npm run db:init:m0
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npx tsx scripts/verify-model-profiles.ts
+npx tsc --noEmit --skipLibCheck --moduleResolution node --module commonjs --target es2022 --types node scripts/init-m0.ts scripts/verify-model-profiles.ts
+```
+
+阶段 2 没有做：
+
+- 没有把公共模型 API 改为返回 `default_execution_profile`。
+- 没有让 Studio 改读 profile schema。
+- 没有让图片任务创建逻辑写入 profile snapshot。
+- 没有实现 adapter registry。
+- 没有新增 Admin profile/revision 管理 UI。
+- 没有修复 `scripts/verify-m3.ts`、`scripts/verify-m3-routes.ts`、`scripts/verify-m5.ts` 中历史分类接口和旧字段的验证逻辑；这些脚本与当前固定模型类型代码存在已知不一致，后续涉及 M3/M5 回归时应专项更新。
 
 ## 5. 阶段 3：模型 API 改为 Profile 来源
 
@@ -950,12 +1005,12 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 1 完成后，下一步应该进入阶段 2：
+阶段 2 完成后，下一步应该进入阶段 3：
 
-1. 查看 `scripts/init-m0.ts`、`apps/api/src/modules/model-catalog/`、`apps/api/src/modules/model-catalog/parameter-schema.ts`、`scripts/verify-m3.ts`、`scripts/verify-m5.ts`。
-2. 在初始化脚本中创建开发验证用图片模型、默认 `ExecutionProfile` 和 active revision。
-3. 新增 `scripts/verify-model-profiles.ts`，检查启用图片模型都有默认 profile 和 active revision。
-4. 运行 `npm run db:generate`、`npm run db:init:m0`、`npx tsx scripts/verify-model-profiles.ts`、`npm run typecheck`。
-5. Docker rebuild 后让小白从 `/admin/models` 和 `/studio` 确认默认模型可见。
+1. 查看 `docs/05-dreamstudio-v1-api-contract.md`、本文件阶段 3、`docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `API 调整` 和 `前端调整`。
+2. 查看 `apps/api/src/modules/model-catalog/model-catalog.controller.ts`、`apps/api/src/modules/model-catalog/model-catalog.service.ts`、`apps/api/src/modules/model-catalog/model-catalog.types.ts`。
+3. 查看 `apps/web/src/lib/model-catalog.ts`、`apps/web/src/app/studio/page.tsx`、`apps/web/src/app/admin/models/page.tsx`。
+4. 让公共模型接口返回 `default_execution_profile`，并让 Studio 优先读取 profile 的 `parameter_schema` 和 `default_params`。
+5. 继续运行 `npx tsx scripts/verify-model-profiles.ts`，再补充模型 API/Studio 侧的路由验证。
 
 不要先做 Gemini adapter，也不要先做复杂 Admin UI。基础数据模型、初始化、任务快照和 OpenAI adapter 闭环跑通之前，后面的 UI 和模板都会反复返工。
