@@ -54,6 +54,33 @@ enum ReferenceTransferMode {
   @@map("reference_transfer_mode")
 }
 
+enum ExecutionProfileOperation {
+  text_to_image
+  image_to_image
+  image_edit
+  conversational_image
+
+  @@map("execution_profile_operation")
+}
+
+enum ExecutionProfileRevisionStatus {
+  draft
+  active
+  archived
+
+  @@map("execution_profile_revision_status")
+}
+
+enum ExecutionProfileSourceKind {
+  manual
+  openai_official
+  gemini_official
+  third_party_docs
+  imported_json
+
+  @@map("execution_profile_source_kind")
+}
+
 enum ImageTaskStatus {
   pending
   running
@@ -104,25 +131,27 @@ enum AuditResult {
 }
 
 model User {
-  id                 String              @id @default(uuid()) @db.Uuid
-  username           String              @unique @db.VarChar(120)
-  passwordHash       String              @map("password_hash")
-  role               UserRole            @default(user)
-  status             UserStatus          @default(active)
-  displayName        String?             @map("display_name") @db.VarChar(160)
-  lastLoginAt        DateTime?           @map("last_login_at") @db.Timestamptz(6)
-  disabledAt         DateTime?           @map("disabled_at") @db.Timestamptz(6)
-  deletedAt          DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  sessions           UserSession[]
-  newApiConfig       UserNewApiConfig?
-  auditLogs          AuditLog[]
-  modelSyncSnapshots ModelSyncSnapshot[]
-  assets             Asset[]
-  imageTasks         ImageTask[]
-  requestLogs        RequestLog[]
-  modelFavorites     UserModelFavorite[]
+  id                                 String                            @id @default(uuid()) @db.Uuid
+  username                           String                            @unique @db.VarChar(120)
+  passwordHash                       String                            @map("password_hash")
+  role                               UserRole                          @default(user)
+  status                             UserStatus                        @default(active)
+  displayName                        String?                           @map("display_name") @db.VarChar(160)
+  lastLoginAt                        DateTime?                         @map("last_login_at") @db.Timestamptz(6)
+  disabledAt                         DateTime?                         @map("disabled_at") @db.Timestamptz(6)
+  deletedAt                          DateTime?                         @map("deleted_at") @db.Timestamptz(6)
+  createdAt                          DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                          DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions                           UserSession[]
+  newApiConfig                       UserNewApiConfig?
+  auditLogs                          AuditLog[]
+  modelSyncSnapshots                 ModelSyncSnapshot[]
+  assets                             Asset[]
+  imageTasks                         ImageTask[]
+  requestLogs                        RequestLog[]
+  modelFavorites                     UserModelFavorite[]
+  createdExecutionProfileRevisions   AiModelExecutionProfileRevision[] @relation("ExecutionProfileRevisionCreatedBy")
+  activatedExecutionProfileRevisions AiModelExecutionProfileRevision[] @relation("ExecutionProfileRevisionActivatedBy")
 
   @@index([role])
   @@index([status])
@@ -182,26 +211,27 @@ model UserNewApiConfig {
 }
 
 model AiModel {
-  id                     String                @id @default(uuid()) @db.Uuid
-  modelId                String                @map("model_id") @db.VarChar(240)
-  displayName            String                @map("display_name") @db.VarChar(160)
-  providerName           String?               @map("provider_name") @db.VarChar(120)
-  modality               ModelModality         @default(image)
-  iconUrl                String?               @map("icon_url") @db.VarChar(500)
+  id                     String                    @id @default(uuid()) @db.Uuid
+  modelId                String                    @map("model_id") @db.VarChar(240)
+  displayName            String                    @map("display_name") @db.VarChar(160)
+  providerName           String?                   @map("provider_name") @db.VarChar(120)
+  modality               ModelModality             @default(image)
+  iconUrl                String?                   @map("icon_url") @db.VarChar(500)
   description            String?
-  endpointTypes          ModelEndpointType[]   @map("endpoint_types")
-  referenceTransferMode  ReferenceTransferMode @default(none) @map("reference_transfer_mode")
-  supportsReferenceImage Boolean               @default(false) @map("supports_reference_image")
-  isEnabled              Boolean               @default(true) @map("is_enabled")
-  isRecommended          Boolean               @default(false) @map("is_recommended")
-  sortOrder              Int                   @default(0) @map("sort_order")
-  defaultParams          Json                  @default("{}") @map("default_params")
-  parameterSchema        Json                  @default("[]") @map("parameter_schema")
-  createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt              DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  endpointTypes          ModelEndpointType[]       @map("endpoint_types")
+  referenceTransferMode  ReferenceTransferMode     @default(none) @map("reference_transfer_mode")
+  supportsReferenceImage Boolean                   @default(false) @map("supports_reference_image")
+  isEnabled              Boolean                   @default(true) @map("is_enabled")
+  isRecommended          Boolean                   @default(false) @map("is_recommended")
+  sortOrder              Int                       @default(0) @map("sort_order")
+  defaultParams          Json                      @default("{}") @map("default_params")
+  parameterSchema        Json                      @default("[]") @map("parameter_schema")
+  createdAt              DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?                 @map("deleted_at") @db.Timestamptz(6)
   imageTasks             ImageTask[]
   favorites              UserModelFavorite[]
+  executionProfiles      AiModelExecutionProfile[]
 
   @@index([modality])
   @@index([isEnabled])
@@ -221,6 +251,92 @@ model UserModelFavorite {
   @@id([userId, modelId])
   @@index([modelId])
   @@map("user_model_favorites")
+}
+
+model AiModelExecutionProfile {
+  id                     String                            @id @default(uuid()) @db.Uuid
+  aiModelId              String                            @map("ai_model_id") @db.Uuid
+  name                   String                            @db.VarChar(160)
+  operation              ExecutionProfileOperation
+  adapterKey             String                            @map("adapter_key") @db.VarChar(120)
+  adapterVersion         String                            @default("1") @map("adapter_version") @db.VarChar(40)
+  transportKey           String                            @default("new_api_bearer") @map("transport_key") @db.VarChar(80)
+  upstreamModelId        String                            @map("upstream_model_id") @db.VarChar(240)
+  upstreamEndpointPath   String?                           @map("upstream_endpoint_path") @db.VarChar(240)
+  referenceTransferMode  ReferenceTransferMode             @default(none) @map("reference_transfer_mode")
+  supportsReferenceImage Boolean                           @default(false) @map("supports_reference_image")
+  maxReferenceImages     Int                               @default(0) @map("max_reference_images")
+  parameterSchema        Json                              @default("[]") @map("parameter_schema")
+  defaultParams          Json                              @default("{}") @map("default_params")
+  requestMapping         Json                              @default("{}") @map("request_mapping")
+  responseParserKey      String                            @map("response_parser_key") @db.VarChar(120)
+  capabilities           Json                              @default("{}")
+  validationRules        Json                              @default("{}") @map("validation_rules")
+  isDefault              Boolean                           @default(false) @map("is_default")
+  isEnabled              Boolean                           @default(true) @map("is_enabled")
+  sortOrder              Int                               @default(0) @map("sort_order")
+  createdAt              DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?                         @map("deleted_at") @db.Timestamptz(6)
+  aiModel                AiModel                           @relation(fields: [aiModelId], references: [id], onDelete: Cascade)
+  revisions              AiModelExecutionProfileRevision[]
+  imageTasks             ImageTask[]
+  requestLogs            RequestLog[]
+
+  @@index([aiModelId])
+  @@index([operation])
+  @@index([adapterKey])
+  @@index([isDefault])
+  @@index([isEnabled])
+  @@index([sortOrder])
+  @@index([deletedAt])
+  @@map("ai_model_execution_profiles")
+}
+
+model AiModelExecutionProfileRevision {
+  id                     String                         @id @default(uuid()) @db.Uuid
+  executionProfileId     String                         @map("execution_profile_id") @db.Uuid
+  revisionNo             Int                            @map("revision_no")
+  status                 ExecutionProfileRevisionStatus @default(draft)
+  sourceKind             ExecutionProfileSourceKind     @default(manual) @map("source_kind")
+  sourceUrl              String?                        @map("source_url")
+  sourceCheckedAt        DateTime?                      @map("source_checked_at") @db.Timestamptz(6)
+  sourceSummary          String?                        @map("source_summary")
+  adapterKey             String                         @map("adapter_key") @db.VarChar(120)
+  adapterVersion         String                         @default("1") @map("adapter_version") @db.VarChar(40)
+  transportKey           String                         @default("new_api_bearer") @map("transport_key") @db.VarChar(80)
+  upstreamModelId        String                         @map("upstream_model_id") @db.VarChar(240)
+  upstreamEndpointPath   String?                        @map("upstream_endpoint_path") @db.VarChar(240)
+  referenceTransferMode  ReferenceTransferMode          @default(none) @map("reference_transfer_mode")
+  supportsReferenceImage Boolean                        @default(false) @map("supports_reference_image")
+  maxReferenceImages     Int                            @default(0) @map("max_reference_images")
+  parameterSchema        Json                           @default("[]") @map("parameter_schema")
+  defaultParams          Json                           @default("{}") @map("default_params")
+  requestMapping         Json                           @default("{}") @map("request_mapping")
+  responseParserKey      String                         @map("response_parser_key") @db.VarChar(120)
+  capabilities           Json                           @default("{}")
+  validationRules        Json                           @default("{}") @map("validation_rules")
+  changeSummary          String?                        @map("change_summary")
+  createdBy              String?                        @map("created_by") @db.Uuid
+  createdAt              DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  activatedBy            String?                        @map("activated_by") @db.Uuid
+  activatedAt            DateTime?                      @map("activated_at") @db.Timestamptz(6)
+  archivedAt             DateTime?                      @map("archived_at") @db.Timestamptz(6)
+  executionProfile       AiModelExecutionProfile        @relation(fields: [executionProfileId], references: [id], onDelete: Cascade)
+  createdByUser          User?                          @relation("ExecutionProfileRevisionCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  activatedByUser        User?                          @relation("ExecutionProfileRevisionActivatedBy", fields: [activatedBy], references: [id], onDelete: SetNull)
+  imageTasks             ImageTask[]
+  requestLogs            RequestLog[]
+
+  @@unique([executionProfileId, revisionNo], map: "profile_revisions_profile_id_revision_no_key")
+  @@index([executionProfileId])
+  @@index([status])
+  @@index([sourceKind])
+  @@index([createdBy])
+  @@index([activatedBy])
+  @@index([createdAt])
+  @@index([activatedAt])
+  @@map("ai_model_execution_profile_revisions")
 }
 
 model ModelSyncSnapshot {
@@ -348,96 +464,118 @@ model CleanupRun {
 }
 
 model ImageTask {
-  id                       String             @id @default(uuid()) @db.Uuid
-  userId                   String             @map("user_id") @db.Uuid
-  modelRecordId            String             @map("model_record_id") @db.Uuid
-  modelIdSnapshot          String             @map("model_id_snapshot") @db.VarChar(240)
-  endpointTypeSnapshot     ModelEndpointType  @map("endpoint_type_snapshot")
-  newApiBaseUrlSnapshot    String             @map("new_api_base_url_snapshot")
-  promptSummary            String             @map("prompt_summary") @db.VarChar(500)
-  encryptedPrompt          String             @map("encrypted_prompt")
-  promptIv                 String             @map("prompt_iv")
-  promptTag                String             @map("prompt_tag")
-  negativePromptSummary    String?            @map("negative_prompt_summary") @db.VarChar(500)
-  encryptedNegativePrompt  String?            @map("encrypted_negative_prompt")
-  negativePromptIv         String?            @map("negative_prompt_iv")
-  negativePromptTag        String?            @map("negative_prompt_tag")
-  parameterSnapshot        Json               @map("parameter_snapshot")
-  sanitizedParameterSnapshot Json             @map("sanitized_parameter_snapshot")
-  referenceAssetIds        String[]           @default([]) @map("reference_asset_ids") @db.Uuid
-  status                   ImageTaskStatus    @default(pending)
-  errorCode                String?            @map("error_code") @db.VarChar(120)
-  errorMessage             String?            @map("error_message")
-  clientRequestId          String?            @map("client_request_id") @db.VarChar(120)
-  queuedAt                 DateTime           @default(now()) @map("queued_at") @db.Timestamptz(6)
-  startedAt                DateTime?          @map("started_at") @db.Timestamptz(6)
-  completedAt              DateTime?          @map("completed_at") @db.Timestamptz(6)
-  deletedAt                DateTime?          @map("deleted_at") @db.Timestamptz(6)
-  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  user                     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  model                    AiModel            @relation(fields: [modelRecordId], references: [id], onDelete: Restrict)
-  attempts                 ImageTaskAttempt[]
-  requestLogs              RequestLog[]
-  resultAssets             Asset[]
+  id                               String                           @id @default(uuid()) @db.Uuid
+  userId                           String                           @map("user_id") @db.Uuid
+  modelRecordId                    String                           @map("model_record_id") @db.Uuid
+  executionProfileId               String?                          @map("execution_profile_id") @db.Uuid
+  executionProfileRevisionId       String?                          @map("execution_profile_revision_id") @db.Uuid
+  modelIdSnapshot                  String                           @map("model_id_snapshot") @db.VarChar(240)
+  endpointTypeSnapshot             ModelEndpointType                @map("endpoint_type_snapshot")
+  adapterKeySnapshot               String?                          @map("adapter_key_snapshot") @db.VarChar(120)
+  adapterVersionSnapshot           String?                          @map("adapter_version_snapshot") @db.VarChar(40)
+  newApiBaseUrlSnapshot            String                           @map("new_api_base_url_snapshot")
+  promptSummary                    String                           @map("prompt_summary") @db.VarChar(500)
+  encryptedPrompt                  String                           @map("encrypted_prompt")
+  promptIv                         String                           @map("prompt_iv")
+  promptTag                        String                           @map("prompt_tag")
+  negativePromptSummary            String?                          @map("negative_prompt_summary") @db.VarChar(500)
+  encryptedNegativePrompt          String?                          @map("encrypted_negative_prompt")
+  negativePromptIv                 String?                          @map("negative_prompt_iv")
+  negativePromptTag                String?                          @map("negative_prompt_tag")
+  parameterSnapshot                Json                             @map("parameter_snapshot")
+  sanitizedParameterSnapshot       Json                             @map("sanitized_parameter_snapshot")
+  executionProfileSnapshot         Json?                            @map("execution_profile_snapshot")
+  requestMappingSnapshot           Json?                            @map("request_mapping_snapshot")
+  resolvedRequestSanitizedSnapshot Json?                            @map("resolved_request_sanitized_snapshot")
+  referenceAssetIds                String[]                         @default([]) @map("reference_asset_ids") @db.Uuid
+  status                           ImageTaskStatus                  @default(pending)
+  errorCode                        String?                          @map("error_code") @db.VarChar(120)
+  errorMessage                     String?                          @map("error_message")
+  clientRequestId                  String?                          @map("client_request_id") @db.VarChar(120)
+  queuedAt                         DateTime                         @default(now()) @map("queued_at") @db.Timestamptz(6)
+  startedAt                        DateTime?                        @map("started_at") @db.Timestamptz(6)
+  completedAt                      DateTime?                        @map("completed_at") @db.Timestamptz(6)
+  deletedAt                        DateTime?                        @map("deleted_at") @db.Timestamptz(6)
+  createdAt                        DateTime                         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                        DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user                             User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model                            AiModel                          @relation(fields: [modelRecordId], references: [id], onDelete: Restrict)
+  executionProfile                 AiModelExecutionProfile?         @relation(fields: [executionProfileId], references: [id], onDelete: SetNull)
+  executionProfileRevision         AiModelExecutionProfileRevision? @relation(fields: [executionProfileRevisionId], references: [id], onDelete: SetNull)
+  attempts                         ImageTaskAttempt[]
+  requestLogs                      RequestLog[]
+  resultAssets                     Asset[]
 
   @@index([userId])
   @@index([status])
   @@index([modelRecordId])
+  @@index([executionProfileId])
+  @@index([executionProfileRevisionId])
   @@index([createdAt])
   @@index([deletedAt])
   @@map("image_tasks")
 }
 
 model ImageTaskAttempt {
-  id          String          @id @default(uuid()) @db.Uuid
-  taskId      String          @map("task_id") @db.Uuid
-  attemptNo   Int             @map("attempt_no")
-  status      ImageTaskStatus
-  startedAt   DateTime        @map("started_at") @db.Timestamptz(6)
-  finishedAt  DateTime?       @map("finished_at") @db.Timestamptz(6)
-  httpStatus  Int?            @map("http_status")
-  errorCode   String?         @map("error_code") @db.VarChar(120)
-  errorMessage String?        @map("error_message")
-  isRetryable Boolean         @default(false) @map("is_retryable")
-  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  task        ImageTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  requestLogs RequestLog[]
+  id           String          @id @default(uuid()) @db.Uuid
+  taskId       String          @map("task_id") @db.Uuid
+  attemptNo    Int             @map("attempt_no")
+  status       ImageTaskStatus
+  startedAt    DateTime        @map("started_at") @db.Timestamptz(6)
+  finishedAt   DateTime?       @map("finished_at") @db.Timestamptz(6)
+  httpStatus   Int?            @map("http_status")
+  errorCode    String?         @map("error_code") @db.VarChar(120)
+  errorMessage String?         @map("error_message")
+  isRetryable  Boolean         @default(false) @map("is_retryable")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  task         ImageTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestLogs  RequestLog[]
 
-  @@index([taskId])
   @@unique([taskId, attemptNo])
+  @@index([taskId])
   @@map("image_task_attempts")
 }
 
 model RequestLog {
-  id                String           @id @default(uuid()) @db.Uuid
-  userId            String           @map("user_id") @db.Uuid
-  taskId            String           @map("task_id") @db.Uuid
-  attemptId         String?          @map("attempt_id") @db.Uuid
-  newApiBaseUrlHost String           @map("new_api_base_url_host") @db.VarChar(255)
-  modelId           String           @map("model_id") @db.VarChar(240)
-  endpointType      ModelEndpointType @map("endpoint_type")
-  status            RequestLogStatus
-  httpStatus        Int?             @map("http_status")
-  durationMs        Int?             @map("duration_ms")
-  promptSummary     String?          @map("prompt_summary") @db.VarChar(500)
-  encryptedPrompt   String?          @map("encrypted_prompt")
-  promptIv          String?          @map("prompt_iv")
-  promptTag         String?          @map("prompt_tag")
-  sanitizedParams   Json             @default("{}") @map("sanitized_params")
-  encryptedParams   String?          @map("encrypted_params")
-  paramsIv          String?          @map("params_iv")
-  paramsTag         String?          @map("params_tag")
-  errorCode         String?          @map("error_code") @db.VarChar(120)
-  errorMessage      String?          @map("error_message")
-  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  expiresAt         DateTime         @map("expires_at") @db.Timestamptz(6)
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task              ImageTask        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  attempt           ImageTaskAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  id                         String                           @id @default(uuid()) @db.Uuid
+  userId                     String                           @map("user_id") @db.Uuid
+  taskId                     String                           @map("task_id") @db.Uuid
+  attemptId                  String?                          @map("attempt_id") @db.Uuid
+  newApiBaseUrlHost          String                           @map("new_api_base_url_host") @db.VarChar(255)
+  modelId                    String                           @map("model_id") @db.VarChar(240)
+  endpointType               ModelEndpointType                @map("endpoint_type")
+  adapterKey                 String?                          @map("adapter_key") @db.VarChar(120)
+  adapterVersion             String?                          @map("adapter_version") @db.VarChar(40)
+  executionProfileId         String?                          @map("execution_profile_id") @db.Uuid
+  executionProfileRevisionId String?                          @map("execution_profile_revision_id") @db.Uuid
+  status                     RequestLogStatus
+  httpStatus                 Int?                             @map("http_status")
+  durationMs                 Int?                             @map("duration_ms")
+  promptSummary              String?                          @map("prompt_summary") @db.VarChar(500)
+  encryptedPrompt            String?                          @map("encrypted_prompt")
+  promptIv                   String?                          @map("prompt_iv")
+  promptTag                  String?                          @map("prompt_tag")
+  sanitizedParams            Json                             @default("{}") @map("sanitized_params")
+  resolvedRequestSanitized   Json?                            @map("resolved_request_sanitized")
+  upstreamResponseSummary    Json?                            @map("upstream_response_summary")
+  profileErrorHint           String?                          @map("profile_error_hint")
+  encryptedParams            String?                          @map("encrypted_params")
+  paramsIv                   String?                          @map("params_iv")
+  paramsTag                  String?                          @map("params_tag")
+  errorCode                  String?                          @map("error_code") @db.VarChar(120)
+  errorMessage               String?                          @map("error_message")
+  createdAt                  DateTime                         @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt                  DateTime                         @map("expires_at") @db.Timestamptz(6)
+  user                       User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task                       ImageTask                        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  attempt                    ImageTaskAttempt?                @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  executionProfile           AiModelExecutionProfile?         @relation(fields: [executionProfileId], references: [id], onDelete: SetNull)
+  executionProfileRevision   AiModelExecutionProfileRevision? @relation(fields: [executionProfileRevisionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([taskId])
+  @@index([executionProfileId])
+  @@index([executionProfileRevisionId])
   @@index([status])
   @@index([createdAt])
   @@map("request_logs")

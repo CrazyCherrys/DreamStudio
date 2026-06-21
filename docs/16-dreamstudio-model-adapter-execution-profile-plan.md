@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：实施前规划确认稿。
+当前状态：阶段 1 数据模型已落地，执行链路仍在旧路径。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -65,20 +65,24 @@ Studio UI 参数
 
 ## 4. 当前代码情况
 
-当前项目已有模型目录、参数 Schema、异步图片任务和 Worker 基础：
+当前项目已有模型目录、参数 Schema、异步图片任务和 Worker 基础；阶段 1 已先落地 execution profile 数据结构：
 
 - `ModelEndpointType` 是 Prisma enum，当前固定为 `openai_image_generations`、`openai_image_edits`、`gemini_generate_content`。
 - `AiModel` 同时保存展示属性和执行属性：`modelId`、`endpointTypes`、`referenceTransferMode`、`supportsReferenceImage`、`defaultParams`、`parameterSchema`。
+- Prisma schema 已新增 `AiModelExecutionProfile`、`AiModelExecutionProfileRevision`、`ExecutionProfileOperation`、`ExecutionProfileRevisionStatus`、`ExecutionProfileSourceKind`。
+- `ImageTask` 已新增可空的 profile/revision 关系和 `adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`。
+- `RequestLog` 已新增可空的 adapter/profile 字段、`resolvedRequestSanitized`、`upstreamResponseSummary`、`profileErrorHint`。
+- 新增迁移为 `packages/db/prisma/migrations/20260621010000_execution_profiles/migration.sql`。
 - `parameter_schema` 当前支持 `string`、`number`、`integer`、`boolean`、`select`，用于 Studio 表单和 API 基础校验。
 - 创建图片任务时，后端读取当前模型的 `parameterSchema`，校验用户提交参数，并将合法参数写入 `parameterSnapshot`。
-- `ImageTask` 当前只快照 `modelIdSnapshot`、`endpointTypeSnapshot`、`parameterSnapshot`，没有快照完整执行配置。
+- 当前任务创建逻辑仍未切到 active profile revision，因此新增 profile 快照字段在阶段 1 后仍可能为空。
 - Worker 当前通过 `NewApiImageClient` 调用 `/v1/images/generations` 或 `/v1/images/edits`。
 - 文生图请求将 `model`、`prompt` 和 `parameterSnapshot` 直接展开为 JSON。
 - 编辑请求将 `model`、`prompt` 和参数转成 multipart form，参考图字段名固定为 `image`。
 - 响应解析只识别 OpenAI Image 风格的 `data[].url` 和 `data[].b64_json`。
 - Studio 快捷参数当前依赖 key/label/description 猜测“张数、比例、分辨率”，不是稳定配置。
 
-这说明当前系统已经具备“模型级参数白名单”的雏形，但还缺少“执行 profile 版本化 + request mapping + adapter registry”。
+这说明当前系统已经具备“模型级参数白名单”的雏形，并已具备 profile/revision 的数据库承载结构；接下来还缺默认 profile 初始化、API/Studio 读取 profile、任务快照写入、request mapping 和 adapter registry。
 
 ## 5. 当前痛点
 
@@ -87,7 +91,7 @@ Studio UI 参数
 3. `endpoint_type` 是固定 enum，新增协议会牵动 Prisma enum、API 类型、前端类型和 Worker 分支。
 4. Worker 直接透传参数，第三方 OpenAI-compatible 模型不支持某参数时，可能报 400，也可能静默忽略。
 5. `gemini_generate_content` 已在枚举里，但 Worker 实际不能构造 Gemini 原生 `generateContent` 请求，也不能解析 `inlineData` 图片结果。
-6. 任务快照没有保存 adapter/profile 版本，管理员修改模型配置后，已排队任务可能被新规则影响。
+6. 任务表已有 adapter/profile 快照字段，但任务创建逻辑尚未写入这些字段；管理员修改模型配置后，旧任务在当前执行链路中仍可能受新规则影响。
 7. Studio 快捷参数依赖猜测，不适合长期维护，也无法准确表达某模型只支持部分尺寸或质量档位。
 8. 当前 request log 只能看到参数快照，无法看到脱敏后的最终上游请求结构，排查 profile 配置错误成本高。
 

@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：实施准备文档。
+当前状态：阶段 1 已完成，下一步进入阶段 2。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -197,6 +197,34 @@ curl http://127.0.0.1:3001/readyz
 - 新表和新字段存在。
 - 新环境可启动。
 - 旧数据是否存在不影响阶段通过。
+
+### 3.7 实施记录（2026-06-21）
+
+已完成：
+
+- `packages/db/prisma/schema.prisma` 新增 `ExecutionProfileOperation`、`ExecutionProfileRevisionStatus`、`ExecutionProfileSourceKind`。
+- 新增 `AiModelExecutionProfile` 和 `AiModelExecutionProfileRevision` Prisma model。
+- `ImageTask` 新增 profile/revision 关系和 adapter、profile、mapping、resolved request 脱敏快照字段。
+- `RequestLog` 新增 adapter、profile/revision、最终脱敏请求、上游响应摘要和 profile 错误提示字段。
+- 新增迁移 `packages/db/prisma/migrations/20260621010000_execution_profiles/migration.sql`。
+- 第一阶段新增字段先保持 nullable，便于在不提前改 Worker/API 执行链路的情况下独立通过编译和迁移验证。
+- 旧 `AiModel` 执行字段暂时保留，后续阶段会逐步让新任务改读默认 active profile revision。
+
+已验证：
+
+```bash
+npx prisma format --schema packages/db/prisma/schema.prisma
+npm run db:generate
+npm run typecheck
+```
+
+阶段 1 没有做：
+
+- 没有修改初始化脚本。
+- 没有新增默认 profile 数据。
+- 没有把模型列表 API 改为返回 `default_execution_profile`。
+- 没有把图片任务创建逻辑切到 active profile revision。
+- 没有修改 Worker adapter 执行链路。
 
 ## 4. 阶段 2：初始化数据和默认 Profile
 
@@ -922,12 +950,12 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-当前文档阶段完成后，下一步应该从阶段 1 开始实现：
+阶段 1 完成后，下一步应该进入阶段 2：
 
-1. 修改 Prisma schema。
-2. 创建 migration。
-3. 更新初始化脚本。
-4. 新增 profile 验证脚本。
-5. 运行数据库和 Docker 验证。
+1. 查看 `scripts/init-m0.ts`、`apps/api/src/modules/model-catalog/`、`apps/api/src/modules/model-catalog/parameter-schema.ts`、`scripts/verify-m3.ts`、`scripts/verify-m5.ts`。
+2. 在初始化脚本中创建开发验证用图片模型、默认 `ExecutionProfile` 和 active revision。
+3. 新增 `scripts/verify-model-profiles.ts`，检查启用图片模型都有默认 profile 和 active revision。
+4. 运行 `npm run db:generate`、`npm run db:init:m0`、`npx tsx scripts/verify-model-profiles.ts`、`npm run typecheck`。
+5. Docker rebuild 后让小白从 `/admin/models` 和 `/studio` 确认默认模型可见。
 
 不要先做 Gemini adapter，也不要先做复杂 Admin UI。基础数据模型、初始化、任务快照和 OpenAI adapter 闭环跑通之前，后面的 UI 和模板都会反复返工。
