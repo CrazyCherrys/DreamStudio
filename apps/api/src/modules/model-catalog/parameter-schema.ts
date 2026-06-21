@@ -20,6 +20,15 @@ export interface ParameterSchemaField {
   max?: number;
   options?: ParameterSchemaOption[];
   placeholder?: string;
+  ui?: {
+    group?: string;
+    slot?: string;
+    order?: number;
+  };
+  capability?: string;
+  send_policy?: string;
+  validation?: Prisma.InputJsonObject;
+  help_url?: string;
 }
 
 export interface ParameterValidationResult {
@@ -121,7 +130,19 @@ export function parameterSchemaToJson(schema: ParameterSchemaField[]): Prisma.In
       required: field.required,
     };
 
-    for (const key of ['description', 'default', 'min', 'max', 'options', 'placeholder'] as const) {
+    for (const key of [
+      'description',
+      'default',
+      'min',
+      'max',
+      'options',
+      'placeholder',
+      'ui',
+      'capability',
+      'send_policy',
+      'validation',
+      'help_url',
+    ] as const) {
       if (field[key] !== undefined) {
         jsonField[key] = field[key] as Prisma.InputJsonValue;
       }
@@ -235,6 +256,31 @@ function parseField(
     field.placeholder = placeholder;
   }
 
+  const ui = parseFieldUi(item.ui, path, errors);
+  if (ui !== undefined) {
+    field.ui = ui;
+  }
+
+  const capability = readOptionalTrimmedString(item.capability);
+  if (capability !== undefined) {
+    field.capability = capability;
+  }
+
+  const sendPolicy = readOptionalTrimmedString(item.send_policy);
+  if (sendPolicy !== undefined) {
+    field.send_policy = sendPolicy;
+  }
+
+  const validation = parseOptionalJsonObject(item.validation, `${path}.validation`, errors);
+  if (validation !== undefined) {
+    field.validation = validation;
+  }
+
+  const helpUrl = readOptionalTrimmedString(item.help_url);
+  if (helpUrl !== undefined) {
+    field.help_url = helpUrl;
+  }
+
   if (item.min !== undefined) {
     const min = readFiniteNumber(item.min, `${path}.min`, errors);
     if (min !== null) {
@@ -298,6 +344,59 @@ function parseField(
   }
 
   return field;
+}
+
+function parseFieldUi(
+  rawUi: unknown,
+  path: string,
+  errors: Array<{ field: string; message: string }>,
+): ParameterSchemaField['ui'] | undefined {
+  if (rawUi === undefined || rawUi === null) {
+    return undefined;
+  }
+  if (!isObject(rawUi)) {
+    errors.push({
+      field: `${path}.ui`,
+      message: 'ui 必须是对象',
+    });
+    return undefined;
+  }
+
+  const ui: NonNullable<ParameterSchemaField['ui']> = {};
+  const group = readOptionalTrimmedString(rawUi.group);
+  const slot = readOptionalTrimmedString(rawUi.slot);
+  if (group !== undefined) {
+    ui.group = group;
+  }
+  if (slot !== undefined) {
+    ui.slot = slot;
+  }
+  if (rawUi.order !== undefined) {
+    const order = readFiniteNumber(rawUi.order, `${path}.ui.order`, errors);
+    if (order !== null) {
+      ui.order = order;
+    }
+  }
+
+  return Object.keys(ui).length > 0 ? ui : undefined;
+}
+
+function parseOptionalJsonObject(
+  rawValue: unknown,
+  field: string,
+  errors: Array<{ field: string; message: string }>,
+): Prisma.InputJsonObject | undefined {
+  if (rawValue === undefined || rawValue === null) {
+    return undefined;
+  }
+  if (!isObject(rawValue)) {
+    errors.push({
+      field,
+      message: '必须是对象',
+    });
+    return undefined;
+  }
+  return rawValue as Prisma.InputJsonObject;
 }
 
 function parseOptions(

@@ -147,6 +147,9 @@ function StudioContent() {
   const filteredModels = useMemo(() => {
     const query = modelSearchQuery.trim().toLowerCase();
     return models.filter((model) => {
+      if (model.modality === 'image' && !model.default_execution_profile) {
+        return false;
+      }
       const matchesFilter =
         selectedFilter === 'all'
           ? true
@@ -164,9 +167,23 @@ function StudioContent() {
         .some((value) => String(value).toLowerCase().includes(query));
     });
   }, [models, modelSearchQuery, selectedFilter]);
+  const selectedExecutionProfile = selectedModel?.default_execution_profile ?? null;
+  const selectedParameterSchema =
+    selectedExecutionProfile?.parameter_schema ?? selectedModel?.parameter_schema ?? [];
+  const selectedDefaultParams =
+    selectedExecutionProfile?.default_params ?? selectedModel?.default_params ?? {};
+  const selectedSupportsReferenceImage =
+    selectedExecutionProfile?.supports_reference_image ??
+    selectedModel?.supports_reference_image ??
+    false;
+  const selectedMaxReferenceImages = Math.max(
+    0,
+    selectedExecutionProfile?.max_reference_images ??
+      (selectedSupportsReferenceImage ? MAX_SELECTED_REFERENCES : 0),
+  );
   const quickParameters = useMemo(
-    () => buildQuickParameters(selectedModel?.parameter_schema ?? []),
-    [selectedModel?.parameter_schema],
+    () => buildQuickParameters(selectedParameterSchema),
+    [selectedParameterSchema],
   );
   useEffect(() => {
     if (selectedModel && filteredModels.some((model) => model.id === selectedModel.id)) {
@@ -176,7 +193,7 @@ function StudioContent() {
     setSelectedModel(nextSelectedModel);
     setParameterValues({});
     setShowModelIntro(Boolean(nextSelectedModel));
-    if (!nextSelectedModel?.supports_reference_image) {
+    if (!getModelSupportsReferenceImage(nextSelectedModel)) {
       setSelectedReferences([]);
     }
   }, [filteredModels, selectedModel]);
@@ -222,7 +239,7 @@ function StudioContent() {
     setSelectedModel(model);
     setParameterValues({});
     setShowModelIntro(true);
-    if (!model.supports_reference_image) {
+    if (!getModelSupportsReferenceImage(model)) {
       setSelectedReferences([]);
     }
   }
@@ -274,7 +291,11 @@ function StudioContent() {
     setError(null);
     setMessage(null);
     try {
-      const resolvedParameters = mergeQuickParameterDefaults(quickParameters, parameterValues);
+      const resolvedParameters = mergeQuickParameterDefaults(
+        quickParameters,
+        parameterValues,
+        selectedDefaultParams,
+      );
       const created = await createImageTask(
         {
           model_record_id: selectedModel.id,
@@ -306,16 +327,16 @@ function StudioContent() {
     if (files.length === 0 || !csrfToken) {
       return;
     }
-    const remainingSlots = MAX_SELECTED_REFERENCES - selectedReferences.length;
+    const remainingSlots = selectedMaxReferenceImages - selectedReferences.length;
     if (remainingSlots <= 0) {
-      setError(`最多只能上传 ${MAX_SELECTED_REFERENCES} 张参考图`);
+      setError(`最多只能上传 ${selectedMaxReferenceImages} 张参考图`);
       return;
     }
     const uploadableFiles = files.slice(0, remainingSlots);
     setUploadingReference(true);
     setError(
       files.length > uploadableFiles.length
-        ? `最多只能上传 ${MAX_SELECTED_REFERENCES} 张参考图`
+        ? `最多只能上传 ${selectedMaxReferenceImages} 张参考图`
         : null,
     );
     try {
@@ -326,7 +347,11 @@ function StudioContent() {
         }),
       );
       setSelectedReferences((current) =>
-        addSelectedReferences(current, uploadedAssets.map(toStudioReferencePreview)),
+        addSelectedReferences(
+          current,
+          uploadedAssets.map(toStudioReferencePreview),
+          selectedMaxReferenceImages,
+        ),
       );
       setMessage(
         uploadedAssets.length > 1
@@ -364,9 +389,10 @@ function StudioContent() {
 
   const selectedImageModelSupported = Boolean(
     selectedModel?.modality === 'image' &&
-    selectedModel.endpoint_types.some(
-      (type) => type === 'openai_image_generations' || type === 'openai_image_edits',
-    ),
+    selectedExecutionProfile &&
+    (selectedExecutionProfile.operation === 'text_to_image' ||
+      selectedExecutionProfile.operation === 'image_to_image' ||
+      selectedExecutionProfile.operation === 'image_edit'),
   );
   const canSubmit = Boolean(selectedImageModelSupported && prompt.trim() && !submitting);
   const resultTask = modelTasks.find((task) => task.result_assets.length > 0) ?? null;
@@ -414,8 +440,9 @@ function StudioContent() {
                 上传参考图
               </label>
               <StudioReferenceUploader
-                disabled={!selectedModel?.supports_reference_image}
+                disabled={!selectedSupportsReferenceImage || selectedMaxReferenceImages <= 0}
                 inputId="studio-reference-upload"
+                maxReferences={selectedMaxReferenceImages}
                 onRemove={removeReference}
                 onUpload={uploadReference}
                 references={selectedReferences}
@@ -591,6 +618,10 @@ function ParameterFieldControl({
 function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterConfig[] {
   const usedKeys = new Set<string>();
   const configs: QuickParameterConfig[] = [];
+  const hasUiHints = schema.some((field) => field.ui?.group || field.ui?.slot);
+  const candidateSchema = [
+    ...(hasUiHints ? schema.filter((field) => field.ui?.group === 'quick') : schema),
+  ].sort((left, right) => getFieldUiOrder(left) - getFieldUiOrder(right));
 
   const definitions: Array<{
     fields: (schema: ParameterSchemaField[], usedKeys: Set<string>) => ParameterSchemaField[];
@@ -599,19 +630,25 @@ function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterCon
     label: string;
   }> = [
     {
-      fields: (items, keys) => findSingleQuickField(items, keys, isCountParameter),
+      fields: (items, keys) =>
+        findSingleQuickFieldBySlots(items, keys, ['count']) ??
+        findSingleQuickField(items, keys, isCountParameter),
       icon: '#',
       kind: 'count',
       label: '张数',
     },
     {
-      fields: (items, keys) => findSingleQuickField(items, keys, isRatioParameter),
+      fields: (items, keys) =>
+        findSingleQuickFieldBySlots(items, keys, ['aspect_ratio', 'ratio']) ??
+        findSingleQuickField(items, keys, isRatioParameter),
       icon: '□',
       kind: 'size',
       label: '比例',
     },
     {
-      fields: findResolutionFields,
+      fields: (items, keys) =>
+        findSingleQuickFieldBySlots(items, keys, ['resolution', 'size']) ??
+        findResolutionFields(items, keys),
       icon: '▣',
       kind: 'resolution',
       label: '分辨率',
@@ -619,7 +656,7 @@ function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterCon
   ];
 
   for (const definition of definitions) {
-    const fields = definition.fields(schema, usedKeys);
+    const fields = definition.fields(candidateSchema, usedKeys);
     if (fields.length === 0) {
       continue;
     }
@@ -633,6 +670,22 @@ function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterCon
   }
 
   return configs;
+}
+
+function findSingleQuickFieldBySlots(
+  schema: ParameterSchemaField[],
+  usedKeys: Set<string>,
+  slots: string[],
+) {
+  const slotSet = new Set(slots);
+  const field = schema.find(
+    (item) => !usedKeys.has(item.key) && item.ui?.slot && slotSet.has(item.ui.slot),
+  );
+  return field ? [field] : null;
+}
+
+function getFieldUiOrder(field: ParameterSchemaField) {
+  return typeof field.ui?.order === 'number' ? field.ui.order : Number.MAX_SAFE_INTEGER;
 }
 
 function findSingleQuickField(
@@ -737,8 +790,15 @@ function formatQuickFieldValue(
 function mergeQuickParameterDefaults(
   configs: QuickParameterConfig[],
   values: Record<string, string | number | boolean | null>,
+  defaults: Record<string, unknown>,
 ) {
-  const nextValues = { ...values };
+  const nextValues: Record<string, string | number | boolean | null> = {};
+  for (const [key, value] of Object.entries(defaults)) {
+    if (isParameterValue(value)) {
+      nextValues[key] = value;
+    }
+  }
+  Object.assign(nextValues, values);
   for (const config of configs) {
     for (const field of config.fields) {
       if (
@@ -752,6 +812,23 @@ function mergeQuickParameterDefaults(
   return nextValues;
 }
 
+function getModelSupportsReferenceImage(model: PublicAiModel | null) {
+  return (
+    model?.default_execution_profile?.supports_reference_image ??
+    model?.supports_reference_image ??
+    false
+  );
+}
+
+function isParameterValue(value: unknown): value is string | number | boolean | null {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    (typeof value === 'number' && Number.isFinite(value)) ||
+    typeof value === 'boolean'
+  );
+}
+
 function toStudioReferencePreview(asset: AssetItem): StudioReferencePreview {
   return {
     id: asset.id,
@@ -763,11 +840,12 @@ function toStudioReferencePreview(asset: AssetItem): StudioReferencePreview {
 function addSelectedReferences(
   currentReferences: StudioReferencePreview[],
   nextReferences: StudioReferencePreview[],
+  maxReferences = MAX_SELECTED_REFERENCES,
 ) {
   const selectedIds = new Set(currentReferences.map((reference) => reference.id));
   const mergedReferences = [...currentReferences];
   for (const reference of nextReferences) {
-    if (!selectedIds.has(reference.id) && mergedReferences.length < MAX_SELECTED_REFERENCES) {
+    if (!selectedIds.has(reference.id) && mergedReferences.length < maxReferences) {
       mergedReferences.push(reference);
       selectedIds.add(reference.id);
     }
@@ -778,6 +856,7 @@ function addSelectedReferences(
 function StudioReferenceUploader({
   disabled,
   inputId,
+  maxReferences,
   onRemove,
   onUpload,
   references,
@@ -785,18 +864,19 @@ function StudioReferenceUploader({
 }: {
   disabled: boolean;
   inputId: string;
+  maxReferences: number;
   onRemove: (referenceId: string) => void;
   onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   references: StudioReferencePreview[];
   uploading: boolean;
 }) {
-  const uploadDisabled = disabled || uploading || references.length >= MAX_SELECTED_REFERENCES;
+  const uploadDisabled = disabled || uploading || references.length >= maxReferences;
   const statusLabel = disabled
     ? '当前模型不支持上传'
     : uploading
       ? '上传中'
       : references.length > 0
-        ? `${references.length}/${MAX_SELECTED_REFERENCES}`
+        ? `${references.length}/${maxReferences}`
         : null;
 
   return (

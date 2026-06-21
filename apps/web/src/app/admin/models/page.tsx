@@ -180,6 +180,15 @@ function AdminModelsContent() {
                       推荐
                     </span>
                   ) : null}
+                  <span
+                    className={`rounded-[var(--ds-radius-sm)] border bg-[var(--ds-surface-raised)] px-2 py-1 ${
+                      model.default_execution_profile
+                        ? 'border-[var(--ds-success)]/30 text-[var(--ds-success)]'
+                        : 'border-[var(--ds-danger)]/30 text-[var(--ds-danger)]'
+                    }`}
+                  >
+                    {model.default_execution_profile ? 'Profile 可用' : '缺默认 Profile'}
+                  </span>
                 </div>
               </div>
               <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
@@ -200,6 +209,20 @@ function AdminModelsContent() {
                 <div>
                   <dt className="ds-muted font-semibold">Schema 字段</dt>
                   <dd className="font-black">{model.parameter_schema.length}</dd>
+                </div>
+                <div>
+                  <dt className="ds-muted font-semibold">默认执行 Profile</dt>
+                  <dd className="font-black">
+                    {model.default_execution_profile
+                      ? `${model.default_execution_profile.adapter_key} / ${model.default_execution_profile.operation}`
+                      : '未配置 active revision'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="ds-muted font-semibold">Profile Schema 字段</dt>
+                  <dd className="font-black">
+                    {model.default_execution_profile?.parameter_schema.length ?? 0}
+                  </dd>
                 </div>
               </dl>
               <div className="mt-4 flex flex-wrap gap-2">

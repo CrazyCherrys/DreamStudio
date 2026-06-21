@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 2 已完成，下一步进入阶段 3。
+当前状态：阶段 3 已完成，下一步进入阶段 4。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -380,12 +380,13 @@ npx tsc --noEmit --skipLibCheck --moduleResolution node --module commonjs --targ
 新增或更新路由验证脚本，例如：
 
 ```bash
-npx tsx scripts/verify-m3-routes.ts
+npx tsx scripts/verify-model-profile-api.ts
+npx tsx scripts/verify-model-profile-api-routes.ts
 npx tsx scripts/verify-model-profiles.ts
 npm run typecheck
 ```
 
-手动 curl 验证需要先登录比较麻烦，优先使用已有 route verifier。如果要浏览器验证，用下面的小白步骤。
+阶段 3 当前以 `scripts/verify-model-profile-api.ts` 校验模型 API profile contract，以 `scripts/verify-model-profile-api-routes.ts` 校验真实 API route response；旧 `scripts/verify-m3-routes.ts` 仍包含历史分类接口和旧字段假设，不作为本阶段完成证据。
 
 ### 5.5 小白手动测试
 
@@ -401,6 +402,61 @@ npm run typecheck
 
 - 前端拿到的是 profile 级执行配置。
 - 模型展示属性和执行属性开始分离。
+
+### 5.7 实施记录（2026-06-21）
+
+已完成：
+
+- 公共模型列表和详情查询默认启用 profile 及其 active revision，并返回 `default_execution_profile`。
+- `default_execution_profile` 使用 active revision 的 `adapter_key`、`adapter_version`、`reference_transfer_mode`、`supports_reference_image`、`max_reference_images`、`parameter_schema`、`default_params` 和 `capabilities`。
+- 普通用户侧 image 模型没有默认 active profile 时不展示；详情访问这类 image 模型会返回不可用。
+- `parameter-schema.ts` 支持保留 Schema v2 的 `ui`、`capability`、`send_policy`、`validation`、`help_url` 元数据，避免公共 profile schema 丢失快捷参数 slot。
+- Studio 已改为从选中模型的默认 active profile 读取参数 schema、默认参数、参考图能力和最大参考图数量。
+- Studio 快捷参数优先按 `ui.group=quick` 和 `ui.slot` 渲染，仍保留旧字段名称猜测作为过渡 fallback。
+- Admin 模型列表显示默认执行 Profile 是否可用，并展示 adapter/operation 和 profile schema 字段数。
+- 新增 `scripts/verify-model-profile-api.ts`，校验启用 image 模型的公共 profile API contract、active revision 身份字段、Schema v2 `ui.slot` 保留和 reference image capability。
+- 新增 `scripts/verify-model-profile-api-routes.ts`，登录后校验真实 `/api/v1/models?modality=image` 和 `/api/v1/admin/models` 响应包含 profile 信息。
+
+已验证：
+
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build
+npm run db:generate
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npm run db:init:m0
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npx tsx scripts/verify-model-profiles.ts
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npx tsx scripts/verify-model-profile-api.ts
+docker compose up -d --build dreamstudio
+docker compose ps
+curl http://127.0.0.1:3001/healthz
+curl http://127.0.0.1:3001/readyz
+curl -I http://127.0.0.1:3000/
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npx tsx scripts/verify-model-profile-api-routes.ts
+```
+
+说明：本机 sandbox 环境中 `tsx` 创建 `/tmp/tsx-*/.pipe` 会触发 `EPERM`，且 sandboxed curl 无法访问 Docker 发布的 localhost 端口；上述 `tsx` verifier 和 localhost curl 已用同一命令在非 sandbox 环境通过。
+
+阶段 3 没有做：
+
+- 没有修改图片任务创建 API body。
+- 没有在提交任务时写入 `execution_profile_id`。
+- 没有让任务创建写入 profile/revision/adapter/request mapping snapshot。
+- 没有实现 Worker adapter registry。
+- 没有新增 Admin profile/revision 管理 UI。
+
+下一阶段要先查看：
+
+- `docs/14-dreamstudio-m5-image-task-worker-task-list.md`
+- `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `任务快照升级`
+- 本文件阶段 4
+- `apps/api/src/modules/image-tasks/image-tasks.controller.ts`
+- `apps/api/src/modules/image-tasks/image-tasks.service.ts`
+- `apps/api/src/modules/image-tasks/image-tasks.types.ts`
+- `apps/api/src/modules/model-catalog/parameter-schema.ts`
+- `apps/web/src/lib/image-tasks.ts`
+- `apps/web/src/app/studio/page.tsx`
 
 ## 6. 阶段 4：任务创建写入 Profile Snapshot
 
@@ -1005,12 +1061,14 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 2 完成后，下一步应该进入阶段 3：
+阶段 3 完成后，下一步应该进入阶段 4：
 
-1. 查看 `docs/05-dreamstudio-v1-api-contract.md`、本文件阶段 3、`docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `API 调整` 和 `前端调整`。
-2. 查看 `apps/api/src/modules/model-catalog/model-catalog.controller.ts`、`apps/api/src/modules/model-catalog/model-catalog.service.ts`、`apps/api/src/modules/model-catalog/model-catalog.types.ts`。
-3. 查看 `apps/web/src/lib/model-catalog.ts`、`apps/web/src/app/studio/page.tsx`、`apps/web/src/app/admin/models/page.tsx`。
-4. 让公共模型接口返回 `default_execution_profile`，并让 Studio 优先读取 profile 的 `parameter_schema` 和 `default_params`。
-5. 继续运行 `npx tsx scripts/verify-model-profiles.ts`，再补充模型 API/Studio 侧的路由验证。
+1. 查看 `docs/14-dreamstudio-m5-image-task-worker-task-list.md`、本文件阶段 4、`docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `任务快照升级`。
+2. 查看 `apps/api/src/modules/image-tasks/image-tasks.controller.ts`、`apps/api/src/modules/image-tasks/image-tasks.service.ts`、`apps/api/src/modules/image-tasks/image-tasks.types.ts`。
+3. 查看 `apps/api/src/modules/model-catalog/parameter-schema.ts`、`apps/web/src/lib/image-tasks.ts`、`apps/web/src/app/studio/page.tsx`。
+4. 给 `CreateImageTaskBody` 增加 `execution_profile_id`，不传时使用模型默认 profile。
+5. 创建任务时读取 active revision，用 revision 的 `parameter_schema` 校验参数，合并 `default_params` 和用户参数。
+6. 写入 `executionProfileId`、`executionProfileRevisionId`、`adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`。
+7. 新增 `scripts/verify-image-task-profile-snapshot.ts`，验证新任务 snapshot 非空、修改 profile 后旧任务 snapshot 不变、未声明参数会失败。
 
 不要先做 Gemini adapter，也不要先做复杂 Admin UI。基础数据模型、初始化、任务快照和 OpenAI adapter 闭环跑通之前，后面的 UI 和模板都会反复返工。

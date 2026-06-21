@@ -6,6 +6,7 @@ import { extname, join } from 'node:path';
 import { HttpException, HttpStatus, Injectable, StreamableFile } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
+  ExecutionProfileRevisionStatus,
   ModelEndpointType,
   ModelModality,
   Prisma,
@@ -33,6 +34,7 @@ import type {
   ModelSyncSnapshotBody,
   ModelSyncSnapshotDetail,
   ModelSyncSnapshotSummary,
+  PublicDefaultExecutionProfile,
   PublicAiModel,
 } from './model-catalog.types';
 
@@ -58,7 +60,14 @@ type SerializableAdminModel = SerializablePublicModel &
 
 type FavoriteAwareModel = SerializablePublicModel & {
   favorites?: Array<{ userId: string; modelId: string }>;
+  executionProfiles?: SerializableExecutionProfile[];
 };
+
+type SerializableExecutionProfile = Prisma.AiModelExecutionProfileGetPayload<{
+  include: {
+    revisions: true;
+  };
+}>;
 
 const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -79,6 +88,24 @@ const MODEL_ICON_EXTENSIONS: Record<string, string> = {
   'image/gif': '.gif',
   'image/svg+xml': '.svg',
 };
+const defaultExecutionProfileInclude = {
+  where: {
+    deletedAt: null,
+    isEnabled: true,
+  },
+  include: {
+    revisions: {
+      where: {
+        status: ExecutionProfileRevisionStatus.active,
+      },
+      orderBy: {
+        revisionNo: 'desc',
+      },
+      take: 1,
+    },
+  },
+  orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+} satisfies Prisma.AiModel$executionProfilesArgs;
 
 @Injectable()
 export class ModelCatalogService {
@@ -132,6 +159,7 @@ export class ModelCatalogService {
           : {}),
       },
       include: {
+        executionProfiles: defaultExecutionProfileInclude,
         favorites: {
           where: {
             userId: session.userId,
@@ -141,9 +169,12 @@ export class ModelCatalogService {
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
+    const executableModels = models.filter(
+      (model) => model.modality !== ModelModality.image || this.findDefaultExecutionProfile(model),
+    );
 
     return {
-      items: models.map((model) => this.serializePublicModel(model)),
+      items: executableModels.map((model) => this.serializePublicModel(model)),
     };
   }
 
@@ -156,6 +187,7 @@ export class ModelCatalogService {
         isEnabled: true,
       },
       include: {
+        executionProfiles: defaultExecutionProfileInclude,
         favorites: {
           where: {
             userId: session.userId,
@@ -167,6 +199,9 @@ export class ModelCatalogService {
 
     if (!model) {
       throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型不存在或已禁用');
+    }
+    if (model.modality === ModelModality.image && !this.findDefaultExecutionProfile(model)) {
+      throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型没有可用执行配置');
     }
 
     return {
@@ -229,6 +264,9 @@ export class ModelCatalogService {
             }
           : {}),
       },
+      include: {
+        executionProfiles: defaultExecutionProfileInclude,
+      },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
@@ -243,6 +281,9 @@ export class ModelCatalogService {
       where: {
         id: modelId,
         deletedAt: null,
+      },
+      include: {
+        executionProfiles: defaultExecutionProfileInclude,
       },
     });
 
@@ -716,6 +757,10 @@ export class ModelCatalogService {
   }
 
   private serializePublicModel(model: FavoriteAwareModel): PublicAiModel {
+    const defaultExecutionProfile = this.serializeDefaultExecutionProfile(
+      this.findDefaultExecutionProfile(model),
+    );
+
     return {
       id: model.id,
       model_id: model.modelId,
@@ -731,6 +776,7 @@ export class ModelCatalogService {
       is_favorite: Boolean(model.favorites?.length),
       default_params: model.defaultParams,
       parameter_schema: normalizeParameterSchema(model.parameterSchema),
+      default_execution_profile: defaultExecutionProfile,
     };
   }
 
@@ -744,6 +790,66 @@ export class ModelCatalogService {
       updated_at: model.updatedAt.toISOString(),
       deleted_at: model.deletedAt?.toISOString() ?? null,
     };
+  }
+
+  private findDefaultExecutionProfile(
+    model: Pick<FavoriteAwareModel, 'executionProfiles'>,
+  ): SerializableExecutionProfile | null {
+    return (
+      model.executionProfiles?.find(
+        (profile) =>
+          profile.isDefault &&
+          profile.isEnabled &&
+          !profile.deletedAt &&
+          profile.revisions.some(
+            (revision) => revision.status === ExecutionProfileRevisionStatus.active,
+          ),
+      ) ?? null
+    );
+  }
+
+  private serializeDefaultExecutionProfile(
+    profile: SerializableExecutionProfile | null,
+  ): PublicDefaultExecutionProfile | null {
+    if (!profile) {
+      return null;
+    }
+
+    const activeRevision =
+      profile.revisions.find(
+        (revision) => revision.status === ExecutionProfileRevisionStatus.active,
+      ) ?? null;
+    if (!activeRevision) {
+      return null;
+    }
+
+    return {
+      id: profile.id,
+      revision_id: activeRevision.id,
+      operation: profile.operation,
+      adapter_key: activeRevision.adapterKey,
+      adapter_version: activeRevision.adapterVersion,
+      reference_transfer_mode: activeRevision.referenceTransferMode,
+      supports_reference_image: activeRevision.supportsReferenceImage,
+      max_reference_images: activeRevision.maxReferenceImages,
+      parameter_schema: normalizeParameterSchema(activeRevision.parameterSchema),
+      default_params: activeRevision.defaultParams,
+      capabilities: this.serializeCapabilities(activeRevision),
+    };
+  }
+
+  private serializeCapabilities(revision: {
+    capabilities: unknown;
+    supportsReferenceImage: boolean;
+    maxReferenceImages: number;
+  }): PublicDefaultExecutionProfile['capabilities'] {
+    const capabilities =
+      revision.capabilities && typeof revision.capabilities === 'object'
+        ? { ...(revision.capabilities as Record<string, unknown>) }
+        : {};
+    capabilities.supports_reference_image = revision.supportsReferenceImage;
+    capabilities.max_reference_images = revision.maxReferenceImages;
+    return capabilities as PublicDefaultExecutionProfile['capabilities'];
   }
 
   private serializeSnapshotSummary(snapshot: {

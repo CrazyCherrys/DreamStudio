@@ -535,7 +535,39 @@ GET /api/v1/models?modality=image&q=gpt&favorite=false&recommended=true
           "size": "1024x1024",
           "n": 1
         },
-        "parameter_schema": []
+        "parameter_schema": [],
+        "default_execution_profile": {
+          "id": "profile_uuid",
+          "revision_id": "revision_uuid",
+          "operation": "text_to_image",
+          "adapter_key": "openai_images_generation",
+          "adapter_version": "1",
+          "reference_transfer_mode": "none",
+          "supports_reference_image": false,
+          "max_reference_images": 0,
+          "parameter_schema": [
+            {
+              "key": "size",
+              "label": "分辨率",
+              "type": "select",
+              "required": false,
+              "default": "1024x1024",
+              "ui": {
+                "group": "quick",
+                "slot": "resolution",
+                "order": 20
+              }
+            }
+          ],
+          "default_params": {
+            "size": "1024x1024",
+            "n": 1
+          },
+          "capabilities": {
+            "supports_reference_image": false,
+            "max_reference_images": 0
+          }
+        }
       }
     ]
   },
@@ -546,8 +578,10 @@ GET /api/v1/models?modality=image&q=gpt&favorite=false&recommended=true
 规则：
 
 - 普通用户只看到启用模型。
-- `parameter_schema` 是前端渲染参数面板的唯一来源。
-- `default_params` 用于创建任务时的默认值。
+- 对 `modality=image` 的模型，普通用户侧只展示有默认启用 profile 且存在 active revision 的模型。
+- `default_execution_profile.parameter_schema` 是 Studio 渲染图片任务参数面板的优先来源，且必须保留 Schema v2 的 `ui.group`、`ui.slot`、`ui.order`。
+- `default_execution_profile.default_params` 是 Studio 图片任务参数默认值的优先来源。
+- 旧 `parameter_schema` 和 `default_params` 暂时保留给模型表单和分阶段迁移使用，不再作为图片模型的用户侧执行配置来源。
 - `is_favorite` 只表示当前登录用户是否收藏。
 
 ### 6.2.1 收藏模型

@@ -26,6 +26,41 @@ export interface ParameterSchemaField {
   max?: number;
   options?: ParameterSchemaOption[];
   placeholder?: string;
+  ui?: {
+    group?: string;
+    slot?: string;
+    order?: number;
+  };
+  capability?: string;
+  send_policy?: string;
+  validation?: Record<string, unknown>;
+  help_url?: string;
+}
+
+export type ExecutionProfileOperation =
+  | 'text_to_image'
+  | 'image_to_image'
+  | 'image_edit'
+  | 'conversational_image';
+
+export interface PublicExecutionProfileCapabilities {
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  [key: string]: unknown;
+}
+
+export interface PublicDefaultExecutionProfile {
+  id: string;
+  revision_id: string;
+  operation: ExecutionProfileOperation;
+  adapter_key: string;
+  adapter_version: string;
+  reference_transfer_mode: ReferenceTransferMode;
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  parameter_schema: ParameterSchemaField[];
+  default_params: Record<string, unknown>;
+  capabilities: PublicExecutionProfileCapabilities;
 }
 
 export interface PublicAiModel {
@@ -43,6 +78,7 @@ export interface PublicAiModel {
   is_favorite: boolean;
   default_params: Record<string, unknown>;
   parameter_schema: ParameterSchemaField[];
+  default_execution_profile: PublicDefaultExecutionProfile | null;
 }
 
 export interface AdminAiModel extends PublicAiModel {

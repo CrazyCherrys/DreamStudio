@@ -1,4 +1,5 @@
 import type {
+  ExecutionProfileOperation,
   ModelEndpointType,
   ModelModality,
   NewApiConfigStatus,
@@ -44,6 +45,7 @@ export interface PublicAiModel {
   is_favorite: boolean;
   default_params: unknown;
   parameter_schema: ParameterSchemaField[];
+  default_execution_profile: PublicDefaultExecutionProfile | null;
 }
 
 export interface AdminAiModel extends PublicAiModel {
@@ -52,6 +54,26 @@ export interface AdminAiModel extends PublicAiModel {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export interface PublicExecutionProfileCapabilities {
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  [key: string]: unknown;
+}
+
+export interface PublicDefaultExecutionProfile {
+  id: string;
+  revision_id: string;
+  operation: ExecutionProfileOperation;
+  adapter_key: string;
+  adapter_version: string;
+  reference_transfer_mode: ReferenceTransferMode;
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  parameter_schema: ParameterSchemaField[];
+  default_params: unknown;
+  capabilities: PublicExecutionProfileCapabilities;
 }
 
 export interface ModelSyncSnapshotSummary {

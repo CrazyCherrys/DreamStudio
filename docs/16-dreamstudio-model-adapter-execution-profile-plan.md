@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 2 初始化数据和默认 Profile 已落地，执行链路仍在旧路径。
+当前状态：阶段 3 模型 API 已返回默认 active profile，Studio 已改为读取 profile schema/defaults；任务创建和 Worker 执行链路仍在旧路径，下一步进入阶段 4 写入任务 profile snapshot。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -531,6 +531,11 @@ POST   /api/v1/admin/execution-profile-revisions/{revision_id}/activate
     "id": "profile_id",
     "revision_id": "revision_id",
     "operation": "text_to_image",
+    "adapter_key": "openai_images_generation",
+    "adapter_version": "1",
+    "reference_transfer_mode": "none",
+    "supports_reference_image": false,
+    "max_reference_images": 0,
     "parameter_schema": [],
     "default_params": {},
     "capabilities": {
@@ -567,13 +572,15 @@ POST   /api/v1/admin/execution-profile-revisions/{revision_id}/activate
 
 Studio：
 
-- 从选中模型的默认 active profile 读取 `parameter_schema`。
+- 从选中模型的默认 active profile 读取 `parameter_schema` 和 `default_params`。
 - 快捷参数按 `ui.group=quick` 和 `ui.slot` 渲染。
 - 高级参数按 `ui.group=advanced` 渲染。
 - `ui.group=hidden` 参数不展示。
 - 当前 profile 不支持参考图时，隐藏或禁用参考图上传。
 - 当前 profile 有 `max_reference_images` 时，上传数量以 profile 为准，而不是全局常量。
 - 提交任务时带上 `execution_profile_id`。
+
+阶段 3 已完成其中的读取和展示部分：公共模型接口返回 `default_execution_profile`，普通用户侧 image 模型没有默认 active profile 时不展示，Studio 快捷参数优先按 profile Schema v2 的 `ui.group=quick` 和 `ui.slot` 渲染，参考图上传状态和数量读取 profile 能力。提交任务时带 `execution_profile_id` 属于阶段 4，与任务 snapshot 一起落地。
 
 管理后台：
 
@@ -608,6 +615,7 @@ Studio：
 - Studio 优先读取 profile 的 `parameter_schema` 和 `default_params`。
 - 如果模型没有 active default profile，普通用户侧不可提交。
 - Admin 模型列表显示默认 profile 状态。
+- 已新增 `scripts/verify-model-profile-api.ts` 校验公共 profile API contract、active revision 身份字段、Schema v2 `ui.slot` 保留和 reference image capability。
 
 ### 阶段 4：任务创建写入 Profile Snapshot
 
