@@ -294,7 +294,10 @@ export class ImageTasksService implements OnModuleDestroy {
         requireRequiredFields: true,
       },
     );
-    const parameterResult = mergedParameterResult;
+    const parameterResult = {
+      ...mergedParameterResult,
+      value: this.applyParameterSendPolicy(schema, mergedParameterResult.value),
+    };
     if (!parameterResult.ok) {
       throw validationFailed(parameterResult.errors);
     }
@@ -520,6 +523,22 @@ export class ImageTasksService implements OnModuleDestroy {
       source_checked_at: revision.sourceCheckedAt?.toISOString() ?? null,
       source_summary: revision.sourceSummary,
     };
+  }
+
+  private applyParameterSendPolicy(
+    schema: ReturnType<typeof normalizeParameterSchema>,
+    parameters: Record<string, string | number | boolean | null>,
+  ) {
+    const neverSendKeys = new Set(
+      schema.filter((field) => field.send_policy === 'never').map((field) => field.key),
+    );
+    if (neverSendKeys.size === 0) {
+      return parameters;
+    }
+
+    return Object.fromEntries(
+      Object.entries(parameters).filter(([key]) => !neverSendKeys.has(key)),
+    ) as Record<string, string | number | boolean | null>;
   }
 
   private buildResolvedRequestSanitizedSnapshot(input: {

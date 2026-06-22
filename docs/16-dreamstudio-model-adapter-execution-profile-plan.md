@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 5 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环；下一步进入阶段 6 Parameter Schema v2 和 Studio 快捷参数收敛。
+当前状态：阶段 6 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；下一步进入阶段 7 Admin Profile 和 Revision 管理。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -279,6 +279,7 @@ Studio 行为：
 - `hidden` 参数只用于默认值或 mapping，不展示给普通用户。
 - 参数默认值从 active profile revision 读取。
 - 不在 schema 中的参数，API 必须拒绝。
+- `send_policy=never` 的参数可以参与默认值和内部校验，但不会写入任务参数快照或最终上游请求。
 
 ## 9. Request Mapping
 
@@ -638,11 +639,13 @@ Studio：
 
 ### 阶段 6：Parameter Schema v2
 
-- 扩展后端 schema 类型和校验。
-- 支持 `ui`、`capability`、`send_policy`、`validation`、`deprecated`。
-- Studio 改为按 `ui.slot` 渲染快捷参数。
-- 管理后台 schema builder 支持新字段。
-- 初始化数据直接使用 Schema v2；短期保留旧字段解析只用于过渡提交。
+- 已扩展后端 schema 类型和校验。
+- 已支持并保留 `ui`、`capability`、`send_policy`、`validation`、`help_url`、`deprecated`。
+- 已限制 `ui.group`、`ui.slot`、`send_policy` 为白名单值。
+- Studio 已改为只按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数，不再猜测 key/label。
+- 管理后台 schema builder 已支持编辑新字段，Studio 快捷参数卡片会写入 Schema v2 quick slot。
+- `send_policy=never` 已在任务创建阶段从最终参数快照和 resolved request 中剔除。
+- 已新增 `scripts/verify-parameter-schema-v2.ts` 验证 Schema v2 quick slot、`deprecated`、非法枚举拒绝、未声明参数拒绝和 `send_policy=never` 剔除。
 
 ### 阶段 7：Admin Profile 和 Revision 管理
 

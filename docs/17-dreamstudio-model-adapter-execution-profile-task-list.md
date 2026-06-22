@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 5 已完成，下一步进入阶段 6。
+当前状态：阶段 6 已完成，下一步进入阶段 7。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -412,7 +412,7 @@ npm run typecheck
 - 普通用户侧 image 模型没有默认 active profile 时不展示；详情访问这类 image 模型会返回不可用。
 - `parameter-schema.ts` 支持保留 Schema v2 的 `ui`、`capability`、`send_policy`、`validation`、`help_url` 元数据，避免公共 profile schema 丢失快捷参数 slot。
 - Studio 已改为从选中模型的默认 active profile 读取参数 schema、默认参数、参考图能力和最大参考图数量。
-- Studio 快捷参数优先按 `ui.group=quick` 和 `ui.slot` 渲染，仍保留旧字段名称猜测作为过渡 fallback。
+- Studio 快捷参数按 `ui.group=quick` 和 `ui.slot` 渲染；阶段 6 已移除旧字段名称猜测 fallback。
 - Admin 模型列表显示默认执行 Profile 是否可用，并展示 adapter/operation 和 profile schema 字段数。
 - 新增 `scripts/verify-model-profile-api.ts`，校验启用 image 模型的公共 profile API contract、active revision 身份字段、Schema v2 `ui.slot` 保留和 reference image capability。
 - 新增 `scripts/verify-model-profile-api-routes.ts`，登录后校验真实 `/api/v1/models?modality=image` 和 `/api/v1/admin/models` 响应包含 profile 信息。
@@ -721,6 +721,17 @@ npx tsx scripts/verify-parameter-schema-v2.ts
 
 - Studio 不再通过 key 或 label 猜测快捷参数。
 - 不同模型可以显示不同的参数子集。
+- `send_policy=never` 可用于内部/隐藏字段，但不会进入最终任务参数快照或上游 request。
+
+### 8.7 已完成
+
+- 后端 `parameter-schema.ts` 已保留并校验 `ui`、`capability`、`send_policy`、`validation`、`help_url`、`deprecated`。
+- `ui.group`、`ui.slot`、`send_policy` 已限制为白名单值。
+- Studio 快捷参数只读取 `ui.group=quick` 和 `ui.slot=count/aspect_ratio/resolution`。
+- Admin 模型 schema builder 支持编辑 `ui.group`、`ui.slot`、`ui.order`、`capability`、`send_policy`、`help_url`、`validation`、`deprecated`。
+- Admin Studio 快捷参数卡片会写入 Schema v2 quick slot，不再依赖 key/label 猜测。
+- 任务创建会从最终参数快照和脱敏 request 预览中剔除 `send_policy=never` 字段。
+- 已新增 `scripts/verify-parameter-schema-v2.ts`，验证 quick slot、`deprecated`、非法枚举拒绝、未声明参数拒绝和 `send_policy=never` 剔除。
 
 ## 9. 阶段 7：Admin Profile 和 Revision 管理
 
@@ -1120,9 +1131,11 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 5 完成后，下一步应该进入阶段 6：
+阶段 6 完成后，下一步应该进入阶段 7：
 
-1. 查看本文件阶段 6 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Parameter Schema v2`。
-2. 查看 `apps/api/src/modules/model-catalog/parameter-schema.ts`、`apps/web/src/lib/model-catalog.ts`、`apps/web/src/components/model-catalog/model-components.tsx`、`apps/web/src/app/studio/page.tsx`、`apps/web/src/app/globals.css`。
-3. 确认后端 Schema v2 字段校验、Studio 快捷参数渲染和 Admin schema builder 是否还存在缺口。
-4. 不要先做 Gemini adapter，也不要先做复杂 Admin profile/revision UI。
+1. 查看本文件阶段 7 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `API 调整`、`前端调整`。
+2. 查看 `docs/15-dreamstudio-m6-admin-logs-task-list.md`。
+3. 查看 `apps/api/src/modules/model-catalog/model-catalog.controller.ts`、`apps/api/src/modules/model-catalog/model-catalog.service.ts`、`apps/web/src/app/admin/models/page.tsx`、`apps/web/src/components/model-catalog/model-components.tsx`、`apps/web/src/lib/model-catalog.ts`。
+4. 增加 Admin profile/revision 列表、draft 编辑、lint、preview request、test、activate 等管理能力。
+5. 确保同一 profile 只能有一个 active revision。
+6. 不要先做 Gemini adapter。

@@ -35,6 +35,7 @@ export interface ParameterSchemaField {
   send_policy?: string;
   validation?: Record<string, unknown>;
   help_url?: string;
+  deprecated?: boolean;
 }
 
 export type ExecutionProfileOperation =

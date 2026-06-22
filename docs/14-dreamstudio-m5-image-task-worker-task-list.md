@@ -159,7 +159,7 @@ Worker 内部适配：
 
 - `model` 来自 `model_id_snapshot`，该字段由 active profile revision 的 `upstream_model_id` 快照而来。
 - `prompt` 来自解密后的 Prompt。
-- 其他参数来自 `parameter_snapshot`，再按 `request_mapping_snapshot.fields` 映射到上游字段。
+- 其他参数来自 `parameter_snapshot`，再按 `request_mapping_snapshot.fields` 映射到上游字段；`send_policy=never` 的 schema 字段不会进入该快照或最终上游请求。
 - generation adapter 使用 JSON body；edit adapter 使用 multipart body。
 - 参考图来自 M4 assets，经存储层读取为 Buffer 后 multipart 上传；edit adapter 的图片字段名来自 `request_mapping_snapshot.reference_field.target`，支持 `image` 和 `image[]`。
 - 没有 `execution_profile_snapshot` 或 `request_mapping_snapshot` 的开发期旧任务会失败，并提示用户重新提交任务。

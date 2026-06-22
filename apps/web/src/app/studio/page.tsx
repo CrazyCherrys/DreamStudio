@@ -619,10 +619,9 @@ function ParameterFieldControl({
 function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterConfig[] {
   const usedKeys = new Set<string>();
   const configs: QuickParameterConfig[] = [];
-  const hasUiHints = schema.some((field) => field.ui?.group || field.ui?.slot);
-  const candidateSchema = [
-    ...(hasUiHints ? schema.filter((field) => field.ui?.group === 'quick') : schema),
-  ].sort((left, right) => getFieldUiOrder(left) - getFieldUiOrder(right));
+  const candidateSchema = schema
+    .filter((field) => field.ui?.group === 'quick' && field.ui?.slot)
+    .sort((left, right) => getFieldUiOrder(left) - getFieldUiOrder(right));
 
   const definitions: Array<{
     fields: (schema: ParameterSchemaField[], usedKeys: Set<string>) => ParameterSchemaField[];
@@ -631,25 +630,19 @@ function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterCon
     label: string;
   }> = [
     {
-      fields: (items, keys) =>
-        findSingleQuickFieldBySlots(items, keys, ['count']) ??
-        findSingleQuickField(items, keys, isCountParameter),
+      fields: (items, keys) => findSingleQuickFieldBySlots(items, keys, ['count']),
       icon: '#',
       kind: 'count',
       label: '张数',
     },
     {
-      fields: (items, keys) =>
-        findSingleQuickFieldBySlots(items, keys, ['aspect_ratio', 'ratio']) ??
-        findSingleQuickField(items, keys, isRatioParameter),
+      fields: (items, keys) => findSingleQuickFieldBySlots(items, keys, ['aspect_ratio']),
       icon: '□',
       kind: 'size',
       label: '比例',
     },
     {
-      fields: (items, keys) =>
-        findSingleQuickFieldBySlots(items, keys, ['resolution', 'size']) ??
-        findResolutionFields(items, keys),
+      fields: (items, keys) => findSingleQuickFieldBySlots(items, keys, ['resolution']),
       icon: '▣',
       kind: 'resolution',
       label: '分辨率',
@@ -682,81 +675,11 @@ function findSingleQuickFieldBySlots(
   const field = schema.find(
     (item) => !usedKeys.has(item.key) && item.ui?.slot && slotSet.has(item.ui.slot),
   );
-  return field ? [field] : null;
+  return field ? [field] : [];
 }
 
 function getFieldUiOrder(field: ParameterSchemaField) {
   return typeof field.ui?.order === 'number' ? field.ui.order : Number.MAX_SAFE_INTEGER;
-}
-
-function findSingleQuickField(
-  schema: ParameterSchemaField[],
-  usedKeys: Set<string>,
-  match: (field: ParameterSchemaField) => boolean,
-) {
-  const field = schema.find((item) => !usedKeys.has(item.key) && match(item));
-  return field ? [field] : [];
-}
-
-function findResolutionFields(schema: ParameterSchemaField[], usedKeys: Set<string>) {
-  const directField = schema.find(
-    (item) =>
-      !usedKeys.has(item.key) &&
-      isResolutionParameter(item) &&
-      !/\b(width|height)\b/.test(fieldSearchText(item)),
-  );
-  if (directField) {
-    return [directField];
-  }
-
-  const widthField = schema.find(
-    (item) => !usedKeys.has(item.key) && /\b(width|w)\b|宽度/.test(fieldSearchText(item)),
-  );
-  const heightField = schema.find(
-    (item) => !usedKeys.has(item.key) && /\b(height|h)\b|高度/.test(fieldSearchText(item)),
-  );
-  return [widthField, heightField].filter((field): field is ParameterSchemaField => Boolean(field));
-}
-
-function fieldSearchText(field: ParameterSchemaField) {
-  return `${field.key} ${field.label} ${field.description ?? ''}`.toLowerCase();
-}
-
-function isCountParameter(field: ParameterSchemaField) {
-  const text = fieldSearchText(field);
-  return /\b(n|count|num|number|quantity|images?)\b/.test(text) || /张数|数量/.test(text);
-}
-
-function isRatioParameter(field: ParameterSchemaField) {
-  const text = fieldSearchText(field);
-  if (isResolutionValueField(field)) {
-    return false;
-  }
-  return /\b(aspect|ratio)\b/.test(text) || /比例|画幅|尺寸/.test(text) || isRatioValueField(field);
-}
-
-function isResolutionParameter(field: ParameterSchemaField) {
-  const text = fieldSearchText(field);
-  return (
-    /\b(size|resolution|dimension|quality)\b/.test(text) ||
-    /分辨率|清晰度|像素/.test(text) ||
-    /\b(width|height)\b/.test(text) ||
-    isResolutionValueField(field)
-  );
-}
-
-function isRatioValueField(field: ParameterSchemaField) {
-  return getFieldExampleValues(field).some((value) => /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(value));
-}
-
-function isResolutionValueField(field: ParameterSchemaField) {
-  return getFieldExampleValues(field).some((value) => /^\d{3,5}\s*x\s*\d{3,5}$/i.test(value));
-}
-
-function getFieldExampleValues(field: ParameterSchemaField) {
-  return [field.default, ...(field.options ?? []).map((option) => option.value)]
-    .filter((value): value is string | number | boolean => value !== undefined && value !== null)
-    .map((value) => String(value).trim());
 }
 
 function formatQuickParameterValue(

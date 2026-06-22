@@ -29,6 +29,7 @@ export interface ParameterSchemaField {
   send_policy?: string;
   validation?: Prisma.InputJsonObject;
   help_url?: string;
+  deprecated?: boolean;
 }
 
 export interface ParameterValidationResult {
@@ -142,6 +143,7 @@ export function parameterSchemaToJson(schema: ParameterSchemaField[]): Prisma.In
       'send_policy',
       'validation',
       'help_url',
+      'deprecated',
     ] as const) {
       if (field[key] !== undefined) {
         jsonField[key] = field[key] as Prisma.InputJsonValue;
@@ -268,7 +270,14 @@ function parseField(
 
   const sendPolicy = readOptionalTrimmedString(item.send_policy);
   if (sendPolicy !== undefined) {
-    field.send_policy = sendPolicy;
+    if (!isParameterSendPolicy(sendPolicy)) {
+      errors.push({
+        field: `${path}.send_policy`,
+        message: 'send_policy 必须是 always、when_present 或 never',
+      });
+    } else {
+      field.send_policy = sendPolicy;
+    }
   }
 
   const validation = parseOptionalJsonObject(item.validation, `${path}.validation`, errors);
@@ -279,6 +288,17 @@ function parseField(
   const helpUrl = readOptionalTrimmedString(item.help_url);
   if (helpUrl !== undefined) {
     field.help_url = helpUrl;
+  }
+
+  if (item.deprecated !== undefined) {
+    if (typeof item.deprecated !== 'boolean') {
+      errors.push({
+        field: `${path}.deprecated`,
+        message: 'deprecated 必须是布尔值',
+      });
+    } else {
+      field.deprecated = item.deprecated;
+    }
   }
 
   if (item.min !== undefined) {
@@ -366,10 +386,25 @@ function parseFieldUi(
   const group = readOptionalTrimmedString(rawUi.group);
   const slot = readOptionalTrimmedString(rawUi.slot);
   if (group !== undefined) {
-    ui.group = group;
+    if (!isParameterUiGroup(group)) {
+      errors.push({
+        field: `${path}.ui.group`,
+        message: 'ui.group 必须是 quick、advanced 或 hidden',
+      });
+    } else {
+      ui.group = group;
+    }
   }
   if (slot !== undefined) {
-    ui.slot = slot;
+    if (!isParameterUiSlot(slot)) {
+      errors.push({
+        field: `${path}.ui.slot`,
+        message:
+          'ui.slot 必须是 count、aspect_ratio、resolution、quality、format、background、style、seed、safety 或 reference',
+      });
+    } else {
+      ui.slot = slot;
+    }
   }
   if (rawUi.order !== undefined) {
     const order = readFiniteNumber(rawUi.order, `${path}.ui.order`, errors);
@@ -589,6 +624,29 @@ function isScalar(value: unknown): value is string | number | boolean {
     (typeof value === 'number' && Number.isFinite(value)) ||
     typeof value === 'boolean'
   );
+}
+
+function isParameterUiGroup(value: string) {
+  return ['quick', 'advanced', 'hidden'].includes(value);
+}
+
+function isParameterUiSlot(value: string) {
+  return [
+    'count',
+    'aspect_ratio',
+    'resolution',
+    'quality',
+    'format',
+    'background',
+    'style',
+    'seed',
+    'safety',
+    'reference',
+  ].includes(value);
+}
+
+function isParameterSendPolicy(value: string) {
+  return ['always', 'when_present', 'never'].includes(value);
 }
 
 function readTrimmedString(value: unknown): string {

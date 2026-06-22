@@ -23,6 +23,20 @@ import {
 } from '@/lib/model-catalog';
 
 const FIELD_TYPES: ParameterFieldType[] = ['string', 'number', 'integer', 'boolean', 'select'];
+const UI_GROUPS = ['quick', 'advanced', 'hidden'] as const;
+const UI_SLOTS = [
+  'count',
+  'aspect_ratio',
+  'resolution',
+  'quality',
+  'format',
+  'background',
+  'style',
+  'seed',
+  'safety',
+  'reference',
+] as const;
+const SEND_POLICIES = ['always', 'when_present', 'never'] as const;
 const MODEL_MODALITIES: ModelModality[] = ['chat', 'image', 'video'];
 const ENDPOINT_TYPES: ModelEndpointType[] = [
   'openai_image_generations',
@@ -36,17 +50,14 @@ interface StudioQuickParameterConfig {
   defaultField: ParameterSchemaField;
   description: string;
   kind: StudioQuickParameterKind;
-  match: (
-    field: ParameterSchemaField,
-    schema: ParameterSchemaField[],
-    usedKeys: Set<string>,
-  ) => boolean;
+  slot: 'count' | 'aspect_ratio' | 'resolution';
   title: string;
 }
 
 const STUDIO_QUICK_PARAMETER_CONFIGS: StudioQuickParameterConfig[] = [
   {
     defaultField: {
+      capability: 'count',
       default: 1,
       key: 'n',
       label: '张数',
@@ -54,15 +65,26 @@ const STUDIO_QUICK_PARAMETER_CONFIGS: StudioQuickParameterConfig[] = [
       min: 1,
       placeholder: '1',
       required: false,
+      send_policy: 'when_present',
       type: 'integer',
+      ui: {
+        group: 'quick',
+        order: 10,
+        slot: 'count',
+      },
+      validation: {
+        max: 4,
+        min: 1,
+      },
     },
     description: '控制一次任务生成的图片数量。',
     kind: 'count',
-    match: isCountParameter,
+    slot: 'count',
     title: '张数',
   },
   {
     defaultField: {
+      capability: 'aspect_ratio',
       default: '1:1',
       key: 'aspect_ratio',
       label: '比例',
@@ -72,15 +94,25 @@ const STUDIO_QUICK_PARAMETER_CONFIGS: StudioQuickParameterConfig[] = [
         { label: '9:16', value: '9:16' },
       ],
       required: false,
+      send_policy: 'when_present',
       type: 'select',
+      ui: {
+        group: 'quick',
+        order: 20,
+        slot: 'aspect_ratio',
+      },
+      validation: {
+        enum: ['1:1', '16:9', '9:16'],
+      },
     },
     description: '画幅比例，选项会显示在 Studio 的比例选择里。',
     kind: 'ratio',
-    match: isRatioParameter,
+    slot: 'aspect_ratio',
     title: '比例',
   },
   {
     defaultField: {
+      capability: 'resolution',
       default: '1024x1024',
       key: 'size',
       label: '分辨率',
@@ -90,11 +122,20 @@ const STUDIO_QUICK_PARAMETER_CONFIGS: StudioQuickParameterConfig[] = [
         { label: '1024x1536', value: '1024x1536' },
       ],
       required: false,
+      send_policy: 'when_present',
       type: 'select',
+      ui: {
+        group: 'quick',
+        order: 30,
+        slot: 'resolution',
+      },
+      validation: {
+        enum: ['1024x1024', '1536x1024', '1024x1536'],
+      },
     },
     description: '像素规格，选项会显示在 Studio 的分辨率选择里。',
     kind: 'resolution',
-    match: isResolutionParameter,
+    slot: 'resolution',
     title: '分辨率',
   },
 ];
@@ -220,6 +261,26 @@ export function SchemaFieldEditor({
     });
   }
 
+  function patchUi(patch: NonNullable<ParameterSchemaField['ui']>) {
+    const nextUi = {
+      ...(field.ui ?? {}),
+      ...patch,
+    };
+    patchField({
+      ui: Object.values(nextUi).some((value) => value !== undefined && value !== '')
+        ? nextUi
+        : undefined,
+    });
+  }
+
+  function updateValidation(rawValue: string) {
+    if (!rawValue.trim()) {
+      patchField({ validation: undefined });
+      return;
+    }
+    patchField({ validation: parseJsonObject(rawValue) });
+  }
+
   function updateDefault(rawValue: string) {
     if (rawValue === '') {
       const { default: _default, ...rest } = field;
@@ -333,6 +394,84 @@ export function SchemaFieldEditor({
         </label>
       ) : null}
 
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <label className="grid gap-2 text-sm font-bold">
+          <span>ui.group</span>
+          <select
+            className="ds-input"
+            onChange={(event) => patchUi({ group: event.target.value || undefined })}
+            value={field.ui?.group ?? ''}
+          >
+            <option value="">未设置</option>
+            {UI_GROUPS.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm font-bold">
+          <span>ui.slot</span>
+          <select
+            className="ds-input"
+            onChange={(event) => patchUi({ slot: event.target.value || undefined })}
+            value={field.ui?.slot ?? ''}
+          >
+            <option value="">未设置</option>
+            {UI_SLOTS.map((slot) => (
+              <option key={slot} value={slot}>
+                {slot}
+              </option>
+            ))}
+          </select>
+        </label>
+        <DsInput
+          label="ui.order"
+          onChange={(event) =>
+            patchUi({ order: event.target.value === '' ? undefined : Number(event.target.value) })
+          }
+          type="number"
+          value={field.ui?.order ?? ''}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <DsInput
+          label="capability"
+          onChange={(event) => patchField({ capability: event.target.value || undefined })}
+          value={field.capability ?? ''}
+        />
+        <label className="grid gap-2 text-sm font-bold">
+          <span>send_policy</span>
+          <select
+            className="ds-input"
+            onChange={(event) => patchField({ send_policy: event.target.value || undefined })}
+            value={field.send_policy ?? ''}
+          >
+            <option value="">未设置</option>
+            {SEND_POLICIES.map((policy) => (
+              <option key={policy} value={policy}>
+                {policy}
+              </option>
+            ))}
+          </select>
+        </label>
+        <DsInput
+          label="help_url"
+          onChange={(event) => patchField({ help_url: event.target.value || undefined })}
+          value={field.help_url ?? ''}
+        />
+      </div>
+
+      <label className="mt-3 grid gap-2 text-sm font-bold">
+        <span>validation JSON</span>
+        <textarea
+          className="ds-input min-h-24 py-3 font-mono text-xs"
+          onChange={(event) => updateValidation(event.target.value)}
+          value={field.validation ? JSON.stringify(field.validation, null, 2) : ''}
+        />
+      </label>
+
       <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto_auto]">
         <DsInput
           label="default"
@@ -346,6 +485,14 @@ export function SchemaFieldEditor({
             type="checkbox"
           />
           必填
+        </label>
+        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-black">
+          <input
+            checked={field.deprecated === true}
+            onChange={(event) => patchField({ deprecated: event.target.checked || undefined })}
+            type="checkbox"
+          />
+          已弃用
         </label>
         <DsButton onClick={onRemove} type="button" variant="danger">
           删除
@@ -963,30 +1110,7 @@ function findStudioQuickParameterField(
   schema: ParameterSchemaField[],
   config: StudioQuickParameterConfig,
 ) {
-  const usedKeys = getStudioQuickParameterUsedKeys(schema, config.kind);
-  return (
-    schema.find((field) => field.key === config.defaultField.key && !usedKeys.has(field.key)) ??
-    schema.find((field) => !usedKeys.has(field.key) && config.match(field, schema, usedKeys))
-  );
-}
-
-function getStudioQuickParameterUsedKeys(
-  schema: ParameterSchemaField[],
-  beforeKind: StudioQuickParameterKind,
-) {
-  const usedKeys = new Set<string>();
-  for (const config of STUDIO_QUICK_PARAMETER_CONFIGS) {
-    if (config.kind === beforeKind) {
-      break;
-    }
-    const field =
-      schema.find((item) => item.key === config.defaultField.key && !usedKeys.has(item.key)) ??
-      schema.find((item) => !usedKeys.has(item.key) && config.match(item, schema, usedKeys));
-    if (field) {
-      usedKeys.add(field.key);
-    }
-  }
-  return usedKeys;
+  return schema.find((field) => field.ui?.group === 'quick' && field.ui?.slot === config.slot);
 }
 
 function upsertStudioQuickParameterField(
@@ -995,10 +1119,18 @@ function upsertStudioQuickParameterField(
   field: ParameterSchemaField,
 ) {
   const existingField = findStudioQuickParameterField(schema, config);
+  const nextField = {
+    ...field,
+    ui: {
+      ...(field.ui ?? {}),
+      group: 'quick',
+      slot: config.slot,
+    },
+  };
   if (!existingField) {
-    return [...schema, field];
+    return [...schema, nextField];
   }
-  return schema.map((item) => (item.key === existingField.key ? field : item));
+  return schema.map((item) => (item.key === existingField.key ? nextField : item));
 }
 
 function removeStudioQuickParameterField(
@@ -1028,45 +1160,4 @@ function parseSchemaOptionLines(rawValue: string): ParameterSchemaOption[] {
         value: value.trim(),
       };
     });
-}
-
-function fieldSearchText(field: ParameterSchemaField) {
-  return `${field.key} ${field.label} ${field.description ?? ''}`.toLowerCase();
-}
-
-function isCountParameter(field: ParameterSchemaField) {
-  const text = fieldSearchText(field);
-  return /\b(n|count|num|number|quantity|images?)\b/.test(text) || /张数|数量/.test(text);
-}
-
-function isRatioParameter(field: ParameterSchemaField) {
-  const text = fieldSearchText(field);
-  if (isResolutionValueField(field)) {
-    return false;
-  }
-  return /\b(aspect|ratio)\b/.test(text) || /比例|画幅|尺寸/.test(text) || isRatioValueField(field);
-}
-
-function isResolutionParameter(field: ParameterSchemaField) {
-  const text = fieldSearchText(field);
-  return (
-    /\b(size|resolution|dimension|quality)\b/.test(text) ||
-    /分辨率|清晰度|像素/.test(text) ||
-    /\b(width|height)\b/.test(text) ||
-    isResolutionValueField(field)
-  );
-}
-
-function isRatioValueField(field: ParameterSchemaField) {
-  return getFieldExampleValues(field).some((value) => /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(value));
-}
-
-function isResolutionValueField(field: ParameterSchemaField) {
-  return getFieldExampleValues(field).some((value) => /^\d{3,5}\s*x\s*\d{3,5}$/i.test(value));
-}
-
-function getFieldExampleValues(field: ParameterSchemaField) {
-  return [field.default, ...(field.options ?? []).map((option) => option.value)]
-    .filter((value): value is string | number | boolean => value !== undefined && value !== null)
-    .map((value) => String(value).trim());
 }
