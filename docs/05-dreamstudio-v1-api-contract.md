@@ -735,6 +735,7 @@ POST /api/v1/image-tasks
 ```json
 {
   "model_record_id": "uuid",
+  "execution_profile_id": "uuid",
   "prompt": "一只在月光下奔跑的白色狐狸",
   "negative_prompt": "low quality, blurry",
   "parameters": {
@@ -756,12 +757,37 @@ POST /api/v1/image-tasks
     "model_record_id": "uuid",
     "model_id": "gpt-image-1",
     "endpoint_type": "openai_image_edits",
+    "execution_profile_id": "profile_uuid",
+    "execution_profile_revision_id": "revision_uuid",
+    "execution_profile_name": "OpenAI Image generation",
+    "adapter_key": "openai_images_generation",
+    "adapter_version": "1",
     "prompt_summary": "一只在月光下奔跑的白色狐狸",
     "negative_prompt_summary": "low quality, blurry",
     "sanitized_parameter_snapshot": {
       "size": "1024x1024",
       "n": 1,
       "quality": "high"
+    },
+    "resolved_request_sanitized_snapshot": {
+      "adapter_key": "openai_images_generation",
+      "adapter_version": "1",
+      "transport_key": "new_api_bearer",
+      "endpoint_type": "openai_image_generations",
+      "endpoint_path": "/v1/images/generations",
+      "content_type": "json",
+      "body": {
+        "model": "gpt-image-1",
+        "prompt": "一只在月光下奔跑的白色狐狸",
+        "size": "1024x1024",
+        "n": 1,
+        "quality": "high"
+      },
+      "profile": {
+        "id": "profile_uuid",
+        "revision_id": "revision_uuid",
+        "operation": "text_to_image"
+      }
     },
     "reference_asset_ids": ["uuid"],
     "status": "pending",
@@ -783,10 +809,13 @@ POST /api/v1/image-tasks
 
 - 用户必须拥有 `valid` 状态的 `new-api` 配置。
 - 模型必须启用。
-- 后端必须按模型 `parameter_schema` 做最终校验。
+- 如果不传 `execution_profile_id`，后端使用模型默认启用 profile。
+- 创建任务必须找到 active profile revision，否则返回 `model_profile_missing`。
+- 后端必须按 active profile revision 的 `parameter_schema` 做最终校验。
+- 后端先合并 active revision 的 `default_params` 和用户提交参数，再保存 `parameter_snapshot` 和 `sanitized_parameter_snapshot`。
 - 参考图必须属于当前用户且状态为 `available`。
-- 不支持参考图的模型不能提交 `reference_asset_ids`。
-- 创建任务时保存模型、接口、服务地址、参数和参考图传递方式快照。
+- 不支持参考图的 profile 不能提交 `reference_asset_ids`，参考图数量不能超过 profile 的 `max_reference_images`。
+- 创建任务时保存模型、接口、服务地址、参数、profile/revision、adapter、request mapping 和最终脱敏请求快照。
 - prompt 和 negative prompt 完整内容加密保存。
 - 队列 payload 中只放任务 ID 等非敏感信息。
 - `client_request_id` 用于防止前端重试重复创建任务。

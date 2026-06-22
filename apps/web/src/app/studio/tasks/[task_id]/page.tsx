@@ -95,6 +95,37 @@ function TaskDetail({ task }: { task: ImageTask }) {
       </section>
 
       <section className="ds-card p-5">
+        <h3 className="text-xl font-black">执行配置</h3>
+        <dl className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+          <div>
+            <dt className="ds-muted font-semibold">Profile</dt>
+            <dd className="mt-1 break-all font-black">
+              {task.execution_profile_name ?? task.execution_profile_id ?? '未记录'}
+            </dd>
+          </div>
+          <div>
+            <dt className="ds-muted font-semibold">Adapter</dt>
+            <dd className="mt-1 break-all font-black">
+              {[task.adapter_key, task.adapter_version].filter(Boolean).join(' / ') || '未记录'}
+            </dd>
+          </div>
+          <div>
+            <dt className="ds-muted font-semibold">Revision</dt>
+            <dd className="mt-1 break-all font-black">
+              {task.execution_profile_revision_id ?? '未记录'}
+            </dd>
+          </div>
+          <div>
+            <dt className="ds-muted font-semibold">端点</dt>
+            <dd className="mt-1 break-all font-black">{task.endpoint_type}</dd>
+          </div>
+        </dl>
+        <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-4 text-xs">
+          {JSON.stringify(task.resolved_request_sanitized_snapshot, null, 2)}
+        </pre>
+      </section>
+
+      <section className="ds-card p-5">
         <h3 className="text-xl font-black">结果图</h3>
         {task.result_assets.length === 0 ? (
           <p className="ds-muted mt-4 text-sm">暂无结果图。</p>

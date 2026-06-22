@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 3 已完成，下一步进入阶段 4。
+当前状态：阶段 4 已完成，下一步进入阶段 5。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -525,6 +525,59 @@ npm run typecheck
 - 新任务不再依赖 `AiModel.parameterSchema`。
 - 每个任务都记录创建时的执行规则。
 - 后续 Worker 可以只读任务 snapshot。
+
+### 6.7 实施记录（2026-06-21）
+
+已完成：
+
+- `CreateImageTaskBody` 增加 `execution_profile_id`；未传时使用模型默认启用 profile。
+- 创建任务时读取默认或指定 profile 的 active revision，使用 revision 的 `parameter_schema` 校验用户参数。
+- 创建任务时合并 active revision 的 `default_params` 和用户参数，再写入 `parameterSnapshot` 和 `sanitizedParameterSnapshot`。
+- 参考图能力和数量从 active revision 的 `supportsReferenceImage`、`maxReferenceImages` 校验。
+- 新任务写入 `executionProfileId`、`executionProfileRevisionId`、`adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`。
+- 过渡期 `modelIdSnapshot` 使用 active revision 的 `upstream_model_id`，让阶段 5 前的旧 Worker OpenAI Image client 继续拿到上游模型 ID。
+- 任务列表/详情响应返回 profile/revision/adapter 信息和 `resolved_request_sanitized_snapshot`。
+- `/studio` 提交任务时带上选中模型默认 profile 的 `execution_profile_id`。
+- `/studio/tasks/[task_id]` 显示执行配置、adapter、revision 和最终脱敏请求预览。
+- Worker 旧路径写 `request_logs` 时同步保存 adapter/profile 和 resolved request snapshot 字段。
+- 新增 `scripts/verify-image-task-profile-snapshot.ts`，验证任务 profile snapshot 非空、修改 revision 后旧任务 snapshot 不变、未声明参数会失败。
+
+已验证：
+
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build
+npm run db:generate
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npm run db:init:m0
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" npx tsx scripts/verify-model-profiles.ts
+DATABASE_URL="postgresql://dreamstudio:dreamstudio@localhost:5432/dreamstudio?schema=public" REDIS_URL="redis://localhost:6379/0" DREAMSTUDIO_SECRET_KEY="local-development-secret-key-change-before-production" COOKIE_SECRET="local-development-cookie-secret-change-before-production" APP_BASE_URL="http://localhost:3000" npx tsx scripts/verify-image-task-profile-snapshot.ts
+docker compose up -d --build dreamstudio
+docker compose ps
+curl http://127.0.0.1:3001/healthz
+curl http://127.0.0.1:3001/readyz
+curl -I http://127.0.0.1:3000/
+```
+
+说明：本机 sandbox 环境中 `tsx` 创建 `/tmp/tsx-*/.pipe` 会触发 `EPERM`，且 sandboxed curl 无法访问 Docker 发布的 localhost 端口；上述 `tsx` verifier 和 localhost curl 已用同一命令在非 sandbox 环境通过。
+
+阶段 4 没有做：
+
+- 没有实现 Worker adapter registry。
+- 没有让 Worker 只读 task snapshot 构造请求。
+- 没有移除旧 `NewApiImageClient` 业务分支。
+- 没有实现 Gemini adapter。
+- 没有新增 Admin profile/revision 管理 UI。
+
+下一阶段要先查看：
+
+- `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Adapter Registry`
+- 本文件阶段 5
+- `apps/worker/src/modules/image-generation/image-generation.service.ts`
+- `apps/worker/src/modules/image-generation/new-api-image.client.ts`
+- `packages/storage/src/index.ts`
+- `apps/api/src/modules/new-api-config/`
 
 ## 7. 阶段 5：Adapter Registry 和 OpenAI Image 基础闭环
 
@@ -1061,14 +1114,14 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 3 完成后，下一步应该进入阶段 4：
+阶段 4 完成后，下一步应该进入阶段 5：
 
-1. 查看 `docs/14-dreamstudio-m5-image-task-worker-task-list.md`、本文件阶段 4、`docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `任务快照升级`。
-2. 查看 `apps/api/src/modules/image-tasks/image-tasks.controller.ts`、`apps/api/src/modules/image-tasks/image-tasks.service.ts`、`apps/api/src/modules/image-tasks/image-tasks.types.ts`。
-3. 查看 `apps/api/src/modules/model-catalog/parameter-schema.ts`、`apps/web/src/lib/image-tasks.ts`、`apps/web/src/app/studio/page.tsx`。
-4. 给 `CreateImageTaskBody` 增加 `execution_profile_id`，不传时使用模型默认 profile。
-5. 创建任务时读取 active revision，用 revision 的 `parameter_schema` 校验参数，合并 `default_params` 和用户参数。
-6. 写入 `executionProfileId`、`executionProfileRevisionId`、`adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`。
-7. 新增 `scripts/verify-image-task-profile-snapshot.ts`，验证新任务 snapshot 非空、修改 profile 后旧任务 snapshot 不变、未声明参数会失败。
+1. 查看 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Adapter Registry`、本文件阶段 5。
+2. 查看 `apps/worker/src/modules/image-generation/image-generation.service.ts`、`apps/worker/src/modules/image-generation/new-api-image.client.ts`。
+3. 查看 `packages/storage/src/index.ts`、`apps/api/src/modules/new-api-config/`。
+4. 新增 adapter registry，实现 `openai_images_generation` 和 `openai_images_edit` adapter。
+5. Worker 执行任务时根据 `adapterKeySnapshot` 找 adapter，并只读取 task snapshot 构造上游请求。
+6. 没有 profile snapshot 的任务直接失败并提示重新提交。
+7. 新增 `scripts/verify-image-adapters.ts`，验证 generation/edit 请求构造、URL 和 b64 响应解析、不支持 adapter key 失败。
 
 不要先做 Gemini adapter，也不要先做复杂 Admin UI。基础数据模型、初始化、任务快照和 OpenAI adapter 闭环跑通之前，后面的 UI 和模板都会反复返工。

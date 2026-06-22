@@ -299,6 +299,7 @@ function StudioContent() {
       const created = await createImageTask(
         {
           model_record_id: selectedModel.id,
+          execution_profile_id: selectedExecutionProfile?.id ?? null,
           prompt,
           negative_prompt: null,
           parameters: resolvedParameters,

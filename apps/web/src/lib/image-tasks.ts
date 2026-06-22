@@ -40,9 +40,15 @@ export interface ImageTask {
   model_record_id: string;
   model_id: string;
   endpoint_type: string;
+  execution_profile_id: string | null;
+  execution_profile_revision_id: string | null;
+  execution_profile_name: string | null;
+  adapter_key: string | null;
+  adapter_version: string | null;
   prompt_summary: string;
   negative_prompt_summary: string | null;
   sanitized_parameter_snapshot: Record<string, unknown>;
+  resolved_request_sanitized_snapshot: Record<string, unknown> | null;
   reference_asset_ids: string[];
   status: ImageTaskStatus;
   error_code: string | null;
@@ -70,6 +76,7 @@ export interface ImageTaskListResponse {
 
 export interface CreateImageTaskPayload {
   model_record_id: string;
+  execution_profile_id?: string | null;
   prompt: string;
   negative_prompt?: string | null;
   parameters: Record<string, string | number | boolean | null>;

@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 3 模型 API 已返回默认 active profile，Studio 已改为读取 profile schema/defaults；任务创建和 Worker 执行链路仍在旧路径，下一步进入阶段 4 写入任务 profile snapshot。
+当前状态：阶段 4 任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览；Worker 仍沿用旧 OpenAI Image client 路径，下一步进入阶段 5 Adapter Registry 和 OpenAI Image 基础闭环。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -468,6 +468,8 @@ resolved_request_sanitized_snapshot
 5. 生成脱敏后的最终请求预览。
 6. 把 adapter/profile/mapping/request 快照写入 `ImageTask`。
 7. 入队异步任务。
+
+阶段 4 已完成上述创建任务快照：`ImageTask` 会写入 `executionProfileId`、`executionProfileRevisionId`、`adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`；`modelIdSnapshot` 过渡期使用 active revision 的 `upstream_model_id`，以便旧 Worker client 在阶段 5 前仍能执行 OpenAI Image generation。`RequestLog` 已在旧 Worker 路径中补写 profile/adapter 和 resolved request 快照字段。
 
 Worker 执行时：
 

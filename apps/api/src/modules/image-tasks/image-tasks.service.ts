@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { HttpStatus, Injectable, OnModuleDestroy } from '@nestjs/common';
 import {
+  ExecutionProfileRevisionStatus,
   ImageTaskStatus,
   ModelEndpointType,
   ModelModality,
@@ -36,6 +37,12 @@ const MAX_PROMPT_LENGTH = 8000;
 const MAX_NEGATIVE_PROMPT_LENGTH = 4000;
 const MAX_REFERENCE_ASSETS = 8;
 const CLIENT_REQUEST_ID_PATTERN = /^[a-zA-Z0-9._:-]{1,120}$/;
+
+type ActiveExecutionProfile = Prisma.AiModelExecutionProfileGetPayload<{
+  include: {
+    revisions: true;
+  };
+}>;
 
 type TaskWithAssets = ImageTask & {
   resultAssets?: Asset[];
@@ -188,6 +195,7 @@ export class ImageTasksService implements OnModuleDestroy {
     const input = await this.validateCreateInput(
       {
         model_record_id: task.modelRecordId,
+        execution_profile_id: task.executionProfileId,
         prompt,
         negative_prompt: negativePrompt,
         parameters: task.parameterSnapshot,
@@ -227,6 +235,10 @@ export class ImageTasksService implements OnModuleDestroy {
 
   private async validateCreateInput(body: CreateImageTaskBody, session: SessionContext) {
     const modelRecordId = this.readUuid(body.model_record_id, 'model_record_id');
+    const requestedExecutionProfileId = this.readOptionalUuid(
+      body.execution_profile_id,
+      'execution_profile_id',
+    );
     const prompt = this.readString(body.prompt, 'prompt', 1, MAX_PROMPT_LENGTH);
     const negativePrompt = this.readOptionalString(
       body.negative_prompt,
@@ -259,21 +271,52 @@ export class ImageTasksService implements OnModuleDestroy {
       throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型不存在或已禁用');
     }
 
-    const schema = normalizeParameterSchema(model.parameterSchema);
-    const parameterResult = validateParameters(schema, body.parameters, {
-      requireRequiredFields: true,
+    const profile = await this.resolveActiveExecutionProfile(model.id, requestedExecutionProfileId);
+    const activeRevision = profile.revisions[0];
+    if (!activeRevision) {
+      throw apiError(HttpStatus.BAD_REQUEST, 'model_profile_missing', '模型没有可用执行配置');
+    }
+
+    const schema = normalizeParameterSchema(activeRevision.parameterSchema);
+    const userParameterResult = validateParameters(schema, body.parameters, {
+      requireRequiredFields: false,
     });
+    if (!userParameterResult.ok) {
+      throw validationFailed(userParameterResult.errors);
+    }
+    const mergedParameterResult = validateParameters(
+      schema,
+      {
+        ...toInputRecord(activeRevision.defaultParams),
+        ...userParameterResult.value,
+      },
+      {
+        requireRequiredFields: true,
+      },
+    );
+    const parameterResult = mergedParameterResult;
     if (!parameterResult.ok) {
       throw validationFailed(parameterResult.errors);
     }
 
     const referenceAssetIds = this.readReferenceAssetIds(body.reference_asset_ids);
     if (referenceAssetIds.length > 0) {
-      if (!model.supportsReferenceImage) {
+      if (!activeRevision.supportsReferenceImage) {
         throw validationFailed([
           {
             field: 'reference_asset_ids',
             message: '当前模型不支持参考图',
+          },
+        ]);
+      }
+      if (
+        activeRevision.maxReferenceImages >= 0 &&
+        referenceAssetIds.length > activeRevision.maxReferenceImages
+      ) {
+        throw validationFailed([
+          {
+            field: 'reference_asset_ids',
+            message: `当前执行配置最多支持 ${activeRevision.maxReferenceImages} 张参考图`,
           },
         ]);
       }
@@ -293,7 +336,17 @@ export class ImageTasksService implements OnModuleDestroy {
       }
     }
 
-    const endpointType = this.resolveImageEndpointType(model.endpointTypes, referenceAssetIds);
+    const endpointType = this.resolveImageEndpointTypeFromProfile(profile, referenceAssetIds);
+    const executionProfileSnapshot = this.buildExecutionProfileSnapshot(profile, activeRevision);
+    const requestMappingSnapshot = activeRevision.requestMapping as Prisma.InputJsonValue;
+    const resolvedRequestSanitizedSnapshot = this.buildResolvedRequestSanitizedSnapshot({
+      endpointType,
+      parameters: parameterResult.value,
+      profile,
+      prompt,
+      referenceAssetIds,
+      revision: activeRevision,
+    });
 
     const encryptedPrompt = this.encryptionService.encryptSecret(prompt);
     const encryptedNegativePrompt = negativePrompt
@@ -308,6 +361,11 @@ export class ImageTasksService implements OnModuleDestroy {
       encryptedPrompt,
       encryptedNegativePrompt,
       parameters: parameterResult.value as Prisma.InputJsonObject,
+      executionProfile: profile,
+      executionProfileRevision: activeRevision,
+      executionProfileSnapshot,
+      requestMappingSnapshot,
+      resolvedRequestSanitizedSnapshot,
       referenceAssetIds,
       endpointType,
       clientRequestId,
@@ -323,8 +381,12 @@ export class ImageTasksService implements OnModuleDestroy {
         data: {
           userId,
           modelRecordId: input.model.id,
-          modelIdSnapshot: input.model.modelId,
+          executionProfileId: input.executionProfile.id,
+          executionProfileRevisionId: input.executionProfileRevision.id,
+          modelIdSnapshot: input.executionProfileRevision.upstreamModelId,
           endpointTypeSnapshot: input.endpointType,
+          adapterKeySnapshot: input.executionProfileRevision.adapterKey,
+          adapterVersionSnapshot: input.executionProfileRevision.adapterVersion,
           newApiBaseUrlSnapshot: input.newApiConfig.newApiBaseUrl,
           promptSummary: summarizeText(input.prompt),
           encryptedPrompt: input.encryptedPrompt.encrypted,
@@ -336,6 +398,9 @@ export class ImageTasksService implements OnModuleDestroy {
           negativePromptTag: input.encryptedNegativePrompt?.tag ?? null,
           parameterSnapshot: input.parameters,
           sanitizedParameterSnapshot: input.parameters,
+          executionProfileSnapshot: input.executionProfileSnapshot,
+          requestMappingSnapshot: input.requestMappingSnapshot,
+          resolvedRequestSanitizedSnapshot: input.resolvedRequestSanitizedSnapshot,
           referenceAssetIds: input.referenceAssetIds,
           status: 'pending',
           clientRequestId: input.clientRequestId,
@@ -365,34 +430,136 @@ export class ImageTasksService implements OnModuleDestroy {
     }
   }
 
-  private resolveImageEndpointType(
-    endpointTypes: ModelEndpointType[],
+  private async resolveActiveExecutionProfile(
+    modelRecordId: string,
+    requestedExecutionProfileId: string | undefined,
+  ): Promise<ActiveExecutionProfile> {
+    const profile = await prisma.aiModelExecutionProfile.findFirst({
+      where: {
+        aiModelId: modelRecordId,
+        deletedAt: null,
+        isEnabled: true,
+        ...(requestedExecutionProfileId
+          ? { id: requestedExecutionProfileId }
+          : {
+              isDefault: true,
+            }),
+      },
+      include: {
+        revisions: {
+          where: {
+            status: ExecutionProfileRevisionStatus.active,
+          },
+          orderBy: {
+            revisionNo: 'desc',
+          },
+          take: 1,
+        },
+      },
+      orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    if (!profile || profile.revisions.length !== 1) {
+      throw apiError(HttpStatus.BAD_REQUEST, 'model_profile_missing', '模型没有可用执行配置');
+    }
+
+    return profile;
+  }
+
+  private resolveImageEndpointTypeFromProfile(
+    profile: ActiveExecutionProfile,
     referenceAssetIds: string[],
   ): ModelEndpointType {
-    const supportsGenerations = endpointTypes.includes(ModelEndpointType.openai_image_generations);
-    const supportsEdits = endpointTypes.includes(ModelEndpointType.openai_image_edits);
-
-    if (referenceAssetIds.length > 0 && supportsEdits) {
+    if (profile.adapterKey === 'openai_images_edit') {
       return ModelEndpointType.openai_image_edits;
     }
 
-    if (referenceAssetIds.length > 0 && !supportsEdits) {
-      throw apiError(
-        HttpStatus.BAD_REQUEST,
-        'endpoint_not_supported',
-        '当前模型不支持图片编辑端点',
-      );
-    }
-
-    if (supportsGenerations) {
+    if (profile.adapterKey === 'openai_images_generation') {
+      if (referenceAssetIds.length > 0) {
+        throw apiError(
+          HttpStatus.BAD_REQUEST,
+          'endpoint_not_supported',
+          '当前执行配置不支持参考图',
+        );
+      }
       return ModelEndpointType.openai_image_generations;
     }
 
-    if (supportsEdits) {
-      return ModelEndpointType.openai_image_edits;
-    }
+    throw apiError(
+      HttpStatus.BAD_REQUEST,
+      'adapter_not_supported',
+      '当前执行配置暂不支持图片任务提交',
+    );
+  }
 
-    throw apiError(HttpStatus.BAD_REQUEST, 'endpoint_not_supported', '当前模型暂不支持图片任务');
+  private buildExecutionProfileSnapshot(
+    profile: ActiveExecutionProfile,
+    revision: ActiveExecutionProfile['revisions'][number],
+  ): Prisma.InputJsonObject {
+    return {
+      profile_id: profile.id,
+      revision_id: revision.id,
+      revision_no: revision.revisionNo,
+      name: profile.name,
+      operation: profile.operation,
+      adapter_key: revision.adapterKey,
+      adapter_version: revision.adapterVersion,
+      transport_key: revision.transportKey,
+      upstream_model_id: revision.upstreamModelId,
+      upstream_endpoint_path: revision.upstreamEndpointPath,
+      reference_transfer_mode: revision.referenceTransferMode,
+      supports_reference_image: revision.supportsReferenceImage,
+      max_reference_images: revision.maxReferenceImages,
+      parameter_schema: revision.parameterSchema as Prisma.InputJsonValue,
+      default_params: revision.defaultParams as Prisma.InputJsonValue,
+      response_parser_key: revision.responseParserKey,
+      capabilities: revision.capabilities as Prisma.InputJsonValue,
+      validation_rules: revision.validationRules as Prisma.InputJsonValue,
+      source_kind: revision.sourceKind,
+      source_url: revision.sourceUrl,
+      source_checked_at: revision.sourceCheckedAt?.toISOString() ?? null,
+      source_summary: revision.sourceSummary,
+    };
+  }
+
+  private buildResolvedRequestSanitizedSnapshot(input: {
+    endpointType: ModelEndpointType;
+    parameters: Record<string, string | number | boolean | null>;
+    profile: ActiveExecutionProfile;
+    prompt: string;
+    referenceAssetIds: string[];
+    revision: ActiveExecutionProfile['revisions'][number];
+  }): Prisma.InputJsonObject {
+    const endpointPath =
+      input.revision.upstreamEndpointPath ??
+      (input.endpointType === ModelEndpointType.openai_image_edits
+        ? '/v1/images/edits'
+        : '/v1/images/generations');
+
+    return {
+      adapter_key: input.revision.adapterKey,
+      adapter_version: input.revision.adapterVersion,
+      transport_key: input.revision.transportKey,
+      endpoint_type: input.endpointType,
+      endpoint_path: endpointPath,
+      content_type:
+        input.endpointType === ModelEndpointType.openai_image_edits ? 'multipart' : 'json',
+      body: {
+        model: input.revision.upstreamModelId,
+        prompt: summarizeText(input.prompt),
+        ...input.parameters,
+        ...(input.referenceAssetIds.length > 0
+          ? {
+              reference_asset_ids: input.referenceAssetIds,
+            }
+          : {}),
+      },
+      profile: {
+        id: input.profile.id,
+        revision_id: input.revision.id,
+        operation: input.profile.operation,
+      },
+    };
   }
 
   private async enqueueTask(task: ImageTask) {
@@ -454,9 +621,15 @@ export class ImageTasksService implements OnModuleDestroy {
       model_record_id: task.modelRecordId,
       model_id: task.modelIdSnapshot,
       endpoint_type: task.endpointTypeSnapshot,
+      execution_profile_id: task.executionProfileId,
+      execution_profile_revision_id: task.executionProfileRevisionId,
+      execution_profile_name: this.readExecutionProfileSnapshotName(task.executionProfileSnapshot),
+      adapter_key: task.adapterKeySnapshot,
+      adapter_version: task.adapterVersionSnapshot,
       prompt_summary: task.promptSummary,
       negative_prompt_summary: task.negativePromptSummary,
       sanitized_parameter_snapshot: task.sanitizedParameterSnapshot,
+      resolved_request_sanitized_snapshot: task.resolvedRequestSanitizedSnapshot,
       reference_asset_ids: task.referenceAssetIds,
       status: task.status,
       error_code: task.errorCode,
@@ -482,6 +655,11 @@ export class ImageTasksService implements OnModuleDestroy {
         created_at: attempt.createdAt.toISOString(),
       })),
     };
+  }
+
+  private readExecutionProfileSnapshotName(snapshot: unknown) {
+    const record = toInputRecord(snapshot);
+    return typeof record.name === 'string' ? record.name : null;
   }
 
   private serializeAsset(asset: Asset): PublicTaskAsset {
@@ -619,4 +797,22 @@ export class ImageTasksService implements OnModuleDestroy {
 function summarizeText(text: string) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   return normalized.length > 180 ? `${normalized.slice(0, 177)}...` : normalized;
+}
+
+function toInputRecord(value: unknown): Record<string, string | number | boolean | null> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  const record: Record<string, string | number | boolean | null> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (
+      item === null ||
+      typeof item === 'string' ||
+      typeof item === 'boolean' ||
+      (typeof item === 'number' && Number.isFinite(item))
+    ) {
+      record[key] = item;
+    }
+  }
+  return record;
 }

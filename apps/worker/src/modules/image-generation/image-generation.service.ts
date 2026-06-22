@@ -338,6 +338,10 @@ export class ImageGenerationService {
         newApiBaseUrlHost: readHost(task.newApiBaseUrlSnapshot),
         modelId: task.modelIdSnapshot,
         endpointType: task.endpointTypeSnapshot,
+        adapterKey: task.adapterKeySnapshot,
+        adapterVersion: task.adapterVersionSnapshot,
+        executionProfileId: task.executionProfileId,
+        executionProfileRevisionId: task.executionProfileRevisionId,
         status: input.status,
         httpStatus: input.httpStatus ?? null,
         durationMs: input.durationMs ?? null,
@@ -346,6 +350,9 @@ export class ImageGenerationService {
         promptIv: task.promptIv,
         promptTag: task.promptTag,
         sanitizedParams: toInputJsonObject(task.sanitizedParameterSnapshot),
+        resolvedRequestSanitized: task.resolvedRequestSanitizedSnapshot
+          ? toInputJsonObject(task.resolvedRequestSanitizedSnapshot)
+          : undefined,
         encryptedParams: encryptedParams.encrypted,
         paramsIv: encryptedParams.iv,
         paramsTag: encryptedParams.tag,

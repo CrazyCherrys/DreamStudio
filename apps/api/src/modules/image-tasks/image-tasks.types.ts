@@ -1,5 +1,6 @@
 export interface CreateImageTaskBody {
   model_record_id?: unknown;
+  execution_profile_id?: unknown;
   prompt?: unknown;
   negative_prompt?: unknown;
   parameters?: unknown;
@@ -23,9 +24,15 @@ export interface PublicImageTask {
   model_record_id: string;
   model_id: string;
   endpoint_type: string;
+  execution_profile_id: string | null;
+  execution_profile_revision_id: string | null;
+  execution_profile_name: string | null;
+  adapter_key: string | null;
+  adapter_version: string | null;
   prompt_summary: string;
   negative_prompt_summary: string | null;
   sanitized_parameter_snapshot: unknown;
+  resolved_request_sanitized_snapshot: unknown;
   reference_asset_ids: string[];
   status: string;
   error_code: string | null;
