@@ -112,10 +112,10 @@ M5 不实现：
 2. 确认任务仍为 `pending`，否则跳过。
 3. 更新任务为 `running` 并写入 `started_at`。
 4. 创建 `image_task_attempts`。
-5. 读取模型快照、参数快照和参考图资产。
+5. 读取 profile/adapter/request mapping 快照、参数快照和参考图资产。
 6. 解密用户 new-api key。
-7. 根据 `endpoint_type_snapshot` 组装上游请求。
-8. 调用 new-api。
+7. 根据 `adapter_key_snapshot` 选择 Worker adapter。
+8. adapter 根据 `request_mapping_snapshot` 组装上游请求，并通过 new-api 底层 HTTP client 发送。
 9. 写 `request_logs`。
 10. 解析上游结果。
 11. 下载 `url` 图片或解码 `b64_json`。
@@ -145,9 +145,10 @@ M5 不实现：
 
 ## 5. new-api 图片客户端
 
-新增 Worker 内部适配：
+Worker 内部适配：
 
 - `apps/worker/src/modules/image-generation/new-api-image.client.ts`
+- `apps/worker/src/modules/image-generation/image-adapter.registry.ts`
 
 支持：
 
@@ -156,10 +157,12 @@ M5 不实现：
 
 请求字段：
 
-- `model` 来自 `model_id_snapshot`。
+- `model` 来自 `model_id_snapshot`，该字段由 active profile revision 的 `upstream_model_id` 快照而来。
 - `prompt` 来自解密后的 Prompt。
-- 其他参数来自 `parameter_snapshot`。
-- 参考图来自 M4 assets，经存储层读取为 Buffer 后 multipart 上传。
+- 其他参数来自 `parameter_snapshot`，再按 `request_mapping_snapshot.fields` 映射到上游字段。
+- generation adapter 使用 JSON body；edit adapter 使用 multipart body。
+- 参考图来自 M4 assets，经存储层读取为 Buffer 后 multipart 上传；edit adapter 的图片字段名来自 `request_mapping_snapshot.reference_field.target`，支持 `image` 和 `image[]`。
+- 没有 `execution_profile_snapshot` 或 `request_mapping_snapshot` 的开发期旧任务会失败，并提示用户重新提交任务。
 
 错误映射：
 
@@ -169,6 +172,8 @@ M5 不实现：
 - `429/5xx` -> `retryable`
 - `4xx` 参数错误 -> non-retryable failed
 - 网络失败 -> `new_api_connection_failed`
+- 不支持的 adapter key -> `adapter_not_supported`
+- 缺少 profile snapshot -> `profile_snapshot_missing`
 
 ---
 

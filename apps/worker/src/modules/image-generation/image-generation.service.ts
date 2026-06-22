@@ -16,6 +16,7 @@ import {
   NewApiImageClientError,
   type NewApiImageReference,
 } from './new-api-image.client';
+import { getImageGenerationAdapter, normalizeImageAdapterError } from './image-adapter.registry';
 
 const REQUEST_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const IMAGE_DOWNLOAD_TIMEOUT_MS = 30000;
@@ -160,13 +161,11 @@ export class ImageGenerationService {
     const startedAt = Date.now();
     let httpStatus: number | null = null;
     try {
-      const upstream = await this.client.createImage({
-        baseUrl: task.newApiBaseUrlSnapshot,
+      const adapter = getImageGenerationAdapter(task.adapterKeySnapshot);
+      const upstream = await adapter.execute({
+        task,
+        client: this.client,
         apiKey,
-        endpointType: task.endpointTypeSnapshot as
-          | 'openai_image_generations'
-          | 'openai_image_edits',
-        model: task.modelIdSnapshot,
         prompt,
         parameters,
         references,
@@ -440,6 +439,13 @@ function normalizeFailure(error: unknown): WorkerFailure {
       httpStatus: error.httpStatus,
       retryable: error.isRetryable,
       taskStatus: error.code === 'timeout' ? 'timeout' : 'failed',
+    };
+  }
+  const adapterFailure = normalizeImageAdapterError(error);
+  if (adapterFailure) {
+    return {
+      ...adapterFailure,
+      taskStatus: 'failed',
     };
   }
   return {

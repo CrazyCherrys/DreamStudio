@@ -17,6 +17,24 @@ export interface NewApiImageRequest {
   timeoutMs?: number;
 }
 
+export interface NewApiJsonImageRequest {
+  baseUrl: string;
+  apiKey: string;
+  endpointPath: string;
+  body: Record<string, unknown>;
+  timeoutMs?: number;
+}
+
+export interface NewApiMultipartImageRequest {
+  baseUrl: string;
+  apiKey: string;
+  endpointPath: string;
+  fields: Record<string, unknown>;
+  references?: NewApiImageReference[];
+  referenceFieldName?: string;
+  timeoutMs?: number;
+}
+
 export interface NewApiImageData {
   url?: string;
   b64_json?: string;
@@ -51,31 +69,82 @@ export class NewApiImageClient {
   async createImage(input: NewApiImageRequest): Promise<NewApiImageResponse> {
     const endpoint =
       input.endpointType === 'openai_image_edits' ? '/v1/images/edits' : '/v1/images/generations';
+    if (input.endpointType === 'openai_image_edits') {
+      return this.sendMultipartImageRequest({
+        baseUrl: input.baseUrl,
+        apiKey: input.apiKey,
+        endpointPath: endpoint,
+        fields: {
+          model: input.model,
+          prompt: input.prompt,
+          ...input.parameters,
+        },
+        references: input.references,
+        referenceFieldName: 'image',
+        timeoutMs: input.timeoutMs,
+      });
+    }
+
+    return this.sendJsonImageRequest({
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey,
+      endpointPath: endpoint,
+      body: {
+        model: input.model,
+        prompt: input.prompt,
+        ...input.parameters,
+      },
+      timeoutMs: input.timeoutMs,
+    });
+  }
+
+  async sendJsonImageRequest(input: NewApiJsonImageRequest): Promise<NewApiImageResponse> {
+    return this.sendImageRequest({
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey,
+      endpointPath: input.endpointPath,
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${input.apiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(input.body),
+      timeoutMs: input.timeoutMs,
+    });
+  }
+
+  async sendMultipartImageRequest(
+    input: NewApiMultipartImageRequest,
+  ): Promise<NewApiImageResponse> {
+    return this.sendImageRequest({
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey,
+      endpointPath: input.endpointPath,
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${input.apiKey}`,
+      },
+      body: this.buildMultipartBody(input),
+      timeoutMs: input.timeoutMs,
+    });
+  }
+
+  private async sendImageRequest(input: {
+    baseUrl: string;
+    apiKey: string;
+    endpointPath: string;
+    headers: HeadersInit;
+    body: BodyInit;
+    timeoutMs?: number;
+  }): Promise<NewApiImageResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 120000);
 
     try {
-      const response = await fetch(`${input.baseUrl.replace(/\/+$/, '')}${endpoint}`, {
+      const response = await fetch(`${input.baseUrl.replace(/\/+$/, '')}${input.endpointPath}`, {
         method: 'POST',
-        headers:
-          input.endpointType === 'openai_image_edits'
-            ? {
-                accept: 'application/json',
-                authorization: `Bearer ${input.apiKey}`,
-              }
-            : {
-                accept: 'application/json',
-                authorization: `Bearer ${input.apiKey}`,
-                'content-type': 'application/json',
-              },
-        body:
-          input.endpointType === 'openai_image_edits'
-            ? this.buildEditBody(input)
-            : JSON.stringify({
-                model: input.model,
-                prompt: input.prompt,
-                ...input.parameters,
-              }),
+        headers: input.headers,
+        body: input.body,
         signal: controller.signal,
       });
       const rawText = await response.text();
@@ -112,18 +181,17 @@ export class NewApiImageClient {
     }
   }
 
-  private buildEditBody(input: NewApiImageRequest) {
+  private buildMultipartBody(input: NewApiMultipartImageRequest) {
     const formData = new FormData();
-    formData.set('model', input.model);
-    formData.set('prompt', input.prompt);
-    for (const [key, value] of Object.entries(input.parameters)) {
-      if (value !== undefined && value !== null && key !== 'model' && key !== 'prompt') {
-        formData.set(key, String(value));
+    for (const [key, value] of Object.entries(input.fields)) {
+      if (value !== undefined && value !== null) {
+        formData.set(key, stringifyFormValue(value));
       }
     }
+    const referenceFieldName = input.referenceFieldName || 'image';
     (input.references ?? []).forEach((reference, index) => {
       formData.append(
-        'image',
+        referenceFieldName,
         new File(
           [toArrayBuffer(reference.buffer)],
           basename(reference.filename) || `image-${index}.png`,
@@ -252,6 +320,16 @@ function isAbortError(error: unknown) {
   return (
     error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))
   );
+}
+
+function stringifyFormValue(value: unknown) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return JSON.stringify(value);
 }
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {

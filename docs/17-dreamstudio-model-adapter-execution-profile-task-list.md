@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 4 已完成，下一步进入阶段 5。
+当前状态：阶段 5 已完成，下一步进入阶段 6。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -562,11 +562,8 @@ curl -I http://127.0.0.1:3000/
 
 说明：本机 sandbox 环境中 `tsx` 创建 `/tmp/tsx-*/.pipe` 会触发 `EPERM`，且 sandboxed curl 无法访问 Docker 发布的 localhost 端口；上述 `tsx` verifier 和 localhost curl 已用同一命令在非 sandbox 环境通过。
 
-阶段 4 没有做：
+阶段 5 前尚未完成：
 
-- 没有实现 Worker adapter registry。
-- 没有让 Worker 只读 task snapshot 构造请求。
-- 没有移除旧 `NewApiImageClient` 业务分支。
 - 没有实现 Gemini adapter。
 - 没有新增 Admin profile/revision 管理 UI。
 
@@ -642,6 +639,15 @@ npm run typecheck
 
 - Worker 执行路径进入 adapter registry。
 - OpenAI Image generation/edit 仍能完成异步任务闭环。
+
+### 7.7 已完成
+
+- 已新增 `apps/worker/src/modules/image-generation/image-adapter.registry.ts`。
+- Worker 执行任务时根据 `adapterKeySnapshot` 选择 adapter，并要求 `executionProfileSnapshot` 和 `requestMappingSnapshot` 存在；缺失时任务失败并提示重新提交。
+- `openai_images_generation` adapter 通过 snapped `request_mapping` 构造 JSON 请求，默认只允许 `/v1/images/generations`。
+- `openai_images_edit` adapter 通过 snapped `request_mapping` 构造 multipart 请求，默认只允许 `/v1/images/edits`，参考图字段支持 `image` 和 `image[]`。
+- `NewApiImageClient` 保留为底层 HTTP 能力，提供 JSON/multipart 发送方法；业务分支已迁移到 adapter。
+- 已新增 `scripts/verify-image-adapters.ts`，用 mock upstream 验证 generation/edit 请求构造、`data[].url`/`data[].b64_json` 解析、不支持 adapter key 和缺少 profile snapshot 的失败归一化。
 
 ## 8. 阶段 6：Parameter Schema v2 和 Studio 快捷参数
 
@@ -1114,14 +1120,9 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 4 完成后，下一步应该进入阶段 5：
+阶段 5 完成后，下一步应该进入阶段 6：
 
-1. 查看 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Adapter Registry`、本文件阶段 5。
-2. 查看 `apps/worker/src/modules/image-generation/image-generation.service.ts`、`apps/worker/src/modules/image-generation/new-api-image.client.ts`。
-3. 查看 `packages/storage/src/index.ts`、`apps/api/src/modules/new-api-config/`。
-4. 新增 adapter registry，实现 `openai_images_generation` 和 `openai_images_edit` adapter。
-5. Worker 执行任务时根据 `adapterKeySnapshot` 找 adapter，并只读取 task snapshot 构造上游请求。
-6. 没有 profile snapshot 的任务直接失败并提示重新提交。
-7. 新增 `scripts/verify-image-adapters.ts`，验证 generation/edit 请求构造、URL 和 b64 响应解析、不支持 adapter key 失败。
-
-不要先做 Gemini adapter，也不要先做复杂 Admin UI。基础数据模型、初始化、任务快照和 OpenAI adapter 闭环跑通之前，后面的 UI 和模板都会反复返工。
+1. 查看本文件阶段 6 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Parameter Schema v2`。
+2. 查看 `apps/api/src/modules/model-catalog/parameter-schema.ts`、`apps/web/src/lib/model-catalog.ts`、`apps/web/src/components/model-catalog/model-components.tsx`、`apps/web/src/app/studio/page.tsx`、`apps/web/src/app/globals.css`。
+3. 确认后端 Schema v2 字段校验、Studio 快捷参数渲染和 Admin schema builder 是否还存在缺口。
+4. 不要先做 Gemini adapter，也不要先做复杂 Admin profile/revision UI。
