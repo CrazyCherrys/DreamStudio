@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { AdminConfirmDialog, AdminDialog } from '@/components/admin-dialog';
 import { useAuth } from '@/components/auth-provider';
 import { AdminLayout } from '@/components/layouts';
 import { RouteGuard } from '@/components/route-guard';
@@ -19,6 +20,13 @@ import {
 } from '@/lib/admin';
 import { type PublicNewApiConfig } from '@/lib/new-api-config';
 
+type UserDialogState =
+  | { kind: 'status'; nextStatus: UserStatus }
+  | { kind: 'reset-password' }
+  | { kind: 'new-api-config' }
+  | { kind: 'clear-new-api-config' }
+  | null;
+
 function AdminUserDetailContent() {
   const params = useParams<{ user_id: string }>();
   const { csrfToken } = useAuth();
@@ -26,6 +34,7 @@ function AdminUserDetailContent() {
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [dialog, setDialog] = useState<UserDialogState>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,19 +58,20 @@ function AdminUserDetailContent() {
     void loadUser();
   }, [params.user_id]);
 
+  function closeDialog() {
+    if (submitting) {
+      return;
+    }
+    setDialog(null);
+    setApiKey('');
+    setBaseUrl('');
+    setNewPassword('');
+    setError(null);
+  }
+
   async function changeStatus(nextStatus: UserStatus) {
     if (!csrfToken || !detail) {
       setError('登录状态已失效，请重新登录');
-      return;
-    }
-    const confirmed = window.confirm(
-      nextStatus === 'active'
-        ? `确认启用用户 ${detail.username}？`
-        : nextStatus === 'disabled'
-          ? `确认禁用用户 ${detail.username}？该用户现有会话会立即失效。`
-          : `确认软删除用户 ${detail.username}？该用户现有会话会立即失效。`,
-    );
-    if (!confirmed) {
       return;
     }
 
@@ -71,6 +81,7 @@ function AdminUserDetailContent() {
     try {
       await updateAdminUserStatus(detail.id, nextStatus, csrfToken);
       setMessage(`用户状态已更新为 ${statusLabel(nextStatus)}。`);
+      setDialog(null);
       await loadUser();
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '更新用户状态失败');
@@ -99,6 +110,7 @@ function AdminUserDetailContent() {
       await resetAdminUserPassword(detail.id, newPassword, csrfToken);
       setNewPassword('');
       setMessage('密码已重置，旧会话已撤销。');
+      setDialog(null);
       await loadUser();
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '重置密码失败');
@@ -131,7 +143,9 @@ function AdminUserDetailContent() {
         },
       );
       setApiKey('');
+      setBaseUrl('');
       setMessage(`new-api 配置已保存，当前状态：${statusLabel(nextConfig.status)}。`);
+      setDialog(null);
       await loadUser();
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '保存用户配置失败');
@@ -145,9 +159,6 @@ function AdminUserDetailContent() {
       setError('登录状态已失效，请重新登录');
       return;
     }
-    if (!window.confirm(`确认清空用户 ${detail.username} 的 new-api 密钥？`)) {
-      return;
-    }
 
     setSubmitting(true);
     setMessage(null);
@@ -158,6 +169,7 @@ function AdminUserDetailContent() {
         csrfToken,
       });
       setMessage('new-api 配置已清空。');
+      setDialog(null);
       await loadUser();
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '清空用户配置失败');
@@ -208,7 +220,11 @@ function AdminUserDetailContent() {
             <div className="mt-6 flex flex-wrap gap-3">
               <DsButton
                 disabled={submitting || detail.status === 'active'}
-                onClick={() => void changeStatus('active')}
+                onClick={() => {
+                  setMessage(null);
+                  setError(null);
+                  setDialog({ kind: 'status', nextStatus: 'active' });
+                }}
                 type="button"
                 variant="secondary"
               >
@@ -216,7 +232,11 @@ function AdminUserDetailContent() {
               </DsButton>
               <DsButton
                 disabled={submitting || detail.status === 'disabled'}
-                onClick={() => void changeStatus('disabled')}
+                onClick={() => {
+                  setMessage(null);
+                  setError(null);
+                  setDialog({ kind: 'status', nextStatus: 'disabled' });
+                }}
                 type="button"
                 variant="danger"
               >
@@ -224,7 +244,11 @@ function AdminUserDetailContent() {
               </DsButton>
               <DsButton
                 disabled={submitting || detail.status === 'deleted'}
-                onClick={() => void changeStatus('deleted')}
+                onClick={() => {
+                  setMessage(null);
+                  setError(null);
+                  setDialog({ kind: 'status', nextStatus: 'deleted' });
+                }}
                 type="button"
                 variant="danger"
               >
@@ -247,6 +271,31 @@ function AdminUserDetailContent() {
                 {detail.new_api_config.last_test_error}
               </p>
             ) : null}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <DsButton
+                disabled={submitting}
+                onClick={() => {
+                  setMessage(null);
+                  setError(null);
+                  setDialog({ kind: 'new-api-config' });
+                }}
+                type="button"
+              >
+                代配置 new-api
+              </DsButton>
+              <DsButton
+                disabled={submitting || detail.new_api_config.status === 'missing'}
+                onClick={() => {
+                  setMessage(null);
+                  setError(null);
+                  setDialog({ kind: 'clear-new-api-config' });
+                }}
+                type="button"
+                variant="danger"
+              >
+                清空密钥
+              </DsButton>
+            </div>
           </section>
 
           <section className="ds-card admin-panel p-6">
@@ -278,28 +327,92 @@ function AdminUserDetailContent() {
           <section className="ds-card admin-panel p-6">
             <span className="ds-badge">Password</span>
             <h2 className="mt-4 text-2xl font-black">重置密码</h2>
-            <form className="mt-5 grid gap-4" onSubmit={resetPassword}>
-              <DsInput
-                label="新密码"
-                minLength={8}
-                onChange={(event) => setNewPassword(event.target.value)}
-                required
-                type="password"
-                value={newPassword}
-              />
-              <DsButton disabled={submitting || !newPassword} type="submit" variant="danger">
-                重置密码并撤销会话
-              </DsButton>
-            </form>
-          </section>
-
-          <section className="ds-card admin-panel p-6 xl:col-span-2">
-            <span className="ds-badge">代理配置</span>
-            <h2 className="mt-4 text-2xl font-black">代用户配置 new-api</h2>
-            <form
-              className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto_auto]"
-              onSubmit={saveUserConfig}
+            <p className="ds-muted mt-2 text-sm leading-6">重置后该用户现有会话会立即失效。</p>
+            <DsButton
+              className="mt-5"
+              disabled={submitting}
+              onClick={() => {
+                setMessage(null);
+                setError(null);
+                setDialog({ kind: 'reset-password' });
+              }}
+              type="button"
+              variant="danger"
             >
+              重置密码
+            </DsButton>
+          </section>
+        </div>
+      ) : null}
+
+      {detail && dialog?.kind === 'status' ? (
+        <AdminConfirmDialog
+          confirmLabel={submitting ? '提交中...' : `确认${statusLabel(dialog.nextStatus)}`}
+          description={statusDialogDescription(detail.username, dialog.nextStatus)}
+          disabled={submitting}
+          error={error}
+          onCancel={closeDialog}
+          onConfirm={() => void changeStatus(dialog.nextStatus)}
+          title={`${statusLabel(dialog.nextStatus)}用户？`}
+          variant={dialog.nextStatus === 'active' ? 'primary' : 'danger'}
+        />
+      ) : null}
+
+      {detail && dialog?.kind === 'reset-password' ? (
+        <AdminDialog
+          badge="Password"
+          disabled={submitting}
+          maxWidthClass="max-w-lg"
+          onClose={closeDialog}
+          title="重置密码"
+        >
+          <form className="grid gap-4" onSubmit={resetPassword}>
+            <p className="ds-muted text-sm leading-6">
+              为用户「{detail.username}」设置新密码。提交后该用户现有会话会立即失效。
+            </p>
+            <DsInput
+              label="新密码"
+              minLength={8}
+              onChange={(event) => setNewPassword(event.target.value)}
+              required
+              type="password"
+              value={newPassword}
+            />
+            {error ? (
+              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+                {error}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap justify-end gap-3">
+              <DsButton
+                disabled={submitting}
+                onClick={closeDialog}
+                type="button"
+                variant="secondary"
+              >
+                取消
+              </DsButton>
+              <DsButton disabled={submitting || !newPassword} type="submit" variant="danger">
+                {submitting ? '重置中...' : '重置密码并撤销会话'}
+              </DsButton>
+            </div>
+          </form>
+        </AdminDialog>
+      ) : null}
+
+      {detail && dialog?.kind === 'new-api-config' ? (
+        <AdminDialog
+          badge="new-api"
+          disabled={submitting}
+          maxWidthClass="max-w-2xl"
+          onClose={closeDialog}
+          title="代用户配置 new-api"
+        >
+          <form className="grid gap-4" onSubmit={saveUserConfig}>
+            <p className="ds-muted text-sm leading-6">
+              为用户「{detail.username}」保存 new-api 密钥。保存前会执行连接测试。
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
               <DsInput
                 label="API Key"
                 onChange={(event) => setApiKey(event.target.value)}
@@ -313,27 +426,54 @@ function AdminUserDetailContent() {
                 placeholder="留空使用系统默认地址"
                 value={baseUrl}
               />
-              <div className="grid items-end">
-                <DsButton disabled={submitting} type="submit">
-                  保存
-                </DsButton>
-              </div>
-              <div className="grid items-end">
-                <DsButton
-                  disabled={submitting}
-                  onClick={deleteUserConfig}
-                  type="button"
-                  variant="danger"
-                >
-                  清空密钥
-                </DsButton>
-              </div>
-            </form>
-          </section>
-        </div>
+            </div>
+            {error ? (
+              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+                {error}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap justify-end gap-3">
+              <DsButton
+                disabled={submitting}
+                onClick={closeDialog}
+                type="button"
+                variant="secondary"
+              >
+                取消
+              </DsButton>
+              <DsButton disabled={submitting || !apiKey.trim()} type="submit">
+                {submitting ? '保存中...' : '保存并测试'}
+              </DsButton>
+            </div>
+          </form>
+        </AdminDialog>
+      ) : null}
+
+      {detail && dialog?.kind === 'clear-new-api-config' ? (
+        <AdminConfirmDialog
+          confirmLabel={submitting ? '清空中...' : '确认清空'}
+          description={`确认清空用户「${detail.username}」的 new-api 密钥？清空后该用户将无法继续使用自己的已保存配置。`}
+          disabled={submitting}
+          error={error}
+          onCancel={closeDialog}
+          onConfirm={() => void deleteUserConfig()}
+          title="清空 new-api 密钥？"
+        />
       ) : null}
     </div>
   );
+}
+
+function statusDialogDescription(username: string, nextStatus: UserStatus) {
+  if (nextStatus === 'active') {
+    return `确认启用用户「${username}」？启用后该用户可以重新登录和使用服务。`;
+  }
+
+  if (nextStatus === 'disabled') {
+    return `确认禁用用户「${username}」？该用户现有会话会立即失效。`;
+  }
+
+  return `确认软删除用户「${username}」？该用户现有会话会立即失效，且不会再作为正常用户显示。`;
 }
 
 function Info({ label, value }: { label: string; value: string }) {

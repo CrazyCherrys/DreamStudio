@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { AdminDialog } from '@/components/admin-dialog';
 import { DsButton, DsInput } from '@/components/ui';
 import {
   activateExecutionProfileRevision,
@@ -1486,15 +1487,18 @@ export function ModelSyncSnapshotPanel({
   onCreate,
   onSelect,
   creating,
+  error,
 }: {
   snapshots: ModelSyncSnapshotSummary[];
   selectedSnapshot: ModelSyncSnapshotDetail | null;
   onCreate: (payload: ModelSyncSnapshotPayload) => Promise<void>;
   onSelect: (snapshotId: string) => Promise<void>;
   creating: boolean;
+  error?: string | null;
 }) {
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   async function createWithTemporaryKey(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1503,30 +1507,28 @@ export function ModelSyncSnapshotPanel({
       ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}),
     });
     setApiKey('');
+    setCreateDialogOpen(false);
+  }
+
+  function closeCreateDialog() {
+    if (creating) {
+      return;
+    }
+    setApiKey('');
+    setCreateDialogOpen(false);
   }
 
   return (
     <div className="grid gap-5">
-      <form className="grid gap-4" onSubmit={createWithTemporaryKey}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <DsInput
-            label="临时 Base URL"
-            onChange={(event) => setBaseUrl(event.target.value)}
-            placeholder="https://new-api.example.com"
-            value={baseUrl}
-          />
-          <DsInput
-            label="临时 API Key"
-            onChange={(event) => setApiKey(event.target.value)}
-            placeholder="留空则使用当前管理员已保存配置"
-            type="password"
-            value={apiKey}
-          />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black">历史快照</h3>
+          <p className="ds-muted mt-1 text-sm">拉取操作可使用临时 Base URL 和 API Key。</p>
         </div>
-        <DsButton className="w-fit" disabled={creating} type="submit">
+        <DsButton disabled={creating} onClick={() => setCreateDialogOpen(true)} type="button">
           {creating ? '拉取中...' : '拉取模型候选'}
         </DsButton>
-      </form>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-[320px_1fr]">
         <div className="grid max-h-[540px] gap-2 overflow-auto">
@@ -1554,6 +1556,55 @@ export function ModelSyncSnapshotPanel({
             : '选择一个快照查看 raw_response'}
         </pre>
       </div>
+
+      {createDialogOpen ? (
+        <AdminDialog
+          badge="Model Sync"
+          disabled={creating}
+          maxWidthClass="max-w-2xl"
+          onClose={closeCreateDialog}
+          title="拉取模型候选"
+        >
+          <form className="grid gap-4" onSubmit={createWithTemporaryKey}>
+            <p className="ds-muted text-sm leading-6">
+              留空临时配置时，将使用当前管理员已保存的 new-api 配置。临时 API Key 只用于本次拉取。
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <DsInput
+                label="临时 Base URL"
+                onChange={(event) => setBaseUrl(event.target.value)}
+                placeholder="https://new-api.example.com"
+                value={baseUrl}
+              />
+              <DsInput
+                label="临时 API Key"
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder="留空则使用当前管理员已保存配置"
+                type="password"
+                value={apiKey}
+              />
+            </div>
+            {error ? (
+              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+                {error}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap justify-end gap-3">
+              <DsButton
+                disabled={creating}
+                onClick={closeCreateDialog}
+                type="button"
+                variant="secondary"
+              >
+                取消
+              </DsButton>
+              <DsButton disabled={creating} type="submit">
+                {creating ? '拉取中...' : '拉取并保存快照'}
+              </DsButton>
+            </div>
+          </form>
+        </AdminDialog>
+      ) : null}
     </div>
   );
 }

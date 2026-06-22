@@ -56,7 +56,10 @@ function AdminModelSyncContent() {
       await loadSnapshots();
       await selectSnapshot(created.snapshot.id);
     } catch (requestError) {
-      setError(requestError instanceof ApiClientError ? requestError.message : '拉取模型候选失败');
+      const nextError =
+        requestError instanceof ApiClientError ? requestError.message : '拉取模型候选失败';
+      setError(nextError);
+      throw requestError;
     } finally {
       setCreating(false);
     }
@@ -96,6 +99,7 @@ function AdminModelSyncContent() {
       <div className="mt-6">
         <ModelSyncSnapshotPanel
           creating={creating}
+          error={error}
           onCreate={createSnapshot}
           onSelect={selectSnapshot}
           selectedSnapshot={selectedSnapshot}

@@ -5,6 +5,7 @@ import type { Route } from 'next';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { AdminConfirmDialog, AdminDialog } from '@/components/admin-dialog';
 import { useAuth } from '@/components/auth-provider';
 import { AdminLayout } from '@/components/layouts';
 import { RouteGuard } from '@/components/route-guard';
@@ -20,11 +21,14 @@ import {
   type RequestLogDetail,
 } from '@/lib/admin';
 
+type RevealKind = 'prompt' | 'params';
+
 function AdminRequestLogDetailContent() {
   const params = useParams<{ log_id: string }>();
   const { csrfToken } = useAuth();
   const [detail, setDetail] = useState<RequestLogDetail['item'] | null>(null);
   const [revealed, setRevealed] = useState<{ title: string; content: string } | null>(null);
+  const [revealTarget, setRevealTarget] = useState<RevealKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [revealing, setRevealing] = useState(false);
@@ -46,13 +50,18 @@ function AdminRequestLogDetailContent() {
     void loadLog();
   }, [params.log_id]);
 
-  async function reveal(kind: 'prompt' | 'params') {
-    if (!csrfToken || !detail) {
-      setError('登录状态已失效，请重新登录');
+  function closeRevealDialog() {
+    if (revealing) {
       return;
     }
-    const confirmed = window.confirm('查看敏感内容会写入审计日志。确认继续？');
-    if (!confirmed) {
+    setRevealTarget(null);
+    setRevealed(null);
+    setError(null);
+  }
+
+  async function reveal(kind: RevealKind) {
+    if (!csrfToken || !detail) {
+      setError('登录状态已失效，请重新登录');
       return;
     }
 
@@ -175,7 +184,11 @@ function AdminRequestLogDetailContent() {
             <div className="mt-5 flex flex-wrap gap-3">
               <DsButton
                 disabled={revealing || !detail.has_prompt}
-                onClick={() => void reveal('prompt')}
+                onClick={() => {
+                  setError(null);
+                  setRevealed(null);
+                  setRevealTarget('prompt');
+                }}
                 type="button"
                 variant="danger"
               >
@@ -183,33 +196,56 @@ function AdminRequestLogDetailContent() {
               </DsButton>
               <DsButton
                 disabled={revealing || !detail.has_params}
-                onClick={() => void reveal('params')}
+                onClick={() => {
+                  setError(null);
+                  setRevealed(null);
+                  setRevealTarget('params');
+                }}
                 type="button"
                 variant="danger"
               >
                 Reveal 参数
               </DsButton>
-              {revealed ? (
-                <DsButton onClick={() => setRevealed(null)} type="button" variant="secondary">
-                  关闭敏感内容
-                </DsButton>
-              ) : null}
             </div>
-            {revealed ? (
-              <div className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-4">
-                <div className="flex flex-wrap justify-between gap-3">
-                  <strong>{revealed.title}</strong>
-                  <span className="text-sm font-semibold text-[var(--ds-danger)]">
-                    仅当前页面临时展示
-                  </span>
-                </div>
-                <pre className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap text-xs">
-                  {revealed.content}
-                </pre>
-              </div>
-            ) : null}
           </section>
         </>
+      ) : null}
+
+      {detail && revealTarget && !revealed ? (
+        <AdminConfirmDialog
+          confirmLabel={revealing ? '读取中...' : '确认 Reveal'}
+          description={`查看${revealTarget === 'prompt' ? '完整 Prompt' : '完整参数'}会写入审计日志。敏感内容只会在本次弹窗中临时展示。`}
+          disabled={revealing}
+          error={error}
+          onCancel={closeRevealDialog}
+          onConfirm={() => void reveal(revealTarget)}
+          title="确认查看敏感内容？"
+        />
+      ) : null}
+
+      {revealed ? (
+        <AdminDialog
+          badge="Sensitive"
+          disabled={revealing}
+          maxWidthClass="max-w-4xl"
+          onClose={closeRevealDialog}
+          title={revealed.title}
+        >
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-4">
+            <div className="flex flex-wrap justify-between gap-3">
+              <strong>仅当前弹窗临时展示</strong>
+              <span className="text-sm font-semibold text-[var(--ds-danger)]">关闭后清除</span>
+            </div>
+            <pre className="mt-4 max-h-[60vh] overflow-auto whitespace-pre-wrap text-xs">
+              {revealed.content}
+            </pre>
+          </div>
+          <div className="mt-5 flex justify-end">
+            <DsButton onClick={closeRevealDialog} type="button" variant="secondary">
+              关闭
+            </DsButton>
+          </div>
+        </AdminDialog>
       ) : null}
     </div>
   );
