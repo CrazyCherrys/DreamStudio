@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/components/auth-provider';
 import { AdminLayout } from '@/components/layouts';
-import { ModelForm } from '@/components/model-catalog/model-components';
+import { ExecutionProfileManager, ModelForm } from '@/components/model-catalog/model-components';
 import { RouteGuard } from '@/components/route-guard';
 import { DsButton } from '@/components/ui';
 import { ApiClientError } from '@/lib/auth';
@@ -108,14 +108,16 @@ function AdminModelsContent() {
           />
         </div>
         {editingModel ? (
-          <DsButton
-            className="mt-4"
-            onClick={() => setEditingModel(null)}
-            type="button"
-            variant="secondary"
-          >
-            新增模型
-          </DsButton>
+          <div className="mt-5 grid gap-4">
+            <ExecutionProfileManager
+              csrfToken={csrfToken}
+              model={editingModel}
+              onChanged={loadData}
+            />
+            <DsButton onClick={() => setEditingModel(null)} type="button" variant="secondary">
+              新增模型
+            </DsButton>
+          </div>
         ) : null}
       </section>
 

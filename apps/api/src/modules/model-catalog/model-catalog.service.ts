@@ -6,7 +6,9 @@ import { extname, join } from 'node:path';
 import { HttpException, HttpStatus, Injectable, StreamableFile } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
+  ExecutionProfileOperation,
   ExecutionProfileRevisionStatus,
+  ExecutionProfileSourceKind,
   ModelEndpointType,
   ModelModality,
   Prisma,
@@ -30,7 +32,14 @@ import {
 } from './parameter-schema';
 import type {
   AdminAiModel,
+  AdminExecutionProfile,
+  AdminExecutionProfileRevision,
   AiModelBody,
+  ExecutionProfileBody,
+  ExecutionProfileLintResult,
+  ExecutionProfilePreviewBody,
+  ExecutionProfilePreviewResult,
+  ExecutionProfileRevisionBody,
   ModelSyncSnapshotBody,
   ModelSyncSnapshotDetail,
   ModelSyncSnapshotSummary,
@@ -68,6 +77,12 @@ type SerializableExecutionProfile = Prisma.AiModelExecutionProfileGetPayload<{
     revisions: true;
   };
 }>;
+type ExecutionProfileWithRevisions = Prisma.AiModelExecutionProfileGetPayload<{
+  include: {
+    revisions: true;
+  };
+}>;
+type ExecutionProfileRevisionRecord = Prisma.AiModelExecutionProfileRevisionGetPayload<object>;
 
 const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -393,6 +408,393 @@ export class ModelCatalogService {
     };
   }
 
+  async listExecutionProfiles(modelRecordId: string): Promise<{ items: AdminExecutionProfile[] }> {
+    this.assertUuid(modelRecordId, 'model_record_id');
+    await this.assertModelExists(modelRecordId);
+    const profiles = await prisma.aiModelExecutionProfile.findMany({
+      where: {
+        aiModelId: modelRecordId,
+        deletedAt: null,
+      },
+      include: {
+        revisions: {
+          orderBy: [{ revisionNo: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+      orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    return {
+      items: profiles.map((profile) => this.serializeAdminExecutionProfile(profile, true)),
+    };
+  }
+
+  async createExecutionProfile(
+    modelRecordId: string,
+    body: ExecutionProfileBody,
+    session: SessionContext,
+    request: Request,
+  ) {
+    this.assertUuid(modelRecordId, 'model_record_id');
+    await this.assertModelExists(modelRecordId);
+    const input = this.validateExecutionProfileBody(body, { partial: false });
+    const data = input as Prisma.AiModelExecutionProfileUncheckedCreateInput;
+
+    const profile = await prisma.$transaction(async (tx) => {
+      if (data.isDefault) {
+        await tx.aiModelExecutionProfile.updateMany({
+          where: {
+            aiModelId: modelRecordId,
+            deletedAt: null,
+          },
+          data: {
+            isDefault: false,
+          },
+        });
+      }
+
+      return tx.aiModelExecutionProfile.create({
+        data: {
+          ...data,
+          aiModelId: modelRecordId,
+        },
+        include: {
+          revisions: true,
+        },
+      });
+    });
+
+    await this.auditLogService.write({
+      action: 'admin_create_execution_profile',
+      targetType: 'ai_model_execution_profile',
+      targetId: profile.id,
+      session,
+      request,
+      metadata: {
+        ai_model_id: modelRecordId,
+        adapter_key: profile.adapterKey,
+        is_default: profile.isDefault,
+      },
+    });
+
+    return {
+      item: this.serializeAdminExecutionProfile(profile, true),
+    };
+  }
+
+  async getExecutionProfile(profileId: string) {
+    const profile = await this.findExecutionProfileOrThrow(profileId, true);
+    return {
+      item: this.serializeAdminExecutionProfile(profile, true),
+    };
+  }
+
+  async updateExecutionProfile(
+    profileId: string,
+    body: ExecutionProfileBody,
+    session: SessionContext,
+    request: Request,
+  ) {
+    const existing = await this.findExecutionProfileOrThrow(profileId, false);
+    const input = this.validateExecutionProfileBody(body, { partial: true });
+    const data = input as Prisma.AiModelExecutionProfileUncheckedUpdateInput;
+
+    const profile = await prisma.$transaction(async (tx) => {
+      if (data.isDefault === true) {
+        await tx.aiModelExecutionProfile.updateMany({
+          where: {
+            aiModelId: existing.aiModelId,
+            id: {
+              not: existing.id,
+            },
+            deletedAt: null,
+          },
+          data: {
+            isDefault: false,
+          },
+        });
+      }
+
+      return tx.aiModelExecutionProfile.update({
+        where: {
+          id: existing.id,
+        },
+        data,
+        include: {
+          revisions: true,
+        },
+      });
+    });
+
+    await this.auditLogService.write({
+      action: 'admin_update_execution_profile',
+      targetType: 'ai_model_execution_profile',
+      targetId: profile.id,
+      session,
+      request,
+      metadata: {
+        changed_fields: Object.keys(data),
+        ai_model_id: profile.aiModelId,
+      },
+    });
+
+    return {
+      item: this.serializeAdminExecutionProfile(profile, true),
+    };
+  }
+
+  async deleteExecutionProfile(profileId: string, session: SessionContext, request: Request) {
+    const existing = await this.findExecutionProfileOrThrow(profileId, false);
+    const profile = await prisma.aiModelExecutionProfile.update({
+      where: {
+        id: existing.id,
+      },
+      data: {
+        isEnabled: false,
+        isDefault: false,
+        deletedAt: new Date(),
+      },
+      include: {
+        revisions: true,
+      },
+    });
+
+    await this.auditLogService.write({
+      action: 'admin_delete_execution_profile',
+      targetType: 'ai_model_execution_profile',
+      targetId: profile.id,
+      session,
+      request,
+      metadata: {
+        ai_model_id: profile.aiModelId,
+      },
+    });
+
+    return {
+      deleted: true,
+      item: this.serializeAdminExecutionProfile(profile, true),
+    };
+  }
+
+  async listExecutionProfileRevisions(profileId: string) {
+    this.assertUuid(profileId, 'profile_id');
+    await this.findExecutionProfileOrThrow(profileId, false);
+    const revisions = await prisma.aiModelExecutionProfileRevision.findMany({
+      where: {
+        executionProfileId: profileId,
+      },
+      orderBy: [{ revisionNo: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    return {
+      items: revisions.map((revision) => this.serializeExecutionProfileRevision(revision)),
+    };
+  }
+
+  async createExecutionProfileRevision(
+    profileId: string,
+    body: ExecutionProfileRevisionBody,
+    session: SessionContext,
+    request: Request,
+  ) {
+    const profile = await this.findExecutionProfileOrThrow(profileId, true);
+    const latestRevisionNo = profile.revisions.reduce(
+      (max, revision) => Math.max(max, revision.revisionNo),
+      0,
+    );
+    const sourceRevision = profile.revisions.find(
+      (revision) => revision.status === ExecutionProfileRevisionStatus.active,
+    );
+    const input = this.validateExecutionProfileRevisionBody(body, {
+      partial: false,
+      source: sourceRevision ?? profile,
+    });
+    const revision = await prisma.aiModelExecutionProfileRevision.create({
+      data: {
+        ...(input as Prisma.AiModelExecutionProfileRevisionUncheckedCreateInput),
+        executionProfileId: profile.id,
+        revisionNo: latestRevisionNo + 1,
+        status: ExecutionProfileRevisionStatus.draft,
+        createdBy: session.userId,
+      },
+    });
+
+    await this.auditLogService.write({
+      action: 'admin_create_execution_profile_revision',
+      targetType: 'ai_model_execution_profile_revision',
+      targetId: revision.id,
+      session,
+      request,
+      metadata: {
+        execution_profile_id: profile.id,
+        revision_no: revision.revisionNo,
+      },
+    });
+
+    return {
+      item: this.serializeExecutionProfileRevision(revision),
+    };
+  }
+
+  async updateExecutionProfileRevision(
+    revisionId: string,
+    body: ExecutionProfileRevisionBody,
+    session: SessionContext,
+    request: Request,
+  ) {
+    const existing = await this.findRevisionOrThrow(revisionId);
+    if (existing.status !== ExecutionProfileRevisionStatus.draft) {
+      throw apiError(
+        HttpStatus.BAD_REQUEST,
+        'revision_not_editable',
+        '只有 draft revision 可以编辑',
+      );
+    }
+
+    const input = this.validateExecutionProfileRevisionBody(body, {
+      partial: true,
+      source: existing,
+    });
+    const revision = await prisma.aiModelExecutionProfileRevision.update({
+      where: {
+        id: existing.id,
+      },
+      data: input,
+    });
+
+    await this.auditLogService.write({
+      action: 'admin_update_execution_profile_revision',
+      targetType: 'ai_model_execution_profile_revision',
+      targetId: revision.id,
+      session,
+      request,
+      metadata: {
+        changed_fields: Object.keys(input),
+        execution_profile_id: revision.executionProfileId,
+        revision_no: revision.revisionNo,
+      },
+    });
+
+    return {
+      item: this.serializeExecutionProfileRevision(revision),
+    };
+  }
+
+  async lintExecutionProfileRevision(revisionId: string) {
+    const revision = await this.findRevisionOrThrow(revisionId);
+    return {
+      result: this.lintRevision(revision),
+    };
+  }
+
+  async previewExecutionProfileRevision(
+    revisionId: string,
+    body: ExecutionProfilePreviewBody,
+  ): Promise<{ preview: ExecutionProfilePreviewResult }> {
+    const revision = await this.findRevisionOrThrow(revisionId);
+    const lint = this.lintRevision(revision);
+    if (!lint.ok) {
+      throw validationFailed(lint.errors);
+    }
+    return {
+      preview: this.buildRevisionPreview(revision, body),
+    };
+  }
+
+  async testExecutionProfileRevision(revisionId: string) {
+    const revision = await this.findRevisionOrThrow(revisionId);
+    const lint = this.lintRevision(revision);
+    return {
+      result: {
+        ...lint,
+        dry_run: true,
+        message: lint.ok
+          ? 'Dry-run passed: profile revision can build a sanitized request preview.'
+          : 'Dry-run failed: fix lint errors before activation.',
+      },
+    };
+  }
+
+  async activateExecutionProfileRevision(
+    revisionId: string,
+    session: SessionContext,
+    request: Request,
+  ) {
+    const existing = await this.findRevisionOrThrow(revisionId);
+    const lint = this.lintRevision(existing);
+    if (!lint.ok) {
+      throw validationFailed(lint.errors);
+    }
+    const now = new Date();
+    const revision = await prisma.$transaction(async (tx) => {
+      await tx.aiModelExecutionProfileRevision.updateMany({
+        where: {
+          executionProfileId: existing.executionProfileId,
+          status: ExecutionProfileRevisionStatus.active,
+          id: {
+            not: existing.id,
+          },
+        },
+        data: {
+          status: ExecutionProfileRevisionStatus.archived,
+          archivedAt: now,
+        },
+      });
+
+      const active = await tx.aiModelExecutionProfileRevision.update({
+        where: {
+          id: existing.id,
+        },
+        data: {
+          status: ExecutionProfileRevisionStatus.active,
+          activatedAt: now,
+          activatedBy: session.userId,
+          archivedAt: null,
+        },
+      });
+
+      await tx.aiModelExecutionProfile.update({
+        where: {
+          id: existing.executionProfileId,
+        },
+        data: {
+          adapterKey: active.adapterKey,
+          adapterVersion: active.adapterVersion,
+          transportKey: active.transportKey,
+          upstreamModelId: active.upstreamModelId,
+          upstreamEndpointPath: active.upstreamEndpointPath,
+          referenceTransferMode: active.referenceTransferMode,
+          supportsReferenceImage: active.supportsReferenceImage,
+          maxReferenceImages: active.maxReferenceImages,
+          parameterSchema: active.parameterSchema as Prisma.InputJsonValue,
+          defaultParams: active.defaultParams as Prisma.InputJsonValue,
+          requestMapping: active.requestMapping as Prisma.InputJsonValue,
+          responseParserKey: active.responseParserKey,
+          capabilities: active.capabilities as Prisma.InputJsonValue,
+          validationRules: active.validationRules as Prisma.InputJsonValue,
+        },
+      });
+
+      return active;
+    });
+
+    await this.auditLogService.write({
+      action: 'admin_activate_execution_profile_revision',
+      targetType: 'ai_model_execution_profile_revision',
+      targetId: revision.id,
+      session,
+      request,
+      metadata: {
+        execution_profile_id: revision.executionProfileId,
+        revision_no: revision.revisionNo,
+      },
+    });
+
+    return {
+      item: this.serializeExecutionProfileRevision(revision),
+    };
+  }
+
   async uploadModelIcon(
     file: Express.Multer.File | undefined,
     session: SessionContext,
@@ -631,6 +1033,311 @@ export class ModelCatalogService {
     return input;
   }
 
+  private validateExecutionProfileBody(
+    body: ExecutionProfileBody,
+    options: { partial: boolean },
+  ):
+    | Prisma.AiModelExecutionProfileUncheckedCreateInput
+    | Prisma.AiModelExecutionProfileUncheckedUpdateInput {
+    const details: ValidationDetail[] = [];
+    const input: Prisma.AiModelExecutionProfileUncheckedUpdateInput = {};
+
+    if (!options.partial || body.name !== undefined) {
+      const name = this.readString(body.name, 'name', details, { min: 1, max: 160 });
+      if (name !== null) {
+        input.name = name;
+      }
+    }
+    if (!options.partial || body.operation !== undefined) {
+      input.operation = this.readExecutionProfileOperation(body.operation, details);
+    }
+    this.assignExecutionConfigInput(input, body, details, options.partial);
+    if (!options.partial || body.is_default !== undefined) {
+      input.isDefault = this.readBoolean(body.is_default, 'is_default', details, false);
+    }
+    if (!options.partial || body.is_enabled !== undefined) {
+      input.isEnabled = this.readBoolean(body.is_enabled, 'is_enabled', details, true);
+    }
+    if (!options.partial || body.sort_order !== undefined) {
+      input.sortOrder = this.readInteger(body.sort_order, 'sort_order', details, {
+        fallback: 0,
+        min: -100000,
+        max: 100000,
+      });
+    }
+
+    if (details.length > 0) {
+      throw validationFailed(details);
+    }
+
+    return input;
+  }
+
+  private validateExecutionProfileRevisionBody(
+    body: ExecutionProfileRevisionBody,
+    options: {
+      partial: boolean;
+      source: ExecutionProfileRevisionRecord | ExecutionProfileWithRevisions;
+    },
+  ):
+    | Prisma.AiModelExecutionProfileRevisionUncheckedCreateInput
+    | Prisma.AiModelExecutionProfileRevisionUncheckedUpdateInput {
+    const details: ValidationDetail[] = [];
+    const input: Prisma.AiModelExecutionProfileRevisionUncheckedUpdateInput = {};
+
+    if (!options.partial || body.source_kind !== undefined) {
+      input.sourceKind =
+        body.source_kind === undefined && !options.partial
+          ? this.readSourceKind(readProfileSource(options.source, 'sourceKind'), details)
+          : this.readSourceKind(body.source_kind, details);
+    }
+    if (!options.partial || body.source_url !== undefined) {
+      input.sourceUrl =
+        body.source_url === undefined && !options.partial
+          ? readNullableProfileSource(options.source, 'sourceUrl')
+          : this.readNullableString(body.source_url, 'source_url', details, { max: 1000 });
+    }
+    if (!options.partial || body.source_checked_at !== undefined) {
+      input.sourceCheckedAt =
+        body.source_checked_at === undefined && !options.partial
+          ? readNullableProfileDate(options.source, 'sourceCheckedAt')
+          : this.readNullableDate(body.source_checked_at, 'source_checked_at', details);
+    }
+    if (!options.partial || body.source_summary !== undefined) {
+      input.sourceSummary =
+        body.source_summary === undefined && !options.partial
+          ? readNullableProfileSource(options.source, 'sourceSummary')
+          : this.readNullableString(body.source_summary, 'source_summary', details, { max: 1200 });
+    }
+    this.assignExecutionConfigInput(input, body, details, options.partial, options.source);
+    if (!options.partial || body.change_summary !== undefined) {
+      input.changeSummary =
+        body.change_summary === undefined && !options.partial
+          ? null
+          : this.readNullableString(body.change_summary, 'change_summary', details, { max: 1200 });
+    }
+
+    if (details.length > 0) {
+      throw validationFailed(details);
+    }
+
+    return input;
+  }
+
+  private assignExecutionConfigInput(
+    input:
+      | Prisma.AiModelExecutionProfileUncheckedUpdateInput
+      | Prisma.AiModelExecutionProfileRevisionUncheckedUpdateInput,
+    body: ExecutionProfileBody | ExecutionProfileRevisionBody,
+    details: ValidationDetail[],
+    partial: boolean,
+    source?: ExecutionProfileRevisionRecord | ExecutionProfileWithRevisions,
+  ) {
+    const readStringWithFallback = (
+      key: keyof Pick<
+        ExecutionProfileBody,
+        | 'adapter_key'
+        | 'adapter_version'
+        | 'transport_key'
+        | 'upstream_model_id'
+        | 'response_parser_key'
+      >,
+      field: string,
+      fallbackField: keyof ExecutionProfileRevisionRecord | keyof ExecutionProfileWithRevisions,
+      min: number,
+      max: number,
+    ) => {
+      if (partial && body[key] === undefined) {
+        return undefined;
+      }
+      if (body[key] === undefined && source) {
+        return String(readProfileSource(source, fallbackField));
+      }
+      return this.readString(body[key], field, details, { min, max }) ?? undefined;
+    };
+
+    const adapterKey = readStringWithFallback('adapter_key', 'adapter_key', 'adapterKey', 1, 120);
+    if (adapterKey !== undefined) {
+      input.adapterKey = adapterKey;
+    }
+    const adapterVersion = readStringWithFallback(
+      'adapter_version',
+      'adapter_version',
+      'adapterVersion',
+      1,
+      40,
+    );
+    if (adapterVersion !== undefined) {
+      input.adapterVersion = adapterVersion;
+    }
+    const transportKey = readStringWithFallback(
+      'transport_key',
+      'transport_key',
+      'transportKey',
+      1,
+      80,
+    );
+    if (transportKey !== undefined) {
+      input.transportKey = transportKey;
+    }
+    const upstreamModelId = readStringWithFallback(
+      'upstream_model_id',
+      'upstream_model_id',
+      'upstreamModelId',
+      1,
+      240,
+    );
+    if (upstreamModelId !== undefined) {
+      input.upstreamModelId = upstreamModelId;
+    }
+    if (!partial || body.upstream_endpoint_path !== undefined) {
+      input.upstreamEndpointPath =
+        body.upstream_endpoint_path === undefined && source
+          ? readNullableProfileSource(source, 'upstreamEndpointPath')
+          : this.readNullableString(
+              body.upstream_endpoint_path,
+              'upstream_endpoint_path',
+              details,
+              {
+                max: 240,
+              },
+            );
+    }
+    if (!partial || body.reference_transfer_mode !== undefined) {
+      input.referenceTransferMode =
+        body.reference_transfer_mode === undefined && source
+          ? this.readReferenceTransferMode(
+              readProfileSource(source, 'referenceTransferMode'),
+              details,
+            )
+          : this.readReferenceTransferMode(body.reference_transfer_mode, details);
+    }
+    if (!partial || body.supports_reference_image !== undefined) {
+      input.supportsReferenceImage =
+        body.supports_reference_image === undefined && source
+          ? Boolean(readProfileSource(source, 'supportsReferenceImage'))
+          : this.readBoolean(
+              body.supports_reference_image,
+              'supports_reference_image',
+              details,
+              false,
+            );
+    }
+    if (!partial || body.max_reference_images !== undefined) {
+      input.maxReferenceImages =
+        body.max_reference_images === undefined && source
+          ? Number(readProfileSource(source, 'maxReferenceImages'))
+          : this.readInteger(body.max_reference_images, 'max_reference_images', details, {
+              fallback: 0,
+              min: 0,
+              max: 64,
+            });
+    }
+    const responseParserKey = readStringWithFallback(
+      'response_parser_key',
+      'response_parser_key',
+      'responseParserKey',
+      1,
+      120,
+    );
+    if (responseParserKey !== undefined) {
+      input.responseParserKey = responseParserKey;
+    }
+
+    const schemaSource =
+      body.parameter_schema !== undefined
+        ? body.parameter_schema
+        : source
+          ? readProfileSource(source, 'parameterSchema')
+          : [];
+    let schema: ParameterSchemaField[] | null = null;
+    if (!partial || body.parameter_schema !== undefined) {
+      try {
+        schema = normalizeParameterSchema(schemaSource);
+        input.parameterSchema = parameterSchemaToJson(schema);
+      } catch (error) {
+        this.pushSchemaValidationDetails(error, details);
+      }
+    } else if (source) {
+      schema = normalizeParameterSchema(readProfileSource(source, 'parameterSchema'));
+    }
+
+    if (!partial || body.default_params !== undefined || body.parameter_schema !== undefined) {
+      const defaultParamsSource =
+        body.default_params !== undefined
+          ? body.default_params
+          : source
+            ? readProfileSource(source, 'defaultParams')
+            : {};
+      try {
+        input.defaultParams = assertDefaultParams(schema ?? [], defaultParamsSource);
+      } catch (error) {
+        this.pushSchemaValidationDetails(error, details, 'default_params');
+      }
+    }
+
+    if (!partial || body.request_mapping !== undefined) {
+      input.requestMapping =
+        body.request_mapping === undefined && source
+          ? (readProfileSource(source, 'requestMapping') as Prisma.InputJsonValue)
+          : this.readJsonObject(body.request_mapping, 'request_mapping', details);
+    }
+    if (!partial || body.capabilities !== undefined) {
+      input.capabilities =
+        body.capabilities === undefined && source
+          ? (readProfileSource(source, 'capabilities') as Prisma.InputJsonValue)
+          : this.readJsonObject(body.capabilities, 'capabilities', details);
+    }
+    if (!partial || body.validation_rules !== undefined) {
+      input.validationRules =
+        body.validation_rules === undefined && source
+          ? (readProfileSource(source, 'validationRules') as Prisma.InputJsonValue)
+          : this.readJsonObject(body.validation_rules, 'validation_rules', details);
+    }
+  }
+
+  private async findExecutionProfileOrThrow(
+    profileId: string,
+    includeRevisions: true,
+  ): Promise<ExecutionProfileWithRevisions>;
+  private async findExecutionProfileOrThrow(
+    profileId: string,
+    includeRevisions: false,
+  ): Promise<Prisma.AiModelExecutionProfileGetPayload<object>>;
+  private async findExecutionProfileOrThrow(profileId: string, includeRevisions: boolean) {
+    this.assertUuid(profileId, 'profile_id');
+    const profile = await prisma.aiModelExecutionProfile.findFirst({
+      where: {
+        id: profileId,
+        deletedAt: null,
+      },
+      include: includeRevisions
+        ? {
+            revisions: {
+              orderBy: [{ revisionNo: 'desc' }, { createdAt: 'desc' }],
+            },
+          }
+        : undefined,
+    });
+    if (!profile) {
+      throw apiError(HttpStatus.NOT_FOUND, 'not_found', '执行配置不存在');
+    }
+    return profile;
+  }
+
+  private async findRevisionOrThrow(revisionId: string) {
+    this.assertUuid(revisionId, 'revision_id');
+    const revision = await prisma.aiModelExecutionProfileRevision.findUnique({
+      where: {
+        id: revisionId,
+      },
+    });
+    if (!revision) {
+      throw apiError(HttpStatus.NOT_FOUND, 'not_found', '执行配置 revision 不存在');
+    }
+    return revision;
+  }
+
   private async resolveSnapshotConnection(body: ModelSyncSnapshotBody, session: SessionContext) {
     const temporaryApiKey = typeof body.api_key === 'string' ? body.api_key.trim() : '';
 
@@ -790,6 +1497,194 @@ export class ModelCatalogService {
       updated_at: model.updatedAt.toISOString(),
       deleted_at: model.deletedAt?.toISOString() ?? null,
     };
+  }
+
+  private serializeAdminExecutionProfile(
+    profile: ExecutionProfileWithRevisions,
+    includeRevisions: boolean,
+  ): AdminExecutionProfile {
+    return {
+      id: profile.id,
+      ai_model_id: profile.aiModelId,
+      name: profile.name,
+      operation: profile.operation,
+      adapter_key: profile.adapterKey,
+      adapter_version: profile.adapterVersion,
+      transport_key: profile.transportKey,
+      upstream_model_id: profile.upstreamModelId,
+      upstream_endpoint_path: profile.upstreamEndpointPath,
+      reference_transfer_mode: profile.referenceTransferMode,
+      supports_reference_image: profile.supportsReferenceImage,
+      max_reference_images: profile.maxReferenceImages,
+      parameter_schema: normalizeParameterSchema(profile.parameterSchema),
+      default_params: profile.defaultParams,
+      request_mapping: profile.requestMapping,
+      response_parser_key: profile.responseParserKey,
+      capabilities: profile.capabilities,
+      validation_rules: profile.validationRules,
+      is_default: profile.isDefault,
+      is_enabled: profile.isEnabled,
+      sort_order: profile.sortOrder,
+      created_at: profile.createdAt.toISOString(),
+      updated_at: profile.updatedAt.toISOString(),
+      deleted_at: profile.deletedAt?.toISOString() ?? null,
+      ...(includeRevisions
+        ? {
+            revisions: profile.revisions.map((revision) =>
+              this.serializeExecutionProfileRevision(revision),
+            ),
+          }
+        : {}),
+    };
+  }
+
+  private serializeExecutionProfileRevision(
+    revision: ExecutionProfileRevisionRecord,
+  ): AdminExecutionProfileRevision {
+    return {
+      id: revision.id,
+      execution_profile_id: revision.executionProfileId,
+      revision_no: revision.revisionNo,
+      status: revision.status,
+      source_kind: revision.sourceKind,
+      source_url: revision.sourceUrl,
+      source_checked_at: revision.sourceCheckedAt?.toISOString() ?? null,
+      source_summary: revision.sourceSummary,
+      adapter_key: revision.adapterKey,
+      adapter_version: revision.adapterVersion,
+      transport_key: revision.transportKey,
+      upstream_model_id: revision.upstreamModelId,
+      upstream_endpoint_path: revision.upstreamEndpointPath,
+      reference_transfer_mode: revision.referenceTransferMode,
+      supports_reference_image: revision.supportsReferenceImage,
+      max_reference_images: revision.maxReferenceImages,
+      parameter_schema: normalizeParameterSchema(revision.parameterSchema),
+      default_params: revision.defaultParams,
+      request_mapping: revision.requestMapping,
+      response_parser_key: revision.responseParserKey,
+      capabilities: revision.capabilities,
+      validation_rules: revision.validationRules,
+      change_summary: revision.changeSummary,
+      created_by: revision.createdBy,
+      created_at: revision.createdAt.toISOString(),
+      activated_by: revision.activatedBy,
+      activated_at: revision.activatedAt?.toISOString() ?? null,
+      archived_at: revision.archivedAt?.toISOString() ?? null,
+    };
+  }
+
+  private lintRevision(revision: ExecutionProfileRevisionRecord): ExecutionProfileLintResult {
+    const errors: ValidationDetail[] = [];
+    const warnings: ValidationDetail[] = [];
+
+    try {
+      const schema = normalizeParameterSchema(revision.parameterSchema);
+      assertDefaultParams(schema, revision.defaultParams);
+    } catch (error) {
+      this.pushSchemaValidationDetails(error, errors);
+    }
+
+    const mapping = asJsonObject(revision.requestMapping);
+    if (!mapping || !Array.isArray(mapping.fields) || mapping.fields.length === 0) {
+      errors.push({
+        field: 'request_mapping.fields',
+        message: 'request_mapping.fields 必须至少包含一个映射字段',
+      });
+    }
+    if (mapping && mapping.content_type !== 'json' && mapping.content_type !== 'multipart') {
+      errors.push({
+        field: 'request_mapping.content_type',
+        message: 'content_type 必须是 json 或 multipart',
+      });
+    }
+    if (!revision.adapterKey.trim()) {
+      errors.push({ field: 'adapter_key', message: 'adapter_key 不能为空' });
+    }
+    if (!revision.upstreamModelId.trim()) {
+      errors.push({ field: 'upstream_model_id', message: 'upstream_model_id 不能为空' });
+    }
+    if (!revision.responseParserKey.trim()) {
+      errors.push({ field: 'response_parser_key', message: 'response_parser_key 不能为空' });
+    }
+    if (!revision.sourceUrl) {
+      warnings.push({ field: 'source_url', message: '建议记录参数来源 URL' });
+    }
+    if (!revision.sourceCheckedAt) {
+      warnings.push({ field: 'source_checked_at', message: '建议记录来源检查时间' });
+    }
+
+    return {
+      ok: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }
+
+  private buildRevisionPreview(
+    revision: ExecutionProfileRevisionRecord,
+    body: ExecutionProfilePreviewBody,
+  ): ExecutionProfilePreviewResult {
+    const schema = normalizeParameterSchema(revision.parameterSchema);
+    const parameterResult = assertDefaultParams(schema, {
+      ...asJsonObject(revision.defaultParams),
+      ...asJsonObject(body.parameters),
+    });
+    const mapping = asJsonObject(revision.requestMapping) ?? {};
+    const contentType = String(mapping.content_type ?? 'json');
+    const prompt =
+      typeof body.prompt === 'string' && body.prompt.trim()
+        ? body.prompt.trim().slice(0, 300)
+        : 'Preview prompt';
+    const bodyPayload = this.compilePreviewMapping(mapping, {
+      model: revision.upstreamModelId,
+      prompt,
+      params: parameterResult,
+    });
+    const endpointPath =
+      revision.upstreamEndpointPath ??
+      (revision.adapterKey === 'openai_images_edit'
+        ? '/v1/images/edits'
+        : '/v1/images/generations');
+
+    return {
+      adapter_key: revision.adapterKey,
+      adapter_version: revision.adapterVersion,
+      transport_key: revision.transportKey,
+      endpoint_path: endpointPath,
+      content_type: contentType,
+      body: bodyPayload,
+      reference_asset_ids: Array.isArray(body.reference_asset_ids)
+        ? body.reference_asset_ids.map(String).slice(0, revision.maxReferenceImages)
+        : [],
+    };
+  }
+
+  private compilePreviewMapping(
+    mapping: Record<string, unknown>,
+    context: {
+      model: string;
+      prompt: string;
+      params: Record<string, unknown>;
+    },
+  ) {
+    const output: Record<string, unknown> = {};
+    const fields = Array.isArray(mapping.fields) ? mapping.fields : [];
+    for (const rawField of fields) {
+      const field = asJsonObject(rawField);
+      const source = typeof field?.source === 'string' ? field.source : '';
+      const target = typeof field?.target === 'string' ? field.target : '';
+      if (!source || !target) {
+        continue;
+      }
+      const value = readPreviewSource(source, context);
+      if ((value === undefined || value === null) && field?.omit_if_null === true) {
+        continue;
+      }
+      if (value !== undefined) {
+        output[target] = value;
+      }
+    }
+    return output;
   }
 
   private findDefaultExecutionProfile(
@@ -1008,6 +1903,50 @@ export class ModelCatalogService {
     return ModelModality.image;
   }
 
+  private readExecutionProfileOperation(
+    value: unknown,
+    details: ValidationDetail[],
+  ): ExecutionProfileOperation {
+    if (
+      value === ExecutionProfileOperation.text_to_image ||
+      value === ExecutionProfileOperation.image_to_image ||
+      value === ExecutionProfileOperation.image_edit ||
+      value === ExecutionProfileOperation.conversational_image
+    ) {
+      return value;
+    }
+    if (value === undefined || value === null || value === '') {
+      return ExecutionProfileOperation.text_to_image;
+    }
+
+    details.push({
+      field: 'operation',
+      message: 'operation 不受支持',
+    });
+    return ExecutionProfileOperation.text_to_image;
+  }
+
+  private readSourceKind(value: unknown, details: ValidationDetail[]): ExecutionProfileSourceKind {
+    if (
+      value === ExecutionProfileSourceKind.manual ||
+      value === ExecutionProfileSourceKind.openai_official ||
+      value === ExecutionProfileSourceKind.gemini_official ||
+      value === ExecutionProfileSourceKind.third_party_docs ||
+      value === ExecutionProfileSourceKind.imported_json
+    ) {
+      return value;
+    }
+    if (value === undefined || value === null || value === '') {
+      return ExecutionProfileSourceKind.manual;
+    }
+
+    details.push({
+      field: 'source_kind',
+      message: 'source_kind 不受支持',
+    });
+    return ExecutionProfileSourceKind.manual;
+  }
+
   private readOptionalModality(value: unknown): ModelModality | undefined {
     if (value === undefined || value === null || value === '') {
       return undefined;
@@ -1094,6 +2033,64 @@ export class ModelCatalogService {
       message: 'reference_transfer_mode 不受支持',
     });
     return ReferenceTransferMode.none;
+  }
+
+  private readNullableDate(
+    value: unknown,
+    field: string,
+    details: ValidationDetail[],
+  ): Date | null {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+    const date = new Date(String(value));
+    if (Number.isNaN(date.getTime())) {
+      details.push({
+        field,
+        message: `${field} 必须是合法日期`,
+      });
+      return null;
+    }
+    return date;
+  }
+
+  private readJsonObject(
+    value: unknown,
+    field: string,
+    details: ValidationDetail[],
+  ): Prisma.InputJsonObject {
+    if (value === undefined || value === null) {
+      return {};
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      details.push({
+        field,
+        message: `${field} 必须是 JSON 对象`,
+      });
+      return {};
+    }
+    return value as Prisma.InputJsonObject;
+  }
+
+  private pushSchemaValidationDetails(
+    error: unknown,
+    details: ValidationDetail[],
+    prefix = 'parameter_schema',
+  ) {
+    if (error instanceof Error && Array.isArray((error as Error & { details?: unknown }).details)) {
+      for (const detail of (error as Error & { details: ValidationDetail[] }).details) {
+        details.push({
+          field: detail.field.startsWith(prefix) ? detail.field : `${prefix}.${detail.field}`,
+          message: detail.message,
+        });
+      }
+      return;
+    }
+
+    details.push({
+      field: prefix,
+      message: error instanceof Error ? error.message : '参数 Schema 不合法',
+    });
   }
 
   private readOptionalSearch(value: unknown): string | undefined {
@@ -1222,4 +2219,61 @@ function contentTypeFromExtension(filename: string) {
     return 'image/svg+xml';
   }
   return 'image/png';
+}
+
+function asJsonObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readProfileSource(
+  source: ExecutionProfileRevisionRecord | ExecutionProfileWithRevisions,
+  field: keyof ExecutionProfileRevisionRecord | keyof ExecutionProfileWithRevisions,
+): unknown {
+  return (source as unknown as Record<string, unknown>)[field as string];
+}
+
+function readNullableProfileSource(
+  source: ExecutionProfileRevisionRecord | ExecutionProfileWithRevisions,
+  field: keyof ExecutionProfileRevisionRecord | keyof ExecutionProfileWithRevisions,
+): string | null {
+  const value = readProfileSource(source, field);
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function readNullableProfileDate(
+  source: ExecutionProfileRevisionRecord | ExecutionProfileWithRevisions,
+  field: keyof ExecutionProfileRevisionRecord | keyof ExecutionProfileWithRevisions,
+): Date | null {
+  const value = readProfileSource(source, field);
+  return value instanceof Date ? value : null;
+}
+
+function readPreviewSource(
+  source: string,
+  context: {
+    model: string;
+    prompt: string;
+    params: Record<string, unknown>;
+  },
+) {
+  if (source === 'model') {
+    return context.model;
+  }
+  if (source === 'prompt') {
+    return context.prompt;
+  }
+  if (source.startsWith('params.')) {
+    return source
+      .slice('params.'.length)
+      .split('.')
+      .reduce<unknown>((current, key) => {
+        if (current && typeof current === 'object' && !Array.isArray(current)) {
+          return (current as Record<string, unknown>)[key];
+        }
+        return undefined;
+      }, context.params);
+  }
+  return undefined;
 }

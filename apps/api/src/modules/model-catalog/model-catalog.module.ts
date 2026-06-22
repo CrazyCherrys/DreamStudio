@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { NewApiConfigModule } from '../new-api-config/new-api-config.module';
 import {
+  AdminExecutionProfileRevisionsController,
+  AdminExecutionProfilesController,
   AdminModelIconsController,
   AdminModelsController,
   AdminModelSyncSnapshotsController,
@@ -17,6 +19,8 @@ import { ModelCatalogService } from './model-catalog.service';
     PublicModelsController,
     PublicModelIconsController,
     AdminModelsController,
+    AdminExecutionProfilesController,
+    AdminExecutionProfileRevisionsController,
     AdminModelIconsController,
     AdminModelSyncSnapshotsController,
   ],

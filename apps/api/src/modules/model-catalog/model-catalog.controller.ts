@@ -26,7 +26,13 @@ import { SessionAuthGuard } from '../auth/session-auth.guard';
 import { SuperAdminGuard } from '../auth/super-admin.guard';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { ModelCatalogService } from './model-catalog.service';
-import type { AiModelBody, ModelSyncSnapshotBody } from './model-catalog.types';
+import type {
+  AiModelBody,
+  ExecutionProfileBody,
+  ExecutionProfilePreviewBody,
+  ExecutionProfileRevisionBody,
+  ModelSyncSnapshotBody,
+} from './model-catalog.types';
 
 @Controller('models')
 @UseGuards(SessionAuthGuard)
@@ -102,6 +108,137 @@ export class AdminModelsController {
     @Req() request: AuthenticatedRequest & Request,
   ) {
     return this.modelCatalogService.deleteModel(modelRecordId, request.auth!, request);
+  }
+
+  @Get(':modelRecordId/execution-profiles')
+  listExecutionProfiles(@Param('modelRecordId') modelRecordId: string) {
+    return this.modelCatalogService.listExecutionProfiles(modelRecordId);
+  }
+
+  @Post(':modelRecordId/execution-profiles')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  createExecutionProfile(
+    @Param('modelRecordId') modelRecordId: string,
+    @Body() body: ExecutionProfileBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.createExecutionProfile(
+      modelRecordId,
+      body,
+      request.auth!,
+      request,
+    );
+  }
+}
+
+@Controller('admin/execution-profiles')
+@UseGuards(SessionAuthGuard, SuperAdminGuard)
+export class AdminExecutionProfilesController {
+  constructor(private readonly modelCatalogService: ModelCatalogService) {}
+
+  @Get(':profileId')
+  getExecutionProfile(@Param('profileId') profileId: string) {
+    return this.modelCatalogService.getExecutionProfile(profileId);
+  }
+
+  @Patch(':profileId')
+  @UseGuards(CsrfGuard)
+  updateExecutionProfile(
+    @Param('profileId') profileId: string,
+    @Body() body: ExecutionProfileBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.updateExecutionProfile(profileId, body, request.auth!, request);
+  }
+
+  @Delete(':profileId')
+  @UseGuards(CsrfGuard)
+  deleteExecutionProfile(
+    @Param('profileId') profileId: string,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.deleteExecutionProfile(profileId, request.auth!, request);
+  }
+
+  @Get(':profileId/revisions')
+  listExecutionProfileRevisions(@Param('profileId') profileId: string) {
+    return this.modelCatalogService.listExecutionProfileRevisions(profileId);
+  }
+
+  @Post(':profileId/revisions')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  createExecutionProfileRevision(
+    @Param('profileId') profileId: string,
+    @Body() body: ExecutionProfileRevisionBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.createExecutionProfileRevision(
+      profileId,
+      body,
+      request.auth!,
+      request,
+    );
+  }
+}
+
+@Controller('admin/execution-profile-revisions')
+@UseGuards(SessionAuthGuard, SuperAdminGuard)
+export class AdminExecutionProfileRevisionsController {
+  constructor(private readonly modelCatalogService: ModelCatalogService) {}
+
+  @Patch(':revisionId')
+  @UseGuards(CsrfGuard)
+  updateExecutionProfileRevision(
+    @Param('revisionId') revisionId: string,
+    @Body() body: ExecutionProfileRevisionBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.updateExecutionProfileRevision(
+      revisionId,
+      body,
+      request.auth!,
+      request,
+    );
+  }
+
+  @Post(':revisionId/preview-request')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  previewExecutionProfileRevision(
+    @Param('revisionId') revisionId: string,
+    @Body() body: ExecutionProfilePreviewBody,
+  ) {
+    return this.modelCatalogService.previewExecutionProfileRevision(revisionId, body);
+  }
+
+  @Post(':revisionId/lint')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  lintExecutionProfileRevision(@Param('revisionId') revisionId: string) {
+    return this.modelCatalogService.lintExecutionProfileRevision(revisionId);
+  }
+
+  @Post(':revisionId/test')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  testExecutionProfileRevision(@Param('revisionId') revisionId: string) {
+    return this.modelCatalogService.testExecutionProfileRevision(revisionId);
+  }
+
+  @Post(':revisionId/activate')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  activateExecutionProfileRevision(
+    @Param('revisionId') revisionId: string,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.activateExecutionProfileRevision(
+      revisionId,
+      request.auth!,
+      request,
+    );
   }
 }
 

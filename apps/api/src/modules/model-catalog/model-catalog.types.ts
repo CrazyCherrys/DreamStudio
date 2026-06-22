@@ -1,5 +1,7 @@
 import type {
+  ExecutionProfileRevisionStatus,
   ExecutionProfileOperation,
+  ExecutionProfileSourceKind,
   ModelEndpointType,
   ModelModality,
   NewApiConfigStatus,
@@ -30,6 +32,56 @@ export interface ModelSyncSnapshotBody {
   api_key?: unknown;
 }
 
+export interface ExecutionProfileBody {
+  name?: unknown;
+  operation?: unknown;
+  adapter_key?: unknown;
+  adapter_version?: unknown;
+  transport_key?: unknown;
+  upstream_model_id?: unknown;
+  upstream_endpoint_path?: unknown;
+  reference_transfer_mode?: unknown;
+  supports_reference_image?: unknown;
+  max_reference_images?: unknown;
+  parameter_schema?: unknown;
+  default_params?: unknown;
+  request_mapping?: unknown;
+  response_parser_key?: unknown;
+  capabilities?: unknown;
+  validation_rules?: unknown;
+  is_default?: unknown;
+  is_enabled?: unknown;
+  sort_order?: unknown;
+}
+
+export interface ExecutionProfileRevisionBody {
+  source_kind?: unknown;
+  source_url?: unknown;
+  source_checked_at?: unknown;
+  source_summary?: unknown;
+  adapter_key?: unknown;
+  adapter_version?: unknown;
+  transport_key?: unknown;
+  upstream_model_id?: unknown;
+  upstream_endpoint_path?: unknown;
+  reference_transfer_mode?: unknown;
+  supports_reference_image?: unknown;
+  max_reference_images?: unknown;
+  parameter_schema?: unknown;
+  default_params?: unknown;
+  request_mapping?: unknown;
+  response_parser_key?: unknown;
+  capabilities?: unknown;
+  validation_rules?: unknown;
+  change_summary?: unknown;
+}
+
+export interface ExecutionProfilePreviewBody {
+  prompt?: unknown;
+  parameters?: unknown;
+  reference_asset_ids?: unknown;
+}
+
 export interface PublicAiModel {
   id: string;
   model_id: string;
@@ -54,6 +106,81 @@ export interface AdminAiModel extends PublicAiModel {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export interface AdminExecutionProfile {
+  id: string;
+  ai_model_id: string;
+  name: string;
+  operation: ExecutionProfileOperation;
+  adapter_key: string;
+  adapter_version: string;
+  transport_key: string;
+  upstream_model_id: string;
+  upstream_endpoint_path: string | null;
+  reference_transfer_mode: ReferenceTransferMode;
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  parameter_schema: ParameterSchemaField[];
+  default_params: unknown;
+  request_mapping: unknown;
+  response_parser_key: string;
+  capabilities: unknown;
+  validation_rules: unknown;
+  is_default: boolean;
+  is_enabled: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  revisions?: AdminExecutionProfileRevision[];
+}
+
+export interface AdminExecutionProfileRevision {
+  id: string;
+  execution_profile_id: string;
+  revision_no: number;
+  status: ExecutionProfileRevisionStatus;
+  source_kind: ExecutionProfileSourceKind;
+  source_url: string | null;
+  source_checked_at: string | null;
+  source_summary: string | null;
+  adapter_key: string;
+  adapter_version: string;
+  transport_key: string;
+  upstream_model_id: string;
+  upstream_endpoint_path: string | null;
+  reference_transfer_mode: ReferenceTransferMode;
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  parameter_schema: ParameterSchemaField[];
+  default_params: unknown;
+  request_mapping: unknown;
+  response_parser_key: string;
+  capabilities: unknown;
+  validation_rules: unknown;
+  change_summary: string | null;
+  created_by: string | null;
+  created_at: string;
+  activated_by: string | null;
+  activated_at: string | null;
+  archived_at: string | null;
+}
+
+export interface ExecutionProfileLintResult {
+  ok: boolean;
+  errors: Array<{ field: string; message: string }>;
+  warnings: Array<{ field: string; message: string }>;
+}
+
+export interface ExecutionProfilePreviewResult {
+  adapter_key: string;
+  adapter_version: string;
+  transport_key: string;
+  endpoint_path: string;
+  content_type: string;
+  body: Record<string, unknown>;
+  reference_asset_ids: string[];
 }
 
 export interface PublicExecutionProfileCapabilities {

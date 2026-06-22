@@ -4,12 +4,28 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { DsButton, DsInput } from '@/components/ui';
 import {
+  activateExecutionProfileRevision,
+  createExecutionProfile,
+  createExecutionProfileRevision,
   emptySchemaField,
   endpointTypeLabel,
+  fetchExecutionProfiles,
+  lintExecutionProfileRevision,
   modalityLabel,
+  previewExecutionProfileRevision,
+  testExecutionProfileRevision,
   transferModeLabel,
+  updateExecutionProfile,
+  updateExecutionProfileRevision,
+  type AdminExecutionProfile,
+  type AdminExecutionProfileRevision,
   type AdminAiModel,
   type AiModelPayload,
+  type ExecutionProfileOperation,
+  type ExecutionProfilePayload,
+  type ExecutionProfilePreviewResult,
+  type ExecutionProfileRevisionPayload,
+  type ExecutionProfileSourceKind,
   type ModelEndpointType,
   type ModelModality,
   type ModelSyncSnapshotDetail,
@@ -44,6 +60,19 @@ const ENDPOINT_TYPES: ModelEndpointType[] = [
   'gemini_generate_content',
 ];
 const TRANSFER_MODES: ReferenceTransferMode[] = ['none', 'multipart', 'url'];
+const EXECUTION_OPERATIONS: ExecutionProfileOperation[] = [
+  'text_to_image',
+  'image_to_image',
+  'image_edit',
+  'conversational_image',
+];
+const SOURCE_KINDS: ExecutionProfileSourceKind[] = [
+  'manual',
+  'openai_official',
+  'gemini_official',
+  'third_party_docs',
+  'imported_json',
+];
 type StudioQuickParameterKind = 'count' | 'ratio' | 'resolution';
 
 interface StudioQuickParameterConfig {
@@ -870,6 +899,372 @@ export function ModelForm({
     </form>
   );
 }
+
+export function ExecutionProfileManager({
+  csrfToken,
+  model,
+  onChanged,
+}: {
+  csrfToken: string | null;
+  model: AdminAiModel;
+  onChanged: () => Promise<void>;
+}) {
+  const [profiles, setProfiles] = useState<AdminExecutionProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
+  const [profileDraft, setProfileDraft] = useState<ExecutionProfilePayload | null>(null);
+  const [revisionDraft, setRevisionDraft] = useState<ExecutionProfileRevisionPayload | null>(null);
+  const [preview, setPreview] = useState<ExecutionProfilePreviewResult | null>(null);
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId) ?? null;
+  const selectedRevision =
+    selectedProfile?.revisions?.find((revision) => revision.id === selectedRevisionId) ?? null;
+
+  useEffect(() => {
+    void loadProfiles();
+  }, [model.id]);
+
+  async function loadProfiles(preferredProfileId = selectedProfileId) {
+    setLoadingProfiles(true);
+    setProfileError(null);
+    try {
+      const response = await fetchExecutionProfiles(model.id);
+      setProfiles(response.items);
+      const nextProfile =
+        response.items.find((profile) => profile.id === preferredProfileId) ??
+        response.items.find((profile) => profile.is_default) ??
+        response.items[0] ??
+        null;
+      setSelectedProfileId(nextProfile?.id ?? null);
+      const nextRevision =
+        nextProfile?.revisions?.find((revision) => revision.status === 'draft') ??
+        nextProfile?.revisions?.find((revision) => revision.status === 'active') ??
+        nextProfile?.revisions?.[0] ??
+        null;
+      setSelectedRevisionId(nextRevision?.id ?? null);
+      setProfileDraft(nextProfile ? profileToPayload(nextProfile) : emptyProfilePayload(model));
+      setRevisionDraft(nextRevision ? revisionToPayload(nextRevision) : null);
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : '读取执行配置失败');
+    } finally {
+      setLoadingProfiles(false);
+    }
+  }
+
+  function selectProfile(profile: AdminExecutionProfile) {
+    setSelectedProfileId(profile.id);
+    const revision =
+      profile.revisions?.find((item) => item.status === 'draft') ??
+      profile.revisions?.find((item) => item.status === 'active') ??
+      profile.revisions?.[0] ??
+      null;
+    setSelectedRevisionId(revision?.id ?? null);
+    setProfileDraft(profileToPayload(profile));
+    setRevisionDraft(revision ? revisionToPayload(revision) : null);
+    setPreview(null);
+  }
+
+  function selectRevision(revision: AdminExecutionProfileRevision) {
+    setSelectedRevisionId(revision.id);
+    setRevisionDraft(revisionToPayload(revision));
+    setPreview(null);
+  }
+
+  async function withProfileAction(action: () => Promise<void>, success: string) {
+    if (!csrfToken) {
+      setProfileError('登录状态已失效，请重新登录');
+      return;
+    }
+    setSavingProfile(true);
+    setProfileMessage(null);
+    setProfileError(null);
+    try {
+      await action();
+      setProfileMessage(success);
+      await onChanged();
+      await loadProfiles(selectedProfileId);
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : '执行配置操作失败');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function saveProfile() {
+    if (!profileDraft) {
+      return;
+    }
+    await withProfileAction(async () => {
+      if (selectedProfile) {
+        await updateExecutionProfile(selectedProfile.id, profileDraft, csrfToken!);
+      } else {
+        await createExecutionProfile(model.id, profileDraft, csrfToken!);
+      }
+    }, '执行配置已保存。');
+  }
+
+  async function createDraftRevision() {
+    if (!selectedProfile) {
+      return;
+    }
+    await withProfileAction(async () => {
+      const created = await createExecutionProfileRevision(
+        selectedProfile.id,
+        revisionDraft ?? {},
+        csrfToken!,
+      );
+      setSelectedRevisionId(created.item.id);
+    }, 'Draft revision 已创建。');
+  }
+
+  async function saveRevision() {
+    if (!selectedRevision || !revisionDraft) {
+      return;
+    }
+    await withProfileAction(async () => {
+      await updateExecutionProfileRevision(selectedRevision.id, revisionDraft, csrfToken!);
+    }, 'Revision 已保存。');
+  }
+
+  async function runRevisionAction(kind: 'lint' | 'preview' | 'test' | 'activate') {
+    if (!selectedRevision || !csrfToken) {
+      setProfileError('请选择 revision');
+      return;
+    }
+    setSavingProfile(true);
+    setProfileMessage(null);
+    setProfileError(null);
+    try {
+      if (kind === 'lint') {
+        const result = await lintExecutionProfileRevision(selectedRevision.id, csrfToken);
+        setProfileMessage(result.result.ok ? 'Lint 通过。' : 'Lint 存在错误。');
+      } else if (kind === 'preview') {
+        const result = await previewExecutionProfileRevision(
+          selectedRevision.id,
+          { parameters: revisionDraft?.default_params ?? {} },
+          csrfToken,
+        );
+        setPreview(result.preview);
+        setProfileMessage('请求预览已生成。');
+      } else if (kind === 'test') {
+        const result = await testExecutionProfileRevision(selectedRevision.id, csrfToken);
+        setProfileMessage(
+          result.result.message ?? (result.result.ok ? '测试通过。' : '测试失败。'),
+        );
+      } else {
+        await activateExecutionProfileRevision(selectedRevision.id, csrfToken);
+        setProfileMessage('Revision 已发布。');
+        await onChanged();
+        await loadProfiles(selectedProfileId);
+      }
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Revision 操作失败');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  return (
+    <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black">执行配置</h3>
+          <p className="ds-muted mt-1 text-sm">Profile 和 revision 发布后才会影响用户侧 Studio。</p>
+        </div>
+        <DsButton onClick={() => void loadProfiles()} type="button" variant="secondary">
+          刷新配置
+        </DsButton>
+      </div>
+
+      {profileMessage ? (
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+          {profileMessage}
+        </p>
+      ) : null}
+      {profileError ? (
+        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          {profileError}
+        </p>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
+        <div className="grid content-start gap-2">
+          {loadingProfiles ? <p className="ds-muted text-sm font-semibold">正在读取...</p> : null}
+          {profiles.map((profile) => (
+            <button
+              className={`rounded-[var(--ds-radius-sm)] border p-3 text-left text-sm ${
+                profile.id === selectedProfileId
+                  ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
+                  : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
+              }`}
+              key={profile.id}
+              onClick={() => selectProfile(profile)}
+              type="button"
+            >
+              <strong>{profile.name}</strong>
+              <span className="ds-muted mt-1 block break-all text-xs">{profile.adapter_key}</span>
+              <span className="mt-2 flex flex-wrap gap-1 text-xs font-black">
+                {profile.is_default ? <span>默认</span> : null}
+                {profile.is_enabled ? <span>启用</span> : <span>禁用</span>}
+                <span>{profile.revisions?.length ?? 0} rev</span>
+              </span>
+            </button>
+          ))}
+          <DsButton
+            onClick={() => {
+              setSelectedProfileId(null);
+              setSelectedRevisionId(null);
+              setProfileDraft(emptyProfilePayload(model));
+              setRevisionDraft(null);
+              setPreview(null);
+            }}
+            type="button"
+            variant="secondary"
+          >
+            新建 Profile
+          </DsButton>
+        </div>
+
+        <div className="grid gap-4">
+          {profileDraft ? (
+            <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
+              <h4 className="font-black">Profile</h4>
+              <div className="grid gap-3 md:grid-cols-3">
+                <DsInput
+                  label="名称"
+                  onChange={(event) =>
+                    setProfileDraft((current) => ({ ...(current ?? {}), name: event.target.value }))
+                  }
+                  value={profileDraft.name ?? ''}
+                />
+                <label className="grid gap-2 text-sm font-bold">
+                  <span>operation</span>
+                  <select
+                    className="ds-input"
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        operation: event.target.value as ExecutionProfileOperation,
+                      }))
+                    }
+                    value={profileDraft.operation ?? 'text_to_image'}
+                  >
+                    {EXECUTION_OPERATIONS.map((operation) => (
+                      <option key={operation} value={operation}>
+                        {operation}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <DsInput
+                  label="adapter_key"
+                  onChange={(event) =>
+                    setProfileDraft((current) => ({
+                      ...(current ?? {}),
+                      adapter_key: event.target.value,
+                    }))
+                  }
+                  value={profileDraft.adapter_key ?? ''}
+                />
+              </div>
+              <div className="grid gap-3 md:grid-cols-4">
+                <DsInput
+                  label="upstream_model_id"
+                  onChange={(event) =>
+                    setProfileDraft((current) => ({
+                      ...(current ?? {}),
+                      upstream_model_id: event.target.value,
+                    }))
+                  }
+                  value={profileDraft.upstream_model_id ?? ''}
+                />
+                <DsInput
+                  label="endpoint_path"
+                  onChange={(event) =>
+                    setProfileDraft((current) => ({
+                      ...(current ?? {}),
+                      upstream_endpoint_path: event.target.value || null,
+                    }))
+                  }
+                  value={profileDraft.upstream_endpoint_path ?? ''}
+                />
+                <DsInput
+                  label="sort_order"
+                  onChange={(event) =>
+                    setProfileDraft((current) => ({
+                      ...(current ?? {}),
+                      sort_order: Number(event.target.value),
+                    }))
+                  }
+                  type="number"
+                  value={profileDraft.sort_order ?? 0}
+                />
+                <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 text-sm font-black">
+                  <input
+                    checked={profileDraft.is_default === true}
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        is_default: event.target.checked,
+                      }))
+                    }
+                    type="checkbox"
+                  />
+                  默认
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <DsButton disabled={savingProfile} onClick={saveProfile} type="button">
+                  保存 Profile
+                </DsButton>
+                {selectedProfile ? (
+                  <DsButton disabled={savingProfile} onClick={createDraftRevision} type="button">
+                    新建 Draft Revision
+                  </DsButton>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {selectedProfile?.revisions?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {selectedProfile.revisions.map((revision) => (
+                <button
+                  className={`rounded-[var(--ds-radius-sm)] border px-3 py-2 text-sm font-black ${
+                    revision.id === selectedRevisionId
+                      ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
+                      : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
+                  }`}
+                  key={revision.id}
+                  onClick={() => selectRevision(revision)}
+                  type="button"
+                >
+                  r{revision.revision_no} / {revision.status}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {selectedRevision && revisionDraft ? (
+            <RevisionEditor
+              disabled={savingProfile}
+              draft={revisionDraft}
+              onAction={runRevisionAction}
+              onChange={setRevisionDraft}
+              onSave={saveRevision}
+              preview={preview}
+              revision={selectedRevision}
+            />
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
 export function ModelSyncSnapshotPanel({
   snapshots,
   selectedSnapshot,
@@ -945,6 +1340,216 @@ export function ModelSyncSnapshotPanel({
         </pre>
       </div>
     </div>
+  );
+}
+
+function RevisionEditor({
+  disabled,
+  draft,
+  onAction,
+  onChange,
+  onSave,
+  preview,
+  revision,
+}: {
+  disabled: boolean;
+  draft: ExecutionProfileRevisionPayload;
+  onAction: (kind: 'lint' | 'preview' | 'test' | 'activate') => Promise<void>;
+  onChange: (draft: ExecutionProfileRevisionPayload) => void;
+  onSave: () => Promise<void>;
+  preview: ExecutionProfilePreviewResult | null;
+  revision: AdminExecutionProfileRevision;
+}) {
+  function patch(patchDraft: Partial<ExecutionProfileRevisionPayload>) {
+    onChange({
+      ...draft,
+      ...patchDraft,
+    });
+  }
+
+  return (
+    <div className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="font-black">
+          Revision r{revision.revision_no} / {revision.status}
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          <DsButton
+            disabled={disabled || revision.status !== 'draft'}
+            onClick={onSave}
+            type="button"
+          >
+            保存 Draft
+          </DsButton>
+          <DsButton
+            disabled={disabled}
+            onClick={() => void onAction('lint')}
+            type="button"
+            variant="secondary"
+          >
+            Lint
+          </DsButton>
+          <DsButton
+            disabled={disabled}
+            onClick={() => void onAction('preview')}
+            type="button"
+            variant="secondary"
+          >
+            预览请求
+          </DsButton>
+          <DsButton
+            disabled={disabled}
+            onClick={() => void onAction('test')}
+            type="button"
+            variant="secondary"
+          >
+            Test
+          </DsButton>
+          <DsButton disabled={disabled} onClick={() => void onAction('activate')} type="button">
+            发布
+          </DsButton>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <label className="grid gap-2 text-sm font-bold">
+          <span>source_kind</span>
+          <select
+            className="ds-input"
+            disabled={revision.status !== 'draft'}
+            onChange={(event) =>
+              patch({ source_kind: event.target.value as ExecutionProfileSourceKind })
+            }
+            value={draft.source_kind ?? 'manual'}
+          >
+            {SOURCE_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {kind}
+              </option>
+            ))}
+          </select>
+        </label>
+        <DsInput
+          disabled={revision.status !== 'draft'}
+          label="adapter_key"
+          onChange={(event) => patch({ adapter_key: event.target.value })}
+          value={draft.adapter_key ?? ''}
+        />
+        <DsInput
+          disabled={revision.status !== 'draft'}
+          label="upstream_model_id"
+          onChange={(event) => patch({ upstream_model_id: event.target.value })}
+          value={draft.upstream_model_id ?? ''}
+        />
+        <DsInput
+          disabled={revision.status !== 'draft'}
+          label="endpoint_path"
+          onChange={(event) => patch({ upstream_endpoint_path: event.target.value || null })}
+          value={draft.upstream_endpoint_path ?? ''}
+        />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <DsInput
+          disabled={revision.status !== 'draft'}
+          label="source_url"
+          onChange={(event) => patch({ source_url: event.target.value || null })}
+          value={draft.source_url ?? ''}
+        />
+        <DsInput
+          disabled={revision.status !== 'draft'}
+          label="source_checked_at"
+          onChange={(event) => patch({ source_checked_at: event.target.value || null })}
+          type="datetime-local"
+          value={formatDateTimeLocal(draft.source_checked_at)}
+        />
+        <DsInput
+          disabled={revision.status !== 'draft'}
+          label="response_parser_key"
+          onChange={(event) => patch({ response_parser_key: event.target.value })}
+          value={draft.response_parser_key ?? ''}
+        />
+      </div>
+
+      <SchemaBuilder
+        onChange={(parameterSchema) => patch({ parameter_schema: parameterSchema })}
+        schema={draft.parameter_schema ?? []}
+      />
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <JsonEditor
+          disabled={revision.status !== 'draft'}
+          label="default_params"
+          onChange={(value) => patch({ default_params: value })}
+          value={draft.default_params ?? {}}
+        />
+        <JsonEditor
+          disabled={revision.status !== 'draft'}
+          label="request_mapping"
+          onChange={(value) => patch({ request_mapping: value })}
+          value={draft.request_mapping ?? {}}
+        />
+        <JsonEditor
+          disabled={revision.status !== 'draft'}
+          label="capabilities"
+          onChange={(value) => patch({ capabilities: value })}
+          value={draft.capabilities ?? {}}
+        />
+        <JsonEditor
+          disabled={revision.status !== 'draft'}
+          label="validation_rules"
+          onChange={(value) => patch({ validation_rules: value })}
+          value={draft.validation_rules ?? {}}
+        />
+      </div>
+
+      <label className="grid gap-2 text-sm font-bold">
+        <span>change_summary</span>
+        <textarea
+          className="ds-input min-h-20 py-3"
+          disabled={revision.status !== 'draft'}
+          onChange={(event) => patch({ change_summary: event.target.value || null })}
+          value={draft.change_summary ?? ''}
+        />
+      </label>
+
+      {preview ? (
+        <pre className="max-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-xs">
+          {JSON.stringify(preview, null, 2)}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
+function JsonEditor({
+  disabled,
+  label,
+  onChange,
+  value,
+}: {
+  disabled?: boolean;
+  label: string;
+  onChange: (value: Record<string, unknown>) => void;
+  value: Record<string, unknown>;
+}) {
+  const [text, setText] = useState(() => JSON.stringify(value, null, 2));
+
+  useEffect(() => {
+    setText(JSON.stringify(value, null, 2));
+  }, [value]);
+
+  return (
+    <label className="grid gap-2 text-sm font-bold">
+      <span>{label}</span>
+      <textarea
+        className="ds-input min-h-40 py-3 font-mono text-xs"
+        disabled={disabled}
+        onBlur={() => onChange(parseJsonObject(text))}
+        onChange={(event) => setText(event.target.value)}
+        value={text}
+      />
+    </label>
   );
 }
 
@@ -1160,4 +1765,95 @@ function parseSchemaOptionLines(rawValue: string): ParameterSchemaOption[] {
         value: value.trim(),
       };
     });
+}
+
+function emptyProfilePayload(model: AdminAiModel): ExecutionProfilePayload {
+  return {
+    name: 'New execution profile',
+    operation: 'text_to_image',
+    adapter_key: 'openai_images_generation',
+    adapter_version: '1',
+    transport_key: 'new_api_bearer',
+    upstream_model_id: model.model_id,
+    upstream_endpoint_path: '/v1/images/generations',
+    reference_transfer_mode: 'none',
+    supports_reference_image: false,
+    max_reference_images: 0,
+    parameter_schema: model.default_execution_profile?.parameter_schema ?? model.parameter_schema,
+    default_params: model.default_execution_profile?.default_params ?? model.default_params,
+    request_mapping: {
+      content_type: 'json',
+      fields: [
+        { source: 'model', target: 'model' },
+        { source: 'prompt', target: 'prompt' },
+      ],
+    },
+    response_parser_key: 'openai_image_data',
+    capabilities: {},
+    validation_rules: {},
+    is_default: false,
+    is_enabled: true,
+    sort_order: 0,
+  };
+}
+
+function profileToPayload(profile: AdminExecutionProfile): ExecutionProfilePayload {
+  return {
+    name: profile.name,
+    operation: profile.operation,
+    adapter_key: profile.adapter_key,
+    adapter_version: profile.adapter_version,
+    transport_key: profile.transport_key,
+    upstream_model_id: profile.upstream_model_id,
+    upstream_endpoint_path: profile.upstream_endpoint_path,
+    reference_transfer_mode: profile.reference_transfer_mode,
+    supports_reference_image: profile.supports_reference_image,
+    max_reference_images: profile.max_reference_images,
+    parameter_schema: profile.parameter_schema,
+    default_params: profile.default_params,
+    request_mapping: profile.request_mapping,
+    response_parser_key: profile.response_parser_key,
+    capabilities: profile.capabilities,
+    validation_rules: profile.validation_rules,
+    is_default: profile.is_default,
+    is_enabled: profile.is_enabled,
+    sort_order: profile.sort_order,
+  };
+}
+
+function revisionToPayload(
+  revision: AdminExecutionProfileRevision,
+): ExecutionProfileRevisionPayload {
+  return {
+    source_kind: revision.source_kind,
+    source_url: revision.source_url,
+    source_checked_at: revision.source_checked_at,
+    source_summary: revision.source_summary,
+    adapter_key: revision.adapter_key,
+    adapter_version: revision.adapter_version,
+    transport_key: revision.transport_key,
+    upstream_model_id: revision.upstream_model_id,
+    upstream_endpoint_path: revision.upstream_endpoint_path,
+    reference_transfer_mode: revision.reference_transfer_mode,
+    supports_reference_image: revision.supports_reference_image,
+    max_reference_images: revision.max_reference_images,
+    parameter_schema: revision.parameter_schema,
+    default_params: revision.default_params,
+    request_mapping: revision.request_mapping,
+    response_parser_key: revision.response_parser_key,
+    capabilities: revision.capabilities,
+    validation_rules: revision.validation_rules,
+    change_summary: revision.change_summary,
+  };
+}
+
+function formatDateTimeLocal(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toISOString().slice(0, 16);
 }

@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 6 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；下一步进入阶段 7 Admin Profile 和 Revision 管理。
+当前状态：阶段 7 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；下一步进入阶段 8 Request Mapping、Preview 和排障日志。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -523,6 +523,8 @@ POST   /api/v1/admin/execution-profile-revisions/{revision_id}/test
 POST   /api/v1/admin/execution-profile-revisions/{revision_id}/activate
 ```
 
+阶段 7 已实现上述 Admin profile/revision API。所有接口由 `SessionAuthGuard` + `SuperAdminGuard` 保护，写操作要求 CSRF。`PATCH /api/v1/admin/execution-profile-revisions/{revision_id}` 用于编辑 draft revision；发布 revision 会在事务中归档同 profile 下旧 active revision，并把 active revision 的执行配置同步回 profile 表。`test` 当前为 dry-run smoke test，验证 lint 和脱敏请求预览可构造，不直接请求真实上游。
+
 普通模型接口返回默认 active profile 的公开字段：
 
 ```json
@@ -649,10 +651,13 @@ Studio：
 
 ### 阶段 7：Admin Profile 和 Revision 管理
 
-- Admin 模型详情支持查看 profile、revision 和来源。
-- 支持创建 draft revision、编辑 Schema v2、默认参数和 request mapping。
-- 支持导入模板 JSON，导入结果必须先成为 draft。
-- active revision 发布前必须经过 lint、请求预览和 smoke test。
+- Admin 模型详情已支持查看 profile、revision 和来源。
+- 已支持 profile 创建、编辑、启用/禁用、删除和默认 profile 切换。
+- 已支持创建 draft revision、编辑 Schema v2、默认参数、request mapping、capabilities 和 validation rules。
+- 已支持 lint、请求预览、dry-run test 和 activate。
+- activate 会归档旧 active revision，保证同一 profile 同时只有一个 active revision。
+- 已新增 `scripts/verify-execution-profile-admin.ts`，验证 admin guard、draft 创建、draft 不影响 active、lint、preview、test 和 activate 归档旧 active。
+- 导入模板 JSON 仍属于后续模板阶段，当前 UI/API 支持手动 draft 编辑。
 
 ### 阶段 8：Request Mapping、Preview 和排障日志
 

@@ -9,6 +9,13 @@ export type ModelEndpointType =
 export type ModelModality = 'chat' | 'image' | 'video';
 export type ReferenceTransferMode = 'none' | 'multipart' | 'url';
 export type ParameterFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'select';
+export type ExecutionProfileRevisionStatus = 'draft' | 'active' | 'archived';
+export type ExecutionProfileSourceKind =
+  | 'manual'
+  | 'openai_official'
+  | 'gemini_official'
+  | 'third_party_docs'
+  | 'imported_json';
 
 export interface ParameterSchemaOption {
   label: string;
@@ -90,6 +97,65 @@ export interface AdminAiModel extends PublicAiModel {
   deleted_at: string | null;
 }
 
+export interface AdminExecutionProfile {
+  id: string;
+  ai_model_id: string;
+  name: string;
+  operation: ExecutionProfileOperation;
+  adapter_key: string;
+  adapter_version: string;
+  transport_key: string;
+  upstream_model_id: string;
+  upstream_endpoint_path: string | null;
+  reference_transfer_mode: ReferenceTransferMode;
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  parameter_schema: ParameterSchemaField[];
+  default_params: Record<string, unknown>;
+  request_mapping: Record<string, unknown>;
+  response_parser_key: string;
+  capabilities: Record<string, unknown>;
+  validation_rules: Record<string, unknown>;
+  is_default: boolean;
+  is_enabled: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  revisions?: AdminExecutionProfileRevision[];
+}
+
+export interface AdminExecutionProfileRevision {
+  id: string;
+  execution_profile_id: string;
+  revision_no: number;
+  status: ExecutionProfileRevisionStatus;
+  source_kind: ExecutionProfileSourceKind;
+  source_url: string | null;
+  source_checked_at: string | null;
+  source_summary: string | null;
+  adapter_key: string;
+  adapter_version: string;
+  transport_key: string;
+  upstream_model_id: string;
+  upstream_endpoint_path: string | null;
+  reference_transfer_mode: ReferenceTransferMode;
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  parameter_schema: ParameterSchemaField[];
+  default_params: Record<string, unknown>;
+  request_mapping: Record<string, unknown>;
+  response_parser_key: string;
+  capabilities: Record<string, unknown>;
+  validation_rules: Record<string, unknown>;
+  change_summary: string | null;
+  created_by: string | null;
+  created_at: string;
+  activated_by: string | null;
+  activated_at: string | null;
+  archived_at: string | null;
+}
+
 export interface ModelSyncSnapshotSummary {
   id: string;
   base_url: string;
@@ -117,6 +183,68 @@ export interface AiModelPayload {
   sort_order: number;
   default_params: Record<string, unknown>;
   parameter_schema: ParameterSchemaField[];
+}
+
+export interface ExecutionProfilePayload {
+  name?: string;
+  operation?: ExecutionProfileOperation;
+  adapter_key?: string;
+  adapter_version?: string;
+  transport_key?: string;
+  upstream_model_id?: string;
+  upstream_endpoint_path?: string | null;
+  reference_transfer_mode?: ReferenceTransferMode;
+  supports_reference_image?: boolean;
+  max_reference_images?: number;
+  parameter_schema?: ParameterSchemaField[];
+  default_params?: Record<string, unknown>;
+  request_mapping?: Record<string, unknown>;
+  response_parser_key?: string;
+  capabilities?: Record<string, unknown>;
+  validation_rules?: Record<string, unknown>;
+  is_default?: boolean;
+  is_enabled?: boolean;
+  sort_order?: number;
+}
+
+export interface ExecutionProfileRevisionPayload {
+  source_kind?: ExecutionProfileSourceKind;
+  source_url?: string | null;
+  source_checked_at?: string | null;
+  source_summary?: string | null;
+  adapter_key?: string;
+  adapter_version?: string;
+  transport_key?: string;
+  upstream_model_id?: string;
+  upstream_endpoint_path?: string | null;
+  reference_transfer_mode?: ReferenceTransferMode;
+  supports_reference_image?: boolean;
+  max_reference_images?: number;
+  parameter_schema?: ParameterSchemaField[];
+  default_params?: Record<string, unknown>;
+  request_mapping?: Record<string, unknown>;
+  response_parser_key?: string;
+  capabilities?: Record<string, unknown>;
+  validation_rules?: Record<string, unknown>;
+  change_summary?: string | null;
+}
+
+export interface ExecutionProfileLintResult {
+  ok: boolean;
+  errors: Array<{ field: string; message: string }>;
+  warnings: Array<{ field: string; message: string }>;
+  dry_run?: boolean;
+  message?: string;
+}
+
+export interface ExecutionProfilePreviewResult {
+  adapter_key: string;
+  adapter_version: string;
+  transport_key: string;
+  endpoint_path: string;
+  content_type: string;
+  body: Record<string, unknown>;
+  reference_asset_ids: string[];
 }
 
 export interface ModelSyncSnapshotPayload {
@@ -196,6 +324,134 @@ export function deleteAdminModel(modelId: string, csrfToken: string) {
     method: 'DELETE',
     csrfToken,
   });
+}
+
+export function fetchExecutionProfiles(modelId: string) {
+  return apiRequest<{ items: AdminExecutionProfile[] }>(
+    `/api/v1/admin/models/${modelId}/execution-profiles`,
+    {
+      cache: 'no-store',
+    },
+  );
+}
+
+export function createExecutionProfile(
+  modelId: string,
+  payload: ExecutionProfilePayload,
+  csrfToken: string,
+) {
+  return apiRequest<{ item: AdminExecutionProfile }>(
+    `/api/v1/admin/models/${modelId}/execution-profiles`,
+    {
+      method: 'POST',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function updateExecutionProfile(
+  profileId: string,
+  payload: ExecutionProfilePayload,
+  csrfToken: string,
+) {
+  return apiRequest<{ item: AdminExecutionProfile }>(
+    `/api/v1/admin/execution-profiles/${profileId}`,
+    {
+      method: 'PATCH',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function deleteExecutionProfile(profileId: string, csrfToken: string) {
+  return apiRequest<{ deleted: boolean; item: AdminExecutionProfile }>(
+    `/api/v1/admin/execution-profiles/${profileId}`,
+    {
+      method: 'DELETE',
+      csrfToken,
+    },
+  );
+}
+
+export function createExecutionProfileRevision(
+  profileId: string,
+  payload: ExecutionProfileRevisionPayload,
+  csrfToken: string,
+) {
+  return apiRequest<{ item: AdminExecutionProfileRevision }>(
+    `/api/v1/admin/execution-profiles/${profileId}/revisions`,
+    {
+      method: 'POST',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function updateExecutionProfileRevision(
+  revisionId: string,
+  payload: ExecutionProfileRevisionPayload,
+  csrfToken: string,
+) {
+  return apiRequest<{ item: AdminExecutionProfileRevision }>(
+    `/api/v1/admin/execution-profile-revisions/${revisionId}`,
+    {
+      method: 'PATCH',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function lintExecutionProfileRevision(revisionId: string, csrfToken: string) {
+  return apiRequest<{ result: ExecutionProfileLintResult }>(
+    `/api/v1/admin/execution-profile-revisions/${revisionId}/lint`,
+    {
+      method: 'POST',
+      csrfToken,
+    },
+  );
+}
+
+export function previewExecutionProfileRevision(
+  revisionId: string,
+  payload: {
+    prompt?: string;
+    parameters?: Record<string, unknown>;
+    reference_asset_ids?: string[];
+  },
+  csrfToken: string,
+) {
+  return apiRequest<{ preview: ExecutionProfilePreviewResult }>(
+    `/api/v1/admin/execution-profile-revisions/${revisionId}/preview-request`,
+    {
+      method: 'POST',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function testExecutionProfileRevision(revisionId: string, csrfToken: string) {
+  return apiRequest<{ result: ExecutionProfileLintResult }>(
+    `/api/v1/admin/execution-profile-revisions/${revisionId}/test`,
+    {
+      method: 'POST',
+      csrfToken,
+    },
+  );
+}
+
+export function activateExecutionProfileRevision(revisionId: string, csrfToken: string) {
+  return apiRequest<{ item: AdminExecutionProfileRevision }>(
+    `/api/v1/admin/execution-profile-revisions/${revisionId}/activate`,
+    {
+      method: 'POST',
+      csrfToken,
+    },
+  );
 }
 
 export function uploadModelIcon(file: File, csrfToken: string) {

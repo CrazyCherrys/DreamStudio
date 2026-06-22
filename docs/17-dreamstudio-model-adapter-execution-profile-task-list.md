@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 6 已完成，下一步进入阶段 7。
+当前状态：阶段 7 已完成，下一步进入阶段 8。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -797,6 +797,23 @@ npm run build
 - 参数变更不需要改代码。
 - 草稿不会影响用户侧，发布后才生效。
 
+### 9.7 已完成
+
+- 已新增 Admin execution profile/revision API：
+  - `GET/POST /api/v1/admin/models/:model_id/execution-profiles`
+  - `GET/PATCH/DELETE /api/v1/admin/execution-profiles/:profile_id`
+  - `GET/POST /api/v1/admin/execution-profiles/:profile_id/revisions`
+  - `PATCH /api/v1/admin/execution-profile-revisions/:revision_id`
+  - `POST /api/v1/admin/execution-profile-revisions/:revision_id/lint`
+  - `POST /api/v1/admin/execution-profile-revisions/:revision_id/preview-request`
+  - `POST /api/v1/admin/execution-profile-revisions/:revision_id/test`
+  - `POST /api/v1/admin/execution-profile-revisions/:revision_id/activate`
+- 所有 Admin profile/revision API 使用 `SessionAuthGuard` + `SuperAdminGuard`；写操作使用 CSRF。
+- Draft revision 可编辑，active/archived revision 不可编辑。
+- Activate 会在事务中归档同 profile 旧 active revision，并同步 active revision 配置到 profile 表。
+- `/admin/models` 编辑模型时显示执行配置面板，可查看 profile/revision、编辑 draft、lint、预览、dry-run test、发布。
+- 已新增 `scripts/verify-execution-profile-admin.ts`，验证普通用户 guard 拒绝、super_admin 创建 draft、draft 不影响 active、lint、preview、test 和 activate 归档旧 active。
+
 ## 10. 阶段 8：Request Mapping、Preview 和排障日志
 
 ### 10.1 先查看资料
@@ -1131,11 +1148,10 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 6 完成后，下一步应该进入阶段 7：
+阶段 7 完成后，下一步应该进入阶段 8：
 
-1. 查看本文件阶段 7 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `API 调整`、`前端调整`。
-2. 查看 `docs/15-dreamstudio-m6-admin-logs-task-list.md`。
-3. 查看 `apps/api/src/modules/model-catalog/model-catalog.controller.ts`、`apps/api/src/modules/model-catalog/model-catalog.service.ts`、`apps/web/src/app/admin/models/page.tsx`、`apps/web/src/components/model-catalog/model-components.tsx`、`apps/web/src/lib/model-catalog.ts`。
-4. 增加 Admin profile/revision 列表、draft 编辑、lint、preview request、test、activate 等管理能力。
-5. 确保同一 profile 只能有一个 active revision。
-6. 不要先做 Gemini adapter。
+1. 查看本文件阶段 8 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Request Mapping`、`Request Log 和排障`。
+2. 查看 OpenAI Image API、Gemini Generate Content API，以及当前 Worker adapter registry。
+3. 查看 `apps/worker/src/modules/image-generation/`、`apps/api/src/modules/admin/admin.service.ts`、`apps/web/src/app/admin/request-logs/`、`apps/web/src/lib/admin.ts`。
+4. 实现 mapping compiler、transform 白名单、adapter allowed target lint、Admin 请求预览复用 compiler。
+5. 扩展 request log 显示 adapter/profile/request snapshot 和 profile 错误提示。
