@@ -16,10 +16,9 @@ import {
   type AiModel,
 } from '@prisma/client';
 
-import { loadConfig } from '@dreamstudio/config';
+import { compileRequestMapping, lintRequestMapping, loadConfig } from '@dreamstudio/config';
 import { prisma } from '@dreamstudio/db';
 import { DEFAULT_MAX_IMAGE_BYTES } from '@dreamstudio/storage';
-
 import { apiError, validationFailed } from '../auth/auth.errors';
 import type { SessionContext } from '../auth/auth.types';
 import { AuditLogService } from '../new-api-config/audit-log.service';
@@ -83,6 +82,11 @@ type ExecutionProfileWithRevisions = Prisma.AiModelExecutionProfileGetPayload<{
   };
 }>;
 type ExecutionProfileRevisionRecord = Prisma.AiModelExecutionProfileRevisionGetPayload<object>;
+
+const ADAPTER_ALLOWED_TARGET_PATHS: Record<string, string[]> = {
+  openai_images_generation: ['/v1/images/generations'],
+  openai_images_edit: ['/v1/images/edits'],
+};
 
 const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -1584,19 +1588,16 @@ export class ModelCatalogService {
       this.pushSchemaValidationDetails(error, errors);
     }
 
-    const mapping = asJsonObject(revision.requestMapping);
-    if (!mapping || !Array.isArray(mapping.fields) || mapping.fields.length === 0) {
-      errors.push({
-        field: 'request_mapping.fields',
-        message: 'request_mapping.fields 必须至少包含一个映射字段',
-      });
-    }
-    if (mapping && mapping.content_type !== 'json' && mapping.content_type !== 'multipart') {
-      errors.push({
-        field: 'request_mapping.content_type',
-        message: 'content_type 必须是 json 或 multipart',
-      });
-    }
+    const endpointPath =
+      revision.upstreamEndpointPath ??
+      (revision.adapterKey === 'openai_images_edit'
+        ? '/v1/images/edits'
+        : '/v1/images/generations');
+    const mappingLint = lintRequestMapping(revision.requestMapping, {
+      allowedTargetPaths: ADAPTER_ALLOWED_TARGET_PATHS[revision.adapterKey],
+      endpointPath,
+    });
+    errors.push(...mappingLint.errors);
     if (!revision.adapterKey.trim()) {
       errors.push({ field: 'adapter_key', message: 'adapter_key 不能为空' });
     }
@@ -1630,12 +1631,11 @@ export class ModelCatalogService {
       ...asJsonObject(body.parameters),
     });
     const mapping = asJsonObject(revision.requestMapping) ?? {};
-    const contentType = String(mapping.content_type ?? 'json');
     const prompt =
       typeof body.prompt === 'string' && body.prompt.trim()
         ? body.prompt.trim().slice(0, 300)
         : 'Preview prompt';
-    const bodyPayload = this.compilePreviewMapping(mapping, {
+    const compiled = compileRequestMapping(mapping, {
       model: revision.upstreamModelId,
       prompt,
       params: parameterResult,
@@ -1651,40 +1651,12 @@ export class ModelCatalogService {
       adapter_version: revision.adapterVersion,
       transport_key: revision.transportKey,
       endpoint_path: endpointPath,
-      content_type: contentType,
-      body: bodyPayload,
+      content_type: compiled.contentType,
+      body: compiled.body,
       reference_asset_ids: Array.isArray(body.reference_asset_ids)
         ? body.reference_asset_ids.map(String).slice(0, revision.maxReferenceImages)
         : [],
     };
-  }
-
-  private compilePreviewMapping(
-    mapping: Record<string, unknown>,
-    context: {
-      model: string;
-      prompt: string;
-      params: Record<string, unknown>;
-    },
-  ) {
-    const output: Record<string, unknown> = {};
-    const fields = Array.isArray(mapping.fields) ? mapping.fields : [];
-    for (const rawField of fields) {
-      const field = asJsonObject(rawField);
-      const source = typeof field?.source === 'string' ? field.source : '';
-      const target = typeof field?.target === 'string' ? field.target : '';
-      if (!source || !target) {
-        continue;
-      }
-      const value = readPreviewSource(source, context);
-      if ((value === undefined || value === null) && field?.omit_if_null === true) {
-        continue;
-      }
-      if (value !== undefined) {
-        output[target] = value;
-      }
-    }
-    return output;
   }
 
   private findDefaultExecutionProfile(
@@ -2248,32 +2220,4 @@ function readNullableProfileDate(
 ): Date | null {
   const value = readProfileSource(source, field);
   return value instanceof Date ? value : null;
-}
-
-function readPreviewSource(
-  source: string,
-  context: {
-    model: string;
-    prompt: string;
-    params: Record<string, unknown>;
-  },
-) {
-  if (source === 'model') {
-    return context.model;
-  }
-  if (source === 'prompt') {
-    return context.prompt;
-  }
-  if (source.startsWith('params.')) {
-    return source
-      .slice('params.'.length)
-      .split('.')
-      .reduce<unknown>((current, key) => {
-        if (current && typeof current === 'object' && !Array.isArray(current)) {
-          return (current as Record<string, unknown>)[key];
-        }
-        return undefined;
-      }, context.params);
-  }
-  return undefined;
 }

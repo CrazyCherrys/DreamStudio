@@ -160,6 +160,7 @@ Worker 内部适配：
 - `model` 来自 `model_id_snapshot`，该字段由 active profile revision 的 `upstream_model_id` 快照而来。
 - `prompt` 来自解密后的 Prompt。
 - 其他参数来自 `parameter_snapshot`，再按 `request_mapping_snapshot.fields` 映射到上游字段；`send_policy=never` 的 schema 字段不会进入该快照或最终上游请求。
+- request mapping 编译逻辑来自共享包 `packages/config/src/request-mapping.compiler.ts`，Worker 实际请求、Admin profile lint 和 Admin preview 使用同一套规则。
 - generation adapter 使用 JSON body；edit adapter 使用 multipart body。
 - 参考图来自 M4 assets，经存储层读取为 Buffer 后 multipart 上传；edit adapter 的图片字段名来自 `request_mapping_snapshot.reference_field.target`，支持 `image` 和 `image[]`。
 - 没有 `execution_profile_snapshot` 或 `request_mapping_snapshot` 的开发期旧任务会失败，并提示用户重新提交任务。
@@ -174,6 +175,7 @@ Worker 内部适配：
 - 网络失败 -> `new_api_connection_failed`
 - 不支持的 adapter key -> `adapter_not_supported`
 - 缺少 profile snapshot -> `profile_snapshot_missing`
+- mapping 或 adapter target 配置错误会在 request log 写入 `profile_error_hint`，方便管理员从 `/admin/request-logs` 定位 active profile、revision 和脱敏最终请求。
 
 ---
 
@@ -252,6 +254,7 @@ Worker 内部适配：
 - `failed`、`timeout`、`canceled` 任务可重试，且创建新任务。
 - 普通用户不能访问其他用户任务。
 - `request_logs` 不包含 new-api key 明文，不保存完整敏感 URL。
+- `request_logs` 写入 adapter/profile 标识、脱敏最终上游请求、上游响应摘要和 profile 排障提示，Admin 列表与详情页可查看这些诊断字段。
 - API 普通响应只返回 Prompt 摘要和脱敏参数快照。
 
 ---

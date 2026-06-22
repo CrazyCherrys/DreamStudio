@@ -830,22 +830,23 @@ npm run build
 
 ### 10.3 修复计划
 
-- 实现 mapping compiler。
-- 支持：
+- 已实现 mapping compiler：`packages/config/src/request-mapping.compiler.ts`。
+- 已支持：
   - `fields`
   - `constants`
   - `omit_if_null`
   - `reference_field`
   - 白名单 transforms
-- preview request 复用 mapping compiler。
-- RequestLog 写入：
+- preview request 已复用 mapping compiler。
+- RequestLog 已写入：
   - adapter key
   - adapter version
   - profile revision id
   - sanitized request
   - upstream response summary
   - profile error hint
-- Admin request log 页面显示这些信息。
+- Admin request log 页面已显示这些信息。
+- 已新增 `scripts/verify-request-mapping.ts`。
 
 ### 10.4 验证操作
 
@@ -885,6 +886,7 @@ npm run build
 
 - 管理员能在请求发出前看到最终 payload。
 - 上游 400 更容易定位为 profile 配置问题。
+- 已完成：Worker、Admin lint 和 Admin preview 共用同一个 request mapping compiler，Admin request log 列表和详情可查看 adapter/profile、脱敏最终请求、上游响应摘要和 profile error hint。
 
 ## 11. 阶段 9：OpenAI 官方模板和 OpenAI-compatible 模板
 
@@ -1148,10 +1150,10 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 7 完成后，下一步应该进入阶段 8：
+阶段 8 完成后，下一步应该进入阶段 9：
 
-1. 查看本文件阶段 8 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Request Mapping`、`Request Log 和排障`。
-2. 查看 OpenAI Image API、Gemini Generate Content API，以及当前 Worker adapter registry。
-3. 查看 `apps/worker/src/modules/image-generation/`、`apps/api/src/modules/admin/admin.service.ts`、`apps/web/src/app/admin/request-logs/`、`apps/web/src/lib/admin.ts`。
-4. 实现 mapping compiler、transform 白名单、adapter allowed target lint、Admin 请求预览复用 compiler。
-5. 扩展 request log 显示 adapter/profile/request snapshot 和 profile 错误提示。
+1. 查看本文件阶段 9 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `OpenAI 官方模型`、`OpenAI-compatible 第三方模型`。
+2. 查看 OpenAI Image Generation Guide、OpenAI Create Image API、OpenAI Image Edit API、OpenAI Responses API 和 new-api OpenAI Image docs。
+3. 查看 Admin profile/revision API、Admin profile/revision UI、`scripts/init-m0.ts` 和当前 request mapping compiler。
+4. 建立 OpenAI 官方 profile 模板和 OpenAI-compatible 模板规范。
+5. 支持模板导入为 draft revision、diff、preview 和 test，不自动发布官方模板变更。

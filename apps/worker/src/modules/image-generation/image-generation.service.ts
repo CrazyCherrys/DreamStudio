@@ -176,6 +176,7 @@ export class ImageGenerationService {
         status: 'succeeded',
         httpStatus,
         durationMs: Date.now() - startedAt,
+        upstreamResponseSummary: summarizeUpstreamResponse(upstream),
       });
       await this.saveResultImages(task, upstream.data);
       await prisma.imageTaskAttempt.update({
@@ -208,6 +209,7 @@ export class ImageGenerationService {
         durationMs: Date.now() - startedAt,
         errorCode: normalized.code,
         errorMessage: normalized.message,
+        profileErrorHint: buildProfileErrorHint(normalized),
       });
       throw normalized;
     }
@@ -326,6 +328,8 @@ export class ImageGenerationService {
       durationMs?: number | null;
       errorCode?: string | null;
       errorMessage?: string | null;
+      profileErrorHint?: string | null;
+      upstreamResponseSummary?: Prisma.InputJsonObject | null;
     },
   ) {
     const encryptedParams = this.secretCodec.encryptSecret(JSON.stringify(task.parameterSnapshot));
@@ -352,6 +356,8 @@ export class ImageGenerationService {
         resolvedRequestSanitized: task.resolvedRequestSanitizedSnapshot
           ? toInputJsonObject(task.resolvedRequestSanitizedSnapshot)
           : undefined,
+        upstreamResponseSummary: input.upstreamResponseSummary ?? undefined,
+        profileErrorHint: input.profileErrorHint ?? null,
         encryptedParams: encryptedParams.encrypted,
         paramsIv: encryptedParams.iv,
         paramsTag: encryptedParams.tag,
@@ -483,4 +489,27 @@ function readHost(baseUrl: string) {
 
 function sanitizeErrorMessage(value: string) {
   return value.replace(/Bearer\s+[a-zA-Z0-9._~+/=-]+/g, 'Bearer [redacted]').slice(0, 800);
+}
+
+function summarizeUpstreamResponse(upstream: { data: Array<{ url?: string; b64_json?: string }> }) {
+  return {
+    image_count: upstream.data.length,
+    has_url: upstream.data.some((item) => Boolean(item.url)),
+    has_b64_json: upstream.data.some((item) => Boolean(item.b64_json)),
+  } satisfies Prisma.InputJsonObject;
+}
+
+function buildProfileErrorHint(failureInput: WorkerFailure) {
+  if (
+    failureInput.code === 'invalid_request_mapping' ||
+    failureInput.code === 'adapter_target_not_allowed' ||
+    failureInput.code === 'adapter_not_supported' ||
+    failureInput.code === 'profile_snapshot_missing'
+  ) {
+    return '执行配置或 request mapping 不合法，请在 Admin 模型执行配置中运行 lint 和请求预览。';
+  }
+  if (failureInput.code === 'invalid_upstream_request') {
+    return '上游拒绝了请求参数，请检查 active profile 的 parameter_schema、request_mapping 和上游模型实际能力。';
+  }
+  return null;
 }

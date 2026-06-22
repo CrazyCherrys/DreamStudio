@@ -112,6 +112,13 @@ function AdminRequestLogDetailContent() {
               <Info label="HTTP 状态" value={String(detail.http_status ?? '无')} />
               <Info label="耗时" value={`${detail.duration_ms ?? 0}ms`} />
               <Info label="创建时间" value={formatDateTime(detail.created_at)} />
+              <Info label="Adapter" value={detail.adapter_key ?? '未记录'} />
+              <Info label="Adapter 版本" value={detail.adapter_version ?? '未记录'} />
+              <Info label="Profile ID" value={detail.execution_profile_id ?? '未记录'} />
+              <Info
+                label="Profile Revision"
+                value={detail.execution_profile_revision_id ?? '未记录'}
+              />
               <Info label="任务 ID" value={detail.task?.id ?? '无'} />
               <Info label="任务状态" value={detail.task?.status ?? '无'} />
               <Info
@@ -119,6 +126,11 @@ function AdminRequestLogDetailContent() {
                 value={detail.attempt ? `第 ${detail.attempt.attempt_no} 次` : '无'}
               />
             </dl>
+            {detail.profile_error_hint ? (
+              <p className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-3 text-sm font-semibold text-[var(--ds-danger)]">
+                {detail.profile_error_hint}
+              </p>
+            ) : null}
             {detail.error_message ? (
               <p className="mt-5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-3 text-sm font-semibold text-[var(--ds-danger)]">
                 {detail.error_message}
@@ -137,6 +149,21 @@ function AdminRequestLogDetailContent() {
               <h3 className="text-xl font-black">脱敏参数</h3>
               <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-4 text-xs">
                 {stringifyPreview(detail.sanitized_params)}
+              </pre>
+            </div>
+          </section>
+
+          <section className="grid gap-5 lg:grid-cols-2">
+            <div className="ds-card admin-panel p-6">
+              <h3 className="text-xl font-black">脱敏上游请求</h3>
+              <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-4 text-xs">
+                {stringifyPreview(detail.resolved_request_sanitized)}
+              </pre>
+            </div>
+            <div className="ds-card admin-panel p-6">
+              <h3 className="text-xl font-black">上游响应摘要</h3>
+              <pre className="mt-4 max-h-96 overflow-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-raised)] p-4 text-xs">
+                {stringifyPreview(detail.upstream_response_summary)}
               </pre>
             </div>
           </section>

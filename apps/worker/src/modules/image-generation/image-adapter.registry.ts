@@ -1,4 +1,9 @@
 import type { ImageTask } from '@prisma/client';
+import {
+  compileRequestMapping,
+  RequestMappingError,
+  type RequestMapping,
+} from '@dreamstudio/config';
 
 import {
   NewApiImageClient,
@@ -30,30 +35,6 @@ export interface ImageGenerationAdapter {
   execute(input: ImageAdapterInput): Promise<NewApiImageResponse>;
 }
 
-interface RequestMapping {
-  content_type?: unknown;
-  fields?: unknown;
-  reference_field?: unknown;
-  constants?: unknown;
-}
-
-interface RequestMappingField {
-  source?: unknown;
-  target?: unknown;
-  omit_if_null?: unknown;
-}
-
-interface ReferenceFieldMapping {
-  target?: unknown;
-  mode?: unknown;
-}
-
-interface MappingContext {
-  model: string;
-  prompt: string;
-  params: Record<string, unknown>;
-}
-
 const openAiImagesGenerationAdapter: ImageGenerationAdapter = {
   key: 'openai_images_generation',
   version: 1,
@@ -61,22 +42,20 @@ const openAiImagesGenerationAdapter: ImageGenerationAdapter = {
   async execute(input) {
     const endpointPath = readEndpointPath(input.task, '/v1/images/generations');
     assertAllowedTargetPath(this, endpointPath);
-    const mapping = readRequestMapping(input.task);
-    if (mapping.content_type !== 'json') {
-      throw adapterFailure('invalid_request_mapping', '图片生成 adapter 需要 json request mapping');
-    }
-
-    const body = compileMappedFields(mapping, {
+    const compiled = compileRequestMapping(readRequestMapping(input.task), {
       model: input.task.modelIdSnapshot,
       prompt: input.prompt,
       params: input.parameters,
     });
+    if (compiled.contentType !== 'json') {
+      throw adapterFailure('invalid_request_mapping', '图片生成 adapter 需要 json request mapping');
+    }
 
     return input.client.sendJsonImageRequest({
       baseUrl: input.task.newApiBaseUrlSnapshot,
       apiKey: input.apiKey,
       endpointPath,
-      body,
+      body: compiled.body,
       timeoutMs: input.timeoutMs,
     });
   },
@@ -89,28 +68,25 @@ const openAiImagesEditAdapter: ImageGenerationAdapter = {
   async execute(input) {
     const endpointPath = readEndpointPath(input.task, '/v1/images/edits');
     assertAllowedTargetPath(this, endpointPath);
-    const mapping = readRequestMapping(input.task);
-    if (mapping.content_type !== 'multipart') {
+    const compiled = compileRequestMapping(readRequestMapping(input.task), {
+      model: input.task.modelIdSnapshot,
+      prompt: input.prompt,
+      params: input.parameters,
+    });
+    if (compiled.contentType !== 'multipart') {
       throw adapterFailure(
         'invalid_request_mapping',
         '图片编辑 adapter 需要 multipart request mapping',
       );
     }
 
-    const fields = compileMappedFields(mapping, {
-      model: input.task.modelIdSnapshot,
-      prompt: input.prompt,
-      params: input.parameters,
-    });
-    const referenceField = readReferenceFieldName(mapping);
-
     return input.client.sendMultipartImageRequest({
       baseUrl: input.task.newApiBaseUrlSnapshot,
       apiKey: input.apiKey,
       endpointPath,
-      fields,
+      fields: compiled.body,
       references: input.references,
-      referenceFieldName: referenceField,
+      referenceFieldName: compiled.referenceFieldName,
       timeoutMs: input.timeoutMs,
     });
   },
@@ -136,45 +112,13 @@ export function normalizeImageAdapterError(error: unknown): ImageAdapterWorkerFa
   if (isImageAdapterWorkerFailure(error)) {
     return error;
   }
+  if (error instanceof RequestMappingError) {
+    return {
+      code: error.code,
+      message: error.message,
+    };
+  }
   return null;
-}
-
-export function compileMappedFields(
-  mapping: RequestMapping,
-  context: MappingContext,
-): Record<string, unknown> {
-  if (!Array.isArray(mapping.fields) || mapping.fields.length === 0) {
-    throw adapterFailure('invalid_request_mapping', 'request mapping 缺少字段映射');
-  }
-
-  const output: Record<string, unknown> = {};
-  for (const rawField of mapping.fields) {
-    const field = readMappingField(rawField);
-    const value = readSourceValue(field.source, context);
-    if ((value === undefined || value === null) && field.omitIfNull) {
-      continue;
-    }
-    if (value === undefined) {
-      throw adapterFailure(
-        'invalid_request_mapping',
-        `request mapping source 不存在: ${field.source}`,
-      );
-    }
-    setMappedValue(output, field.target, value);
-  }
-
-  if (Array.isArray(mapping.constants)) {
-    for (const constant of mapping.constants) {
-      const record = toRecord(constant);
-      const target = typeof record?.target === 'string' ? record.target : '';
-      if (!target) {
-        throw adapterFailure('invalid_request_mapping', 'request mapping constant target 无效');
-      }
-      setMappedValue(output, target, record?.value);
-    }
-  }
-
-  return output;
 }
 
 function readRequestMapping(task: ImageTask): RequestMapping {
@@ -199,85 +143,6 @@ function assertAllowedTargetPath(adapter: ImageGenerationAdapter, endpointPath: 
   if (!adapter.allowedTargetPaths.includes(endpointPath)) {
     throw adapterFailure('adapter_target_not_allowed', '当前 adapter 不允许请求该上游路径');
   }
-}
-
-function readMappingField(rawField: unknown) {
-  const field = toRecord(rawField) as RequestMappingField | null;
-  const source = readString(field?.source);
-  const target = readString(field?.target);
-  if (!source || !target) {
-    throw adapterFailure('invalid_request_mapping', 'request mapping field 需要 source 和 target');
-  }
-  return {
-    source,
-    target,
-    omitIfNull: field?.omit_if_null === true,
-  };
-}
-
-function readReferenceFieldName(mapping: RequestMapping) {
-  const referenceField = toRecord(mapping.reference_field) as ReferenceFieldMapping | null;
-  const target = readString(referenceField?.target);
-  if (!target) {
-    return 'image';
-  }
-  if (target === 'image[]') {
-    return 'image[]';
-  }
-  if (target === 'image') {
-    return 'image';
-  }
-  throw adapterFailure(
-    'invalid_request_mapping',
-    '图片编辑 reference field 只能是 image 或 image[]',
-  );
-}
-
-function readSourceValue(source: string, context: MappingContext): unknown {
-  if (source === 'model') {
-    return context.model;
-  }
-  if (source === 'prompt') {
-    return context.prompt;
-  }
-  if (source.startsWith('params.')) {
-    return readPath(context.params, source.slice('params.'.length));
-  }
-  throw adapterFailure('invalid_request_mapping', `request mapping source 不支持: ${source}`);
-}
-
-function readPath(source: Record<string, unknown>, path: string): unknown {
-  return path.split('.').reduce<unknown>((current, key) => {
-    if (isRecord(current)) {
-      return current[key];
-    }
-    return undefined;
-  }, source);
-}
-
-function setMappedValue(output: Record<string, unknown>, target: string, value: unknown) {
-  const tokens = parseTargetPath(target);
-  let current = output;
-  tokens.forEach((token, index) => {
-    const isLast = index === tokens.length - 1;
-    if (isLast) {
-      current[token] = value;
-      return;
-    }
-    if (!isRecord(current[token])) {
-      current[token] = {};
-    }
-    current = current[token] as Record<string, unknown>;
-  });
-}
-
-function parseTargetPath(target: string) {
-  const normalized = target.replace(/\[(\d+)\]/g, '.$1');
-  const tokens = normalized.split('.').filter(Boolean);
-  if (tokens.length === 0) {
-    throw adapterFailure('invalid_request_mapping', 'request mapping target 无效');
-  }
-  return tokens;
 }
 
 function adapterFailure(

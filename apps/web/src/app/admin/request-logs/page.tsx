@@ -144,9 +144,18 @@ function AdminRequestLogsContent() {
                   {log.user?.username ?? '未知用户'} · {log.endpoint_type} ·{' '}
                   {log.new_api_base_url_host}
                 </p>
+                <p className="ds-muted mt-1 text-xs font-semibold">
+                  Adapter {log.adapter_key ?? '未记录'} · Profile rev{' '}
+                  {log.execution_profile_revision_id ?? '未记录'}
+                </p>
               </div>
               <span className="font-black">{statusLabel(log.status)}</span>
             </div>
+            {log.profile_error_hint ? (
+              <p className="mt-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-3 py-2 text-sm font-semibold text-[var(--ds-danger)]">
+                {log.profile_error_hint}
+              </p>
+            ) : null}
             <p className="mt-3 break-words text-sm font-semibold">
               {log.prompt_summary ?? '无 Prompt 摘要'}
             </p>

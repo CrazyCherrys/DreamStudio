@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 7 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；下一步进入阶段 8 Request Mapping、Preview 和排障日志。
+当前状态：阶段 8 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；Request Mapping compiler 已沉到共享包并被 Worker、Admin lint、Admin preview 复用；RequestLog 已写入并展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示；下一步进入阶段 9 OpenAI 官方模板和 OpenAI-compatible 模板。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -65,7 +65,7 @@ Studio UI 参数
 
 ## 4. 当前代码情况
 
-当前项目已有模型目录、参数 Schema、异步图片任务和 Worker 基础；阶段 1 已先落地 execution profile 数据结构，阶段 2 已补齐开发期默认 profile 初始化：
+当前项目已有模型目录、参数 Schema、异步图片任务和 Worker 基础；阶段 1 已先落地 execution profile 数据结构，阶段 2 已补齐开发期默认 profile 初始化，阶段 8 已补齐共享 request mapping compiler 和 request log 排障链路：
 
 - `ModelEndpointType` 是 Prisma enum，当前固定为 `openai_image_generations`、`openai_image_edits`、`gemini_generate_content`。
 - `AiModel` 同时保存展示属性和执行属性：`modelId`、`endpointTypes`、`referenceTransferMode`、`supportsReferenceImage`、`defaultParams`、`parameterSchema`。
@@ -80,15 +80,15 @@ Studio UI 参数
 - 新增 `scripts/verify-model-profiles.ts`，用于检查启用图片模型的默认 profile、active revision、adapter key、Schema v2 快捷 slot 和 request mapping。
 - `parameter_schema` 当前支持 `string`、`number`、`integer`、`boolean`、`select`，用于 Studio 表单和 API 基础校验。
 - Profile/revision 内的 `parameter_schema` 已开始保存 Schema v2 扩展字段；旧 `AiModel.parameterSchema` 暂时仍只保存前端和旧校验器能识别的兼容字段。
-- 创建图片任务时，后端读取当前模型的 `parameterSchema`，校验用户提交参数，并将合法参数写入 `parameterSnapshot`。
-- 当前任务创建逻辑仍未切到 active profile revision，因此新增 profile 快照字段在阶段 2 后仍可能为空。
-- Worker 当前通过 `NewApiImageClient` 调用 `/v1/images/generations` 或 `/v1/images/edits`。
-- 文生图请求将 `model`、`prompt` 和 `parameterSnapshot` 直接展开为 JSON。
-- 编辑请求将 `model`、`prompt` 和参数转成 multipart form，参考图字段名固定为 `image`。
+- 创建图片任务时，后端读取当前模型默认 active profile revision 的 `parameter_schema`，校验用户提交参数，并将合法参数写入 `parameterSnapshot`。
+- 任务创建逻辑已切到 active profile revision，并写入 profile、adapter、request mapping 和最终脱敏请求快照。
+- Worker 当前通过 adapter registry 调用 `NewApiImageClient` 的底层 JSON/multipart 能力，请求字段由 snapped `request_mapping` 编译生成。
+- 文生图请求由 `openai_images_generation` adapter 使用 JSON body，并限制目标路径为 `/v1/images/generations`。
+- 编辑请求由 `openai_images_edit` adapter 使用 multipart form，参考图字段名来自 snapped `request_mapping.reference_field.target`。
 - 响应解析只识别 OpenAI Image 风格的 `data[].url` 和 `data[].b64_json`。
-- Studio 快捷参数当前依赖 key/label/description 猜测“张数、比例、分辨率”，不是稳定配置。
+- Studio 快捷参数当前按 Schema v2 的 `ui.group=quick` 和 `ui.slot` 渲染“张数、比例、分辨率”，不再依赖 key/label/description 猜测。
 
-这说明当前系统已经具备“模型级参数白名单”的雏形，并已具备 profile/revision 的数据库承载结构和开发期默认 profile 初始化；接下来还缺 API/Studio 读取 profile、任务快照写入、request mapping compiler 和 adapter registry。
+这说明当前系统已经具备“模型级参数白名单”、profile/revision 管理、任务快照、request mapping compiler 和 adapter registry；接下来还缺官方/兼容模板导入、OpenAI Responses image adapter、Gemini adapter 和模板发布验收。
 
 ## 5. 当前痛点
 
@@ -99,7 +99,7 @@ Studio UI 参数
 5. `gemini_generate_content` 已在枚举里，但 Worker 实际不能构造 Gemini 原生 `generateContent` 请求，也不能解析 `inlineData` 图片结果。
 6. 任务表已有 adapter/profile 快照字段，但任务创建逻辑尚未写入这些字段；管理员修改模型配置后，旧任务在当前执行链路中仍可能受新规则影响。
 7. Studio 快捷参数依赖猜测，不适合长期维护，也无法准确表达某模型只支持部分尺寸或质量档位。
-8. 当前 request log 只能看到参数快照，无法看到脱敏后的最终上游请求结构，排查 profile 配置错误成本高。
+8. request log 需要能看到脱敏后的最终上游请求结构，降低排查 profile 配置错误成本；阶段 8 已写入并展示这些诊断字段。
 
 ## 6. 设计原则
 
@@ -285,6 +285,8 @@ Studio 行为：
 
 `request_mapping` 用于把 DreamStudio 内部参数转换为上游请求。
 
+阶段 8 已实现共享 compiler：`packages/config/src/request-mapping.compiler.ts`。Worker 执行、Admin revision lint、Admin 请求预览共用同一套编译逻辑，避免预览 payload 和真实上游 payload 分叉。
+
 OpenAI Image generation 示例：
 
 ```json
@@ -364,6 +366,15 @@ joinArray
 - 用 `extra` 或 `raw_payload` 绕过 schema 和 mapping。
 
 管理员可以有实验字段，但也必须经过 mapping lint 和脱敏预览。
+
+当前 compiler 已支持：
+
+- `fields`、`constants`、`omit_if_null`、`reference_field`。
+- `json` 和 `multipart` content type。
+- `params.*`、`model`、`prompt` source。
+- dot path 和数组 path，如 `contents[0].parts[0].text`。
+- 白名单 transform：`validateOpenAIImageSize`、`aspectRatioToOpenAISize`、`dropUnsupported`、`numberToString`、`booleanToFlag`、`joinArray`。
+- adapter allowed target lint，避免 profile 把 adapter 指到不允许的上游路径。
 
 ## 10. Adapter Registry
 
@@ -470,7 +481,7 @@ resolved_request_sanitized_snapshot
 6. 把 adapter/profile/mapping/request 快照写入 `ImageTask`。
 7. 入队异步任务。
 
-阶段 4 已完成上述创建任务快照：`ImageTask` 会写入 `executionProfileId`、`executionProfileRevisionId`、`adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`；`modelIdSnapshot` 使用 active revision 的 `upstream_model_id`。阶段 5 已将 Worker 执行路径迁移到 adapter registry；`RequestLog` 会写入 profile/adapter 和 resolved request 快照字段。
+阶段 4 已完成上述创建任务快照：`ImageTask` 会写入 `executionProfileId`、`executionProfileRevisionId`、`adapterKeySnapshot`、`adapterVersionSnapshot`、`executionProfileSnapshot`、`requestMappingSnapshot`、`resolvedRequestSanitizedSnapshot`；`modelIdSnapshot` 使用 active revision 的 `upstream_model_id`。阶段 5 已将 Worker 执行路径迁移到 adapter registry。阶段 8 已将 request mapping 编译逻辑抽到共享包，Admin preview 和 Worker 实际请求共用 compiler。
 
 Worker 执行时：
 
@@ -496,6 +507,13 @@ resolved_request_sanitized
 upstream_response_summary
 profile_error_hint
 ```
+
+阶段 8 已完成写入和展示：
+
+- Worker 成功时写入 `upstream_response_summary`，当前包含生成图片数量、是否包含 URL、是否包含 b64。
+- Worker 失败时对 `invalid_request_mapping`、`adapter_target_not_allowed`、`adapter_not_supported`、`profile_snapshot_missing`、`invalid_upstream_request` 写入 `profile_error_hint`。
+- Admin request log 列表显示 adapter key、profile revision 和 profile error hint。
+- Admin request log 详情显示 adapter/profile 标识、脱敏参数、脱敏上游请求和上游响应摘要。
 
 排障目标：
 
@@ -661,12 +679,13 @@ Studio：
 
 ### 阶段 8：Request Mapping、Preview 和排障日志
 
-- 实现 mapping compiler。
-- 实现 transform 白名单。
-- 实现 adapter allowed target lint。
-- Admin 提供请求预览。
-- request log 写入脱敏后的最终请求结构。
-- 上游 400/422 增加 profile 配置排查提示。
+- 已实现 mapping compiler：`packages/config/src/request-mapping.compiler.ts`。
+- 已实现 transform 白名单和 `fields`、`constants`、`omit_if_null`、`reference_field`。
+- 已实现 adapter allowed target lint。
+- Admin 请求预览已复用 compiler。
+- request log 已写入并展示脱敏后的最终请求结构。
+- 上游 invalid request、mapping、adapter target 和缺失 profile snapshot 等错误会写入 profile 配置排查提示。
+- 已新增 `scripts/verify-request-mapping.ts`，验证 OpenAI JSON、OpenAI multipart、Gemini nested mapping、未知 transform 拒绝、非 adapter allowed target 拒绝和 preview 脱敏边界。
 
 ### 阶段 9：OpenAI 官方模板和 OpenAI-compatible 模板
 
