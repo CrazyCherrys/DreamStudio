@@ -142,7 +142,8 @@ M6 原则上复用已有表：
 - 请求日志详情展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示。
 - 请求日志详情提供 reveal Prompt 和 reveal 参数按钮，并有二次确认。
 - 审计日志列表支持操作者、动作、目标类型、结果、时间筛选。
-- 模型详情页支持 profile/revision 编辑、模板导入、Revision JSON 导出、Revision JSON 导入为 draft、lint、预览请求、diff、test 和发布。
+- `/admin/models` 默认展示已添加模型列表，新增和编辑通过顶部大弹窗完成。
+- 模型编辑弹窗支持 profile/revision 编辑、模板导入、Revision JSON 导出、Revision JSON 导入为 draft、lint、预览请求、diff、test 和发布。
 
 ---
 
