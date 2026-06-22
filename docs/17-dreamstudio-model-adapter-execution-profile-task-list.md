@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 7 已完成，下一步进入阶段 8。
+当前状态：阶段 9 已完成，下一步进入阶段 10。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -955,6 +955,39 @@ npm run build
 - OpenAI 官方参数更新变成模板导入和发布流程。
 - OpenAI-compatible 不再误用 OpenAI 全量参数。
 
+### 11.7 已完成
+
+已完成：
+
+- 新增 `profile-templates/` 内置模板目录。
+- 已建立 OpenAI Image generation `gpt-image-2` 官方模板。
+- 已建立 OpenAI Image edit `gpt-image-2` 官方模板。
+- 已建立 OpenAI Responses `image_generation` tool 官方模板；该模板当前只用于生成 draft profile，Worker runtime adapter 仍待后续阶段接入。
+- 已建立 OpenAI-compatible 最小文生图模板，默认只声明 `n`、`size` 和 `response_format`，不声明 OpenAI 官方全量参数。
+- 模板均记录 `source_kind`、`source_url`、`source_checked_at` 和 `source_summary`。
+- 新增 `GET /api/v1/admin/profile-templates`，用于 Admin 获取可导入模板列表。
+- 新增 `POST /api/v1/admin/execution-profiles/{profile_id}/revisions/import-template/{template_id}`，导入模板只创建 draft revision。
+- 新增 `GET /api/v1/admin/execution-profile-revisions/{revision_id}/diff`，比较目标 revision 和同 profile 当前 active revision。
+- Admin 执行配置 UI 已支持选择模板、导入 draft、复制 OpenAI 官方模板为 OpenAI-compatible 草稿、显示兼容警告、导入后选中 draft、查看 diff、继续预览、测试和发布。
+- 复制 OpenAI 官方模板为 OpenAI-compatible 草稿时，会把 `source_kind` 改为 `third_party_docs`，写入 `requires_provider_field_review`，并提示管理员删除未确认支持的字段。
+- request mapping lint 已为 `openai_responses_image` 限制目标路径为 `/v1/responses`，避免 Responses 模板绕过 endpoint target 校验。
+- 新增 `scripts/verify-profile-templates.ts`，验证模板列表、官方来源信息、导入 draft 不影响 public profile、preview、diff、OpenAI-compatible copy 警告、最小 compatible 模板字段边界和 activate 后 public profile 才变化。
+
+已验证：
+
+```bash
+npx prettier --check apps/api/src/modules/model-catalog/profile-template.registry.ts apps/api/src/modules/model-catalog/model-catalog.service.ts scripts/verify-profile-templates.ts apps/web/src/components/model-catalog/model-components.tsx apps/web/src/lib/model-catalog.ts profile-templates/*.json
+npx tsc -p apps/api/tsconfig.json --noEmit
+npm run typecheck -w @dreamstudio/web
+```
+
+阶段 9 没有做：
+
+- 没有实现 `openai_responses_image` Worker runtime adapter。
+- 没有接入 Gemini 原生 adapter。
+- 没有让模板导入自动发布 active revision。
+- 没有把 OpenAI 官方全量字段默认套用到 OpenAI-compatible 第三方模型。
+
 ## 12. 阶段 10：Gemini Adapter
 
 ### 12.1 先查看资料
@@ -1150,10 +1183,10 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 8 完成后，下一步应该进入阶段 9：
+阶段 9 完成后，下一步应该进入阶段 10：
 
-1. 查看本文件阶段 9 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `OpenAI 官方模型`、`OpenAI-compatible 第三方模型`。
-2. 查看 OpenAI Image Generation Guide、OpenAI Create Image API、OpenAI Image Edit API、OpenAI Responses API 和 new-api OpenAI Image docs。
-3. 查看 Admin profile/revision API、Admin profile/revision UI、`scripts/init-m0.ts` 和当前 request mapping compiler。
-4. 建立 OpenAI 官方 profile 模板和 OpenAI-compatible 模板规范。
-5. 支持模板导入为 draft revision、diff、preview 和 test，不自动发布官方模板变更。
+1. 查看本文件阶段 10 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Gemini 官方模型`、`Adapter Registry`、`Request Mapping`。
+2. 查看 Gemini Image Generation Guide、Gemini Generate Content API，以及 new-api 当前是否支持 Gemini 原生路径。
+3. 查看 `apps/worker/src/modules/image-generation/`、`packages/config/src/request-mapping.compiler.ts`、`apps/api/src/modules/model-catalog/` 和当前 `profile-templates/`。
+4. 实现 `gemini_generate_content` adapter、Gemini 请求 mapping 和 `inlineData` 响应解析。
+5. 新增 Gemini profile 模板和验证脚本，保持导入为 draft revision、preview/test/activate 流程不变。

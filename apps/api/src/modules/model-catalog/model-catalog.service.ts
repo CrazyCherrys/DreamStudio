@@ -35,6 +35,7 @@ import type {
   AdminExecutionProfileRevision,
   AiModelBody,
   ExecutionProfileBody,
+  ExecutionProfileRevisionDiffResult,
   ExecutionProfileLintResult,
   ExecutionProfilePreviewBody,
   ExecutionProfilePreviewResult,
@@ -44,7 +45,14 @@ import type {
   ModelSyncSnapshotSummary,
   PublicDefaultExecutionProfile,
   PublicAiModel,
+  ProfileTemplateImportBody,
+  ProfileTemplateImportMode,
 } from './model-catalog.types';
+import {
+  buildTemplateRevisionBody,
+  findProfileTemplate,
+  listProfileTemplates,
+} from './profile-template.registry';
 
 type ValidationDetail = { field: string; message: string };
 type SerializablePublicModel = Pick<
@@ -86,6 +94,7 @@ type ExecutionProfileRevisionRecord = Prisma.AiModelExecutionProfileRevisionGetP
 const ADAPTER_ALLOWED_TARGET_PATHS: Record<string, string[]> = {
   openai_images_generation: ['/v1/images/generations'],
   openai_images_edit: ['/v1/images/edits'],
+  openai_responses_image: ['/v1/responses'],
 };
 
 const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
@@ -637,6 +646,132 @@ export class ModelCatalogService {
 
     return {
       item: this.serializeExecutionProfileRevision(revision),
+    };
+  }
+
+  listProfileTemplates() {
+    return {
+      items: listProfileTemplates(),
+    };
+  }
+
+  async importProfileTemplateRevision(
+    profileId: string,
+    templateId: string,
+    body: ProfileTemplateImportBody,
+    session: SessionContext,
+    request: Request,
+  ) {
+    const profile = await this.findExecutionProfileOrThrow(profileId, true);
+    const template = findProfileTemplate(templateId);
+    if (!template) {
+      throw apiError(HttpStatus.NOT_FOUND, 'not_found', 'Profile template 不存在');
+    }
+
+    const mode = this.readTemplateImportMode(body?.mode);
+    if (mode === 'openai_compatible_copy' && !template.compatible_copy_allowed) {
+      throw validationFailed([
+        {
+          field: 'mode',
+          message: '该模板不能复制为 OpenAI-compatible 草稿',
+        },
+      ]);
+    }
+
+    const upstreamModelId =
+      this.readOptionalTemplateUpstreamModelId(body?.upstream_model_id) ?? profile.upstreamModelId;
+    const revisionBody = buildTemplateRevisionBody(template, {
+      mode,
+      upstreamModelId,
+    });
+
+    const created = await this.createExecutionProfileRevision(
+      profile.id,
+      revisionBody,
+      session,
+      request,
+    );
+
+    await this.auditLogService.write({
+      action: 'admin_import_execution_profile_template',
+      targetType: 'ai_model_execution_profile_revision',
+      targetId: created.item.id,
+      session,
+      request,
+      metadata: {
+        execution_profile_id: profile.id,
+        template_id: template.id,
+        mode,
+        revision_no: created.item.revision_no,
+      },
+    });
+
+    return {
+      item: created.item,
+      template: listProfileTemplates().find((item) => item.id === template.id)!,
+    };
+  }
+
+  async diffExecutionProfileRevision(
+    revisionId: string,
+  ): Promise<{ diff: ExecutionProfileRevisionDiffResult }> {
+    const revision = await this.findRevisionOrThrow(revisionId);
+    const active = await prisma.aiModelExecutionProfileRevision.findFirst({
+      where: {
+        executionProfileId: revision.executionProfileId,
+        status: ExecutionProfileRevisionStatus.active,
+        id: {
+          not: revision.id,
+        },
+      },
+      orderBy: [{ revisionNo: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    const fields: Array<{
+      key: keyof ExecutionProfileRevisionRecord;
+      responseKey: string;
+      serialize?: (value: unknown) => unknown;
+    }> = [
+      { key: 'sourceKind', responseKey: 'source_kind' },
+      { key: 'sourceUrl', responseKey: 'source_url' },
+      {
+        key: 'sourceCheckedAt',
+        responseKey: 'source_checked_at',
+        serialize: (value) => (value instanceof Date ? value.toISOString() : value),
+      },
+      { key: 'sourceSummary', responseKey: 'source_summary' },
+      { key: 'adapterKey', responseKey: 'adapter_key' },
+      { key: 'adapterVersion', responseKey: 'adapter_version' },
+      { key: 'transportKey', responseKey: 'transport_key' },
+      { key: 'upstreamModelId', responseKey: 'upstream_model_id' },
+      { key: 'upstreamEndpointPath', responseKey: 'upstream_endpoint_path' },
+      { key: 'referenceTransferMode', responseKey: 'reference_transfer_mode' },
+      { key: 'supportsReferenceImage', responseKey: 'supports_reference_image' },
+      { key: 'maxReferenceImages', responseKey: 'max_reference_images' },
+      { key: 'parameterSchema', responseKey: 'parameter_schema' },
+      { key: 'defaultParams', responseKey: 'default_params' },
+      { key: 'requestMapping', responseKey: 'request_mapping' },
+      { key: 'responseParserKey', responseKey: 'response_parser_key' },
+      { key: 'capabilities', responseKey: 'capabilities' },
+      { key: 'validationRules', responseKey: 'validation_rules' },
+      { key: 'changeSummary', responseKey: 'change_summary' },
+    ];
+
+    return {
+      diff: {
+        revision_id: revision.id,
+        against_revision_id: active?.id ?? null,
+        changes: fields.map((field) => {
+          const before = active ? readRevisionField(active, field.key, field.serialize) : null;
+          const after = readRevisionField(revision, field.key, field.serialize);
+          return {
+            field: field.responseKey,
+            before,
+            after,
+            changed: JSON.stringify(before) !== JSON.stringify(after),
+          };
+        }),
+      },
     };
   }
 
@@ -1659,6 +1794,31 @@ export class ModelCatalogService {
     };
   }
 
+  private readTemplateImportMode(value: unknown): ProfileTemplateImportMode {
+    if (value === undefined || value === null || value === '') {
+      return 'template';
+    }
+    if (value === 'template' || value === 'openai_compatible_copy') {
+      return value;
+    }
+    throw validationFailed([{ field: 'mode', message: 'mode 不合法' }]);
+  }
+
+  private readOptionalTemplateUpstreamModelId(value: unknown): string | null {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+    if (typeof value !== 'string' || !value.trim() || value.trim().length > 240) {
+      throw validationFailed([
+        {
+          field: 'upstream_model_id',
+          message: 'upstream_model_id 必须是 1-240 字符',
+        },
+      ]);
+    }
+    return value.trim();
+  }
+
   private findDefaultExecutionProfile(
     model: Pick<FavoriteAwareModel, 'executionProfiles'>,
   ): SerializableExecutionProfile | null {
@@ -2220,4 +2380,13 @@ function readNullableProfileDate(
 ): Date | null {
   const value = readProfileSource(source, field);
   return value instanceof Date ? value : null;
+}
+
+function readRevisionField(
+  revision: ExecutionProfileRevisionRecord,
+  key: keyof ExecutionProfileRevisionRecord,
+  serialize?: (value: unknown) => unknown,
+) {
+  const value = (revision as unknown as Record<string, unknown>)[key as string];
+  return serialize ? serialize(value) : value;
 }

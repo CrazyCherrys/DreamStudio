@@ -16,6 +16,8 @@ export type ExecutionProfileSourceKind =
   | 'gemini_official'
   | 'third_party_docs'
   | 'imported_json';
+export type ProfileTemplateCategory = 'openai_official' | 'openai_compatible';
+export type ProfileTemplateImportMode = 'template' | 'openai_compatible_copy';
 
 export interface ParameterSchemaOption {
   label: string;
@@ -247,6 +249,32 @@ export interface ExecutionProfilePreviewResult {
   reference_asset_ids: string[];
 }
 
+export interface ProfileTemplateSummary {
+  id: string;
+  label: string;
+  description: string;
+  category: ProfileTemplateCategory;
+  tags: string[];
+  source_kind: ExecutionProfileSourceKind | null;
+  source_url: string | null;
+  source_checked_at: string | null;
+  adapter_key: string;
+  operation: ExecutionProfileOperation;
+  compatible_copy_allowed: boolean;
+  compatible_warning: string;
+}
+
+export interface ExecutionProfileRevisionDiffResult {
+  revision_id: string;
+  against_revision_id: string | null;
+  changes: Array<{
+    field: string;
+    before: unknown;
+    after: unknown;
+    changed: boolean;
+  }>;
+}
+
 export interface ModelSyncSnapshotPayload {
   new_api_base_url?: string;
   api_key?: string;
@@ -386,6 +414,40 @@ export function createExecutionProfileRevision(
       method: 'POST',
       csrfToken,
       body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function fetchProfileTemplates() {
+  return apiRequest<{ items: ProfileTemplateSummary[] }>('/api/v1/admin/profile-templates', {
+    cache: 'no-store',
+  });
+}
+
+export function importProfileTemplateRevision(
+  profileId: string,
+  templateId: string,
+  payload: {
+    mode?: ProfileTemplateImportMode;
+    upstream_model_id?: string;
+  },
+  csrfToken: string,
+) {
+  return apiRequest<{ item: AdminExecutionProfileRevision; template: ProfileTemplateSummary }>(
+    `/api/v1/admin/execution-profiles/${profileId}/revisions/import-template/${templateId}`,
+    {
+      method: 'POST',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function diffExecutionProfileRevision(revisionId: string) {
+  return apiRequest<{ diff: ExecutionProfileRevisionDiffResult }>(
+    `/api/v1/admin/execution-profile-revisions/${revisionId}/diff`,
+    {
+      cache: 'no-store',
     },
   );
 }

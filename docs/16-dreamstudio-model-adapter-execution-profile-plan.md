@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 8 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；Request Mapping compiler 已沉到共享包并被 Worker、Admin lint、Admin preview 复用；RequestLog 已写入并展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示；下一步进入阶段 9 OpenAI 官方模板和 OpenAI-compatible 模板。
+当前状态：阶段 9 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；Request Mapping compiler 已沉到共享包并被 Worker、Admin lint、Admin preview 复用；RequestLog 已写入并展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示；Admin 已支持 OpenAI 官方模板和 OpenAI-compatible 最小模板导入为 draft revision、查看 active/draft diff、预览和测试；下一步进入阶段 10 Gemini 原生 adapter。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -87,8 +87,13 @@ Studio UI 参数
 - 编辑请求由 `openai_images_edit` adapter 使用 multipart form，参考图字段名来自 snapped `request_mapping.reference_field.target`。
 - 响应解析只识别 OpenAI Image 风格的 `data[].url` 和 `data[].b64_json`。
 - Studio 快捷参数当前按 Schema v2 的 `ui.group=quick` 和 `ui.slot` 渲染“张数、比例、分辨率”，不再依赖 key/label/description 猜测。
+- `profile-templates/` 已内置 OpenAI Image generation、OpenAI Image edit、OpenAI Responses image tool 和 OpenAI-compatible 最小文生图模板。
+- Admin API 已支持列出模板、把模板导入为 draft revision、复制 OpenAI 官方模板为 OpenAI-compatible 草稿，以及比较 draft revision 与当前 active revision。
+- Admin 模型详情页的执行配置区域已支持模板导入、OpenAI-compatible copy 警告、导入后选择 draft、以及查看 active/draft diff。
+- `scripts/verify-profile-templates.ts` 验证模板可列出、导入只创建 draft、draft 不影响 public profile、发布后 public profile 才变化，以及 OpenAI-compatible 最小模板不会默认声明 OpenAI 全量参数。
+- OpenAI Responses image tool 当前只有 profile 模板和 request mapping 形态；`openai_responses_image` runtime adapter 仍未接入 Worker，不能把该模板发布给用户侧作为可执行默认 profile。
 
-这说明当前系统已经具备“模型级参数白名单”、profile/revision 管理、任务快照、request mapping compiler 和 adapter registry；接下来还缺官方/兼容模板导入、OpenAI Responses image adapter、Gemini adapter 和模板发布验收。
+这说明当前系统已经具备“模型级参数白名单”、profile/revision 管理、任务快照、request mapping compiler、adapter registry 和官方/兼容模板导入；接下来还缺 OpenAI Responses image runtime adapter、Gemini adapter 和最终模板发布验收。
 
 ## 5. 当前痛点
 
@@ -535,13 +540,16 @@ DELETE /api/v1/admin/execution-profiles/{profile_id}
 
 GET    /api/v1/admin/execution-profiles/{profile_id}/revisions
 POST   /api/v1/admin/execution-profiles/{profile_id}/revisions
+POST   /api/v1/admin/execution-profiles/{profile_id}/revisions/import-template/{template_id}
+GET    /api/v1/admin/profile-templates
 POST   /api/v1/admin/execution-profile-revisions/{revision_id}/preview-request
 POST   /api/v1/admin/execution-profile-revisions/{revision_id}/lint
 POST   /api/v1/admin/execution-profile-revisions/{revision_id}/test
 POST   /api/v1/admin/execution-profile-revisions/{revision_id}/activate
+GET    /api/v1/admin/execution-profile-revisions/{revision_id}/diff
 ```
 
-阶段 7 已实现上述 Admin profile/revision API。所有接口由 `SessionAuthGuard` + `SuperAdminGuard` 保护，写操作要求 CSRF。`PATCH /api/v1/admin/execution-profile-revisions/{revision_id}` 用于编辑 draft revision；发布 revision 会在事务中归档同 profile 下旧 active revision，并把 active revision 的执行配置同步回 profile 表。`test` 当前为 dry-run smoke test，验证 lint 和脱敏请求预览可构造，不直接请求真实上游。
+阶段 7 已实现基础 Admin profile/revision API。阶段 9 已补齐模板列表、模板导入和 revision diff API。所有接口由 `SessionAuthGuard` + `SuperAdminGuard` 保护，写操作要求 CSRF。`PATCH /api/v1/admin/execution-profile-revisions/{revision_id}` 用于编辑 draft revision；发布 revision 会在事务中归档同 profile 下旧 active revision，并把 active revision 的执行配置同步回 profile 表。`test` 当前为 dry-run smoke test，验证 lint 和脱敏请求预览可构造，不直接请求真实上游。模板导入只创建 draft revision，不自动发布；复制 OpenAI 官方模板为 OpenAI-compatible 草稿时会写入 provider field review 警告。
 
 普通模型接口返回默认 active profile 的公开字段：
 
@@ -615,6 +623,7 @@ Studio：
 - 支持编辑参数 Schema v2、默认参数、request mapping。
 - 支持导入官方模板 JSON，但导入结果必须先成为 draft。
 - 支持显示 `source_url`、`source_checked_at` 和最近 smoke test 结果。
+- 阶段 9 已支持从内置模板导入 draft revision、OpenAI-compatible copy 警告、以及查看 active/draft diff；Responses image tool 模板暂不代表 Worker runtime adapter 已可执行。
 
 ## 16. 实现计划
 
@@ -689,13 +698,15 @@ Studio：
 
 ### 阶段 9：OpenAI 官方模板和 OpenAI-compatible 模板
 
-- 建立 OpenAI Image generation/edit profile 模板。
-- 建立 OpenAI Responses image profile 模板。
-- 新增第三方兼容模型 profile 模板规范。
-- 明确 OpenAI-compatible 不等于 OpenAI full-compatible。
-- 模板记录官方 source 和 checked time。
-- 支持导入为 draft revision、diff、预览和测试。
-- 不自动发布官方模板变更。
+- 已建立 OpenAI Image generation/edit profile 模板。
+- 已建立 OpenAI Responses image profile 模板；当前仅作为 profile draft 模板，runtime adapter 仍待后续阶段接入。
+- 已新增 OpenAI-compatible 最小文生图模板规范。
+- 已明确 OpenAI-compatible 不等于 OpenAI full-compatible。
+- 模板已记录官方或第三方 `source_url`、`source_checked_at` 和 `source_summary`。
+- 已支持导入为 draft revision、diff、预览和测试。
+- 已支持复制 OpenAI 官方模板为 OpenAI-compatible 草稿，并要求管理员删除未确认支持的字段。
+- 官方模板变更不会自动发布，public model profile 只在管理员 activate 后变化。
+- 已新增 `scripts/verify-profile-templates.ts` 验证模板导入、diff、compatible copy 和发布边界。
 
 ### 阶段 10：Gemini 原生 adapter
 

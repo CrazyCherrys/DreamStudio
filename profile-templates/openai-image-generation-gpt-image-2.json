@@ -1,0 +1,249 @@
+{
+  "id": "openai-image-generation-gpt-image-2",
+  "label": "OpenAI Image generation - GPT Image 2",
+  "description": "Official OpenAI Image API text-to-image profile for GPT Image 2. Import creates a draft revision only.",
+  "category": "openai_official",
+  "compatible_copy_allowed": true,
+  "compatible_warning": "OpenAI-compatible channels are not OpenAI-full-compatible. Delete every parameter that is not explicitly confirmed by the target channel before publishing.",
+  "tags": ["openai", "image-api", "generation", "gpt-image-2"],
+  "revision": {
+    "source_kind": "openai_official",
+    "source_url": "https://developers.openai.com/api/docs/guides/image-generation",
+    "source_checked_at": "2026-06-22T00:00:00.000Z",
+    "source_summary": "OpenAI Image API generation template for GPT Image 2. Exposes conservative GPT Image 2 fields documented for image generation: n, size, quality, output format, output compression, background and moderation.",
+    "adapter_key": "openai_images_generation",
+    "adapter_version": "1",
+    "transport_key": "new_api_bearer",
+    "upstream_model_id": "gpt-image-2",
+    "upstream_endpoint_path": "/v1/images/generations",
+    "reference_transfer_mode": "none",
+    "supports_reference_image": false,
+    "max_reference_images": 0,
+    "parameter_schema": [
+      {
+        "key": "n",
+        "label": "张数",
+        "type": "integer",
+        "description": "一次请求生成的图片数量。",
+        "required": false,
+        "default": 1,
+        "min": 1,
+        "max": 4,
+        "ui": {
+          "group": "quick",
+          "slot": "count",
+          "order": 10
+        },
+        "capability": "count",
+        "send_policy": "when_present",
+        "validation": {
+          "min": 1,
+          "max": 4
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "size",
+        "label": "分辨率",
+        "type": "select",
+        "description": "GPT Image 2 支持 auto 和满足约束的分辨率；模板列出常用安全值。",
+        "required": false,
+        "default": "1024x1024",
+        "options": [
+          { "label": "Auto", "value": "auto" },
+          { "label": "1024 x 1024", "value": "1024x1024" },
+          { "label": "1536 x 1024", "value": "1536x1024" },
+          { "label": "1024 x 1536", "value": "1024x1536" },
+          { "label": "2048 x 2048", "value": "2048x2048" },
+          { "label": "2048 x 1152", "value": "2048x1152" },
+          { "label": "3840 x 2160", "value": "3840x2160" },
+          { "label": "2160 x 3840", "value": "2160x3840" }
+        ],
+        "ui": {
+          "group": "quick",
+          "slot": "resolution",
+          "order": 20
+        },
+        "capability": "resolution",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": [
+            "auto",
+            "1024x1024",
+            "1536x1024",
+            "1024x1536",
+            "2048x2048",
+            "2048x1152",
+            "3840x2160",
+            "2160x3840"
+          ]
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "quality",
+        "label": "质量",
+        "type": "select",
+        "description": "渲染质量。",
+        "required": false,
+        "default": "auto",
+        "options": [
+          { "label": "Auto", "value": "auto" },
+          { "label": "Low", "value": "low" },
+          { "label": "Medium", "value": "medium" },
+          { "label": "High", "value": "high" }
+        ],
+        "ui": {
+          "group": "advanced",
+          "slot": "quality",
+          "order": 30
+        },
+        "capability": "quality",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": ["auto", "low", "medium", "high"]
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "output_format",
+        "label": "输出格式",
+        "type": "select",
+        "description": "图片输出格式。",
+        "required": false,
+        "default": "png",
+        "options": [
+          { "label": "PNG", "value": "png" },
+          { "label": "JPEG", "value": "jpeg" },
+          { "label": "WebP", "value": "webp" }
+        ],
+        "ui": {
+          "group": "advanced",
+          "slot": "format",
+          "order": 40
+        },
+        "capability": "format",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": ["png", "jpeg", "webp"]
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "output_compression",
+        "label": "输出压缩",
+        "type": "integer",
+        "description": "JPEG/WebP 输出压缩级别，范围 0-100。",
+        "required": false,
+        "default": 100,
+        "min": 0,
+        "max": 100,
+        "ui": {
+          "group": "advanced",
+          "slot": "format",
+          "order": 50
+        },
+        "capability": "format",
+        "send_policy": "when_present",
+        "validation": {
+          "min": 0,
+          "max": 100
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "background",
+        "label": "背景",
+        "type": "select",
+        "description": "GPT Image 2 当前不支持 transparent；模板只开放 auto 和 opaque。",
+        "required": false,
+        "default": "auto",
+        "options": [
+          { "label": "Auto", "value": "auto" },
+          { "label": "Opaque", "value": "opaque" }
+        ],
+        "ui": {
+          "group": "advanced",
+          "slot": "background",
+          "order": 60
+        },
+        "capability": "background",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": ["auto", "opaque"]
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "moderation",
+        "label": "内容审核",
+        "type": "select",
+        "description": "控制图片生成审核严格程度。",
+        "required": false,
+        "default": "auto",
+        "options": [
+          { "label": "Auto", "value": "auto" },
+          { "label": "Low", "value": "low" }
+        ],
+        "ui": {
+          "group": "advanced",
+          "slot": "safety",
+          "order": 70
+        },
+        "capability": "safety",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": ["auto", "low"]
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      }
+    ],
+    "default_params": {
+      "n": 1,
+      "size": "1024x1024",
+      "quality": "auto",
+      "output_format": "png",
+      "output_compression": 100,
+      "background": "auto",
+      "moderation": "auto"
+    },
+    "request_mapping": {
+      "content_type": "json",
+      "fields": [
+        { "source": "model", "target": "model" },
+        { "source": "prompt", "target": "prompt" },
+        { "source": "params.n", "target": "n", "omit_if_null": true },
+        { "source": "params.size", "target": "size", "omit_if_null": true },
+        { "source": "params.quality", "target": "quality", "omit_if_null": true },
+        {
+          "source": "params.output_format",
+          "target": "output_format",
+          "omit_if_null": true
+        },
+        {
+          "source": "params.output_compression",
+          "target": "output_compression",
+          "omit_if_null": true
+        },
+        { "source": "params.background", "target": "background", "omit_if_null": true },
+        { "source": "params.moderation", "target": "moderation", "omit_if_null": true }
+      ]
+    },
+    "response_parser_key": "openai_image_data",
+    "capabilities": {
+      "supports_reference_image": false,
+      "max_reference_images": 0,
+      "output_formats": ["png", "jpeg", "webp"],
+      "transparent_background": false,
+      "template_origin": "openai_official"
+    },
+    "validation_rules": {
+      "version": 1,
+      "notes": [
+        "GPT Image 2 does not currently support transparent backgrounds.",
+        "2K and larger output sizes should be treated as higher-cost profile choices."
+      ]
+    },
+    "change_summary": "Imported OpenAI official GPT Image 2 generation template."
+  }
+}

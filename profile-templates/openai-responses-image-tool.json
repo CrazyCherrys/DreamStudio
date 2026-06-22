@@ -1,0 +1,103 @@
+{
+  "id": "openai-responses-image-tool",
+  "label": "OpenAI Responses image tool",
+  "description": "Official OpenAI Responses API template for the image_generation built-in tool. Runtime adapter support is planned for a later phase.",
+  "category": "openai_official",
+  "compatible_copy_allowed": false,
+  "compatible_warning": "Responses image tool compatibility must be confirmed per provider and is not assumed for OpenAI-compatible image endpoints.",
+  "tags": ["openai", "responses", "image_generation"],
+  "revision": {
+    "source_kind": "openai_official",
+    "source_url": "https://developers.openai.com/api/docs/guides/image-generation",
+    "source_checked_at": "2026-06-22T00:00:00.000Z",
+    "source_summary": "OpenAI Responses API image_generation tool template. Draft-only until the openai_responses_image adapter is implemented.",
+    "adapter_key": "openai_responses_image",
+    "adapter_version": "1",
+    "transport_key": "new_api_bearer",
+    "upstream_model_id": "gpt-5.5",
+    "upstream_endpoint_path": "/v1/responses",
+    "reference_transfer_mode": "url",
+    "supports_reference_image": true,
+    "max_reference_images": 8,
+    "parameter_schema": [
+      {
+        "key": "action",
+        "label": "图片动作",
+        "type": "select",
+        "required": false,
+        "default": "generate",
+        "options": [
+          { "label": "Auto", "value": "auto" },
+          { "label": "Generate", "value": "generate" },
+          { "label": "Edit", "value": "edit" }
+        ],
+        "ui": {
+          "group": "advanced",
+          "slot": "style",
+          "order": 10
+        },
+        "capability": "responses_image_action",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": ["auto", "generate", "edit"]
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "partial_images",
+        "label": "流式预览张数",
+        "type": "integer",
+        "required": false,
+        "default": 0,
+        "min": 0,
+        "max": 3,
+        "ui": {
+          "group": "advanced",
+          "slot": "count",
+          "order": 20
+        },
+        "capability": "streaming",
+        "send_policy": "when_present",
+        "validation": {
+          "min": 0,
+          "max": 3
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      }
+    ],
+    "default_params": {
+      "action": "generate",
+      "partial_images": 0
+    },
+    "request_mapping": {
+      "content_type": "json",
+      "fields": [
+        { "source": "model", "target": "model" },
+        { "source": "prompt", "target": "input" },
+        { "source": "params.action", "target": "tools[0].action", "omit_if_null": true },
+        {
+          "source": "params.partial_images",
+          "target": "tools[0].partial_images",
+          "omit_if_null": true
+        }
+      ],
+      "constants": [{ "target": "tools[0].type", "value": "image_generation" }]
+    },
+    "response_parser_key": "openai_responses_image_generation_call",
+    "capabilities": {
+      "supports_reference_image": true,
+      "max_reference_images": 8,
+      "supports_streaming": true,
+      "runtime_supported": false,
+      "template_origin": "openai_official"
+    },
+    "validation_rules": {
+      "version": 1,
+      "notes": [
+        "Draft-only until Phase 10+ adds the openai_responses_image adapter and parser.",
+        "Choose a mainline Responses model that supports the image_generation tool before publishing."
+      ]
+    },
+    "change_summary": "Imported OpenAI official Responses image tool template."
+  }
+}

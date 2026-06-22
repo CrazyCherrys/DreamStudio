@@ -7,9 +7,12 @@ import {
   activateExecutionProfileRevision,
   createExecutionProfile,
   createExecutionProfileRevision,
+  diffExecutionProfileRevision,
   emptySchemaField,
   endpointTypeLabel,
   fetchExecutionProfiles,
+  fetchProfileTemplates,
+  importProfileTemplateRevision,
   lintExecutionProfileRevision,
   modalityLabel,
   previewExecutionProfileRevision,
@@ -25,6 +28,7 @@ import {
   type ExecutionProfilePayload,
   type ExecutionProfilePreviewResult,
   type ExecutionProfileRevisionPayload,
+  type ExecutionProfileRevisionDiffResult,
   type ExecutionProfileSourceKind,
   type ModelEndpointType,
   type ModelModality,
@@ -34,6 +38,8 @@ import {
   type ParameterFieldType,
   type ParameterSchemaOption,
   type ParameterSchemaField,
+  type ProfileTemplateImportMode,
+  type ProfileTemplateSummary,
   type ReferenceTransferMode,
   uploadModelIcon,
 } from '@/lib/model-catalog';
@@ -914,6 +920,12 @@ export function ExecutionProfileManager({
   const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
   const [profileDraft, setProfileDraft] = useState<ExecutionProfilePayload | null>(null);
   const [revisionDraft, setRevisionDraft] = useState<ExecutionProfileRevisionPayload | null>(null);
+  const [templates, setTemplates] = useState<ProfileTemplateSummary[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templateImportMode, setTemplateImportMode] =
+    useState<ProfileTemplateImportMode>('template');
+  const [templateUpstreamModelId, setTemplateUpstreamModelId] = useState(model.model_id);
+  const [revisionDiff, setRevisionDiff] = useState<ExecutionProfileRevisionDiffResult | null>(null);
   const [preview, setPreview] = useState<ExecutionProfilePreviewResult | null>(null);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -923,10 +935,21 @@ export function ExecutionProfileManager({
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId) ?? null;
   const selectedRevision =
     selectedProfile?.revisions?.find((revision) => revision.id === selectedRevisionId) ?? null;
+  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
 
   useEffect(() => {
     void loadProfiles();
+    void loadTemplates();
   }, [model.id]);
+
+  useEffect(() => {
+    if (
+      templateImportMode === 'openai_compatible_copy' &&
+      !selectedTemplate?.compatible_copy_allowed
+    ) {
+      setTemplateImportMode('template');
+    }
+  }, [selectedTemplate, templateImportMode]);
 
   async function loadProfiles(preferredProfileId = selectedProfileId) {
     setLoadingProfiles(true);
@@ -948,6 +971,7 @@ export function ExecutionProfileManager({
       setSelectedRevisionId(nextRevision?.id ?? null);
       setProfileDraft(nextProfile ? profileToPayload(nextProfile) : emptyProfilePayload(model));
       setRevisionDraft(nextRevision ? revisionToPayload(nextRevision) : null);
+      setTemplateUpstreamModelId(nextProfile?.upstream_model_id ?? model.model_id);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : '读取执行配置失败');
     } finally {
@@ -966,12 +990,25 @@ export function ExecutionProfileManager({
     setProfileDraft(profileToPayload(profile));
     setRevisionDraft(revision ? revisionToPayload(revision) : null);
     setPreview(null);
+    setRevisionDiff(null);
+    setTemplateUpstreamModelId(profile.upstream_model_id);
   }
 
   function selectRevision(revision: AdminExecutionProfileRevision) {
     setSelectedRevisionId(revision.id);
     setRevisionDraft(revisionToPayload(revision));
     setPreview(null);
+    setRevisionDiff(null);
+  }
+
+  async function loadTemplates() {
+    try {
+      const response = await fetchProfileTemplates();
+      setTemplates(response.items);
+      setSelectedTemplateId((current) => current || response.items[0]?.id || '');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : '读取 Profile 模板失败');
+    }
   }
 
   async function withProfileAction(action: () => Promise<void>, success: string) {
@@ -1021,6 +1058,27 @@ export function ExecutionProfileManager({
     }, 'Draft revision 已创建。');
   }
 
+  async function importSelectedTemplate() {
+    if (!selectedProfile || !selectedTemplateId) {
+      setProfileError('请选择 Profile 和模板');
+      return;
+    }
+    await withProfileAction(async () => {
+      const created = await importProfileTemplateRevision(
+        selectedProfile.id,
+        selectedTemplateId,
+        {
+          mode: templateImportMode,
+          upstream_model_id: templateUpstreamModelId.trim() || undefined,
+        },
+        csrfToken!,
+      );
+      setSelectedRevisionId(created.item.id);
+      setRevisionDraft(revisionToPayload(created.item));
+      setRevisionDiff(null);
+    }, '模板已导入为 Draft revision。');
+  }
+
   async function saveRevision() {
     if (!selectedRevision || !revisionDraft) {
       return;
@@ -1063,6 +1121,25 @@ export function ExecutionProfileManager({
       }
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : 'Revision 操作失败');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function loadRevisionDiff() {
+    if (!selectedRevision) {
+      setProfileError('请选择 revision');
+      return;
+    }
+    setSavingProfile(true);
+    setProfileMessage(null);
+    setProfileError(null);
+    try {
+      const result = await diffExecutionProfileRevision(selectedRevision.id);
+      setRevisionDiff(result.diff);
+      setProfileMessage('Diff 已生成。');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Diff 生成失败');
     } finally {
       setSavingProfile(false);
     }
@@ -1230,6 +1307,71 @@ export function ExecutionProfileManager({
             </div>
           ) : null}
 
+          {selectedProfile ? (
+            <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
+              <h4 className="font-black">模板导入</h4>
+              <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_1fr]">
+                <label className="grid gap-2 text-sm font-bold">
+                  <span>Profile template</span>
+                  <select
+                    className="ds-input"
+                    onChange={(event) => setSelectedTemplateId(event.target.value)}
+                    value={selectedTemplateId}
+                  >
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm font-bold">
+                  <span>导入模式</span>
+                  <select
+                    className="ds-input"
+                    onChange={(event) =>
+                      setTemplateImportMode(event.target.value as ProfileTemplateImportMode)
+                    }
+                    value={templateImportMode}
+                  >
+                    <option value="template">按模板来源导入</option>
+                    <option
+                      disabled={!selectedTemplate?.compatible_copy_allowed}
+                      value="openai_compatible_copy"
+                    >
+                      复制为 compatible 草稿
+                    </option>
+                  </select>
+                </label>
+                <DsInput
+                  label="upstream_model_id"
+                  onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
+                  value={templateUpstreamModelId}
+                />
+              </div>
+              {selectedTemplate ? (
+                <div className="grid gap-2 text-sm">
+                  <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
+                  <p className="break-all font-semibold">
+                    {selectedTemplate.adapter_key} · {selectedTemplate.source_url ?? 'no source'}
+                  </p>
+                  <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
+                    {selectedTemplate.compatible_warning}
+                  </p>
+                </div>
+              ) : null}
+              <DsButton
+                className="w-fit"
+                disabled={savingProfile || !selectedTemplateId}
+                onClick={importSelectedTemplate}
+                type="button"
+                variant="secondary"
+              >
+                从模板导入 Draft
+              </DsButton>
+            </div>
+          ) : null}
+
           {selectedProfile?.revisions?.length ? (
             <div className="flex flex-wrap gap-2">
               {selectedProfile.revisions.map((revision) => (
@@ -1253,10 +1395,12 @@ export function ExecutionProfileManager({
             <RevisionEditor
               disabled={savingProfile}
               draft={revisionDraft}
+              onDiff={loadRevisionDiff}
               onAction={runRevisionAction}
               onChange={setRevisionDraft}
               onSave={saveRevision}
               preview={preview}
+              revisionDiff={revisionDiff}
               revision={selectedRevision}
             />
           ) : null}
@@ -1346,18 +1490,22 @@ export function ModelSyncSnapshotPanel({
 function RevisionEditor({
   disabled,
   draft,
+  onDiff,
   onAction,
   onChange,
   onSave,
   preview,
+  revisionDiff,
   revision,
 }: {
   disabled: boolean;
   draft: ExecutionProfileRevisionPayload;
+  onDiff: () => Promise<void>;
   onAction: (kind: 'lint' | 'preview' | 'test' | 'activate') => Promise<void>;
   onChange: (draft: ExecutionProfileRevisionPayload) => void;
   onSave: () => Promise<void>;
   preview: ExecutionProfilePreviewResult | null;
+  revisionDiff: ExecutionProfileRevisionDiffResult | null;
   revision: AdminExecutionProfileRevision;
 }) {
   function patch(patchDraft: Partial<ExecutionProfileRevisionPayload>) {
@@ -1396,6 +1544,14 @@ function RevisionEditor({
             variant="secondary"
           >
             预览请求
+          </DsButton>
+          <DsButton
+            disabled={disabled}
+            onClick={() => void onDiff()}
+            type="button"
+            variant="secondary"
+          >
+            Diff
           </DsButton>
           <DsButton
             disabled={disabled}
@@ -1517,6 +1673,30 @@ function RevisionEditor({
         <pre className="max-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-xs">
           {JSON.stringify(preview, null, 2)}
         </pre>
+      ) : null}
+
+      {revisionDiff ? (
+        <div className="grid gap-2">
+          <h5 className="font-black">Active diff</h5>
+          <div className="grid max-h-80 gap-2 overflow-auto">
+            {revisionDiff.changes
+              .filter((change) => change.changed)
+              .map((change) => (
+                <div
+                  className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-3"
+                  key={change.field}
+                >
+                  <strong className="block text-sm">{change.field}</strong>
+                  <pre className="mt-2 overflow-auto text-xs">
+                    {JSON.stringify({ before: change.before, after: change.after }, null, 2)}
+                  </pre>
+                </div>
+              ))}
+            {revisionDiff.changes.every((change) => !change.changed) ? (
+              <p className="ds-muted text-sm font-semibold">没有字段变化。</p>
+            ) : null}
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -82,6 +82,40 @@ export interface ExecutionProfilePreviewBody {
   reference_asset_ids?: unknown;
 }
 
+export type ProfileTemplateCategory = 'openai_official' | 'openai_compatible';
+export type ProfileTemplateImportMode = 'template' | 'openai_compatible_copy';
+
+export interface ProfileTemplateSummary {
+  id: string;
+  label: string;
+  description: string;
+  category: ProfileTemplateCategory;
+  tags: string[];
+  source_kind: ExecutionProfileSourceKind | null;
+  source_url: string | null;
+  source_checked_at: string | null;
+  adapter_key: string;
+  operation: ExecutionProfileOperation;
+  compatible_copy_allowed: boolean;
+  compatible_warning: string;
+}
+
+export interface ProfileTemplateImportBody {
+  mode?: unknown;
+  upstream_model_id?: unknown;
+}
+
+export interface ExecutionProfileRevisionDiffResult {
+  against_revision_id: string | null;
+  revision_id: string;
+  changes: Array<{
+    field: string;
+    before: unknown;
+    after: unknown;
+    changed: boolean;
+  }>;
+}
+
 export interface PublicAiModel {
   id: string;
   model_id: string;

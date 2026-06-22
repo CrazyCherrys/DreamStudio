@@ -31,6 +31,7 @@ import type {
   ExecutionProfileBody,
   ExecutionProfilePreviewBody,
   ExecutionProfileRevisionBody,
+  ProfileTemplateImportBody,
   ModelSyncSnapshotBody,
 } from './model-catalog.types';
 
@@ -181,6 +182,24 @@ export class AdminExecutionProfilesController {
       request,
     );
   }
+
+  @Post(':profileId/revisions/import-template/:templateId')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  importProfileTemplateRevision(
+    @Param('profileId') profileId: string,
+    @Param('templateId') templateId: string,
+    @Body() body: ProfileTemplateImportBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.importProfileTemplateRevision(
+      profileId,
+      templateId,
+      body,
+      request.auth!,
+      request,
+    );
+  }
 }
 
 @Controller('admin/execution-profile-revisions')
@@ -227,6 +246,11 @@ export class AdminExecutionProfileRevisionsController {
     return this.modelCatalogService.testExecutionProfileRevision(revisionId);
   }
 
+  @Get(':revisionId/diff')
+  diffExecutionProfileRevision(@Param('revisionId') revisionId: string) {
+    return this.modelCatalogService.diffExecutionProfileRevision(revisionId);
+  }
+
   @Post(':revisionId/activate')
   @HttpCode(200)
   @UseGuards(CsrfGuard)
@@ -239,6 +263,17 @@ export class AdminExecutionProfileRevisionsController {
       request.auth!,
       request,
     );
+  }
+}
+
+@Controller('admin/profile-templates')
+@UseGuards(SessionAuthGuard, SuperAdminGuard)
+export class AdminProfileTemplatesController {
+  constructor(private readonly modelCatalogService: ModelCatalogService) {}
+
+  @Get()
+  listProfileTemplates() {
+    return this.modelCatalogService.listProfileTemplates();
   }
 }
 

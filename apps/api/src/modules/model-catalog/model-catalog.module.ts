@@ -8,6 +8,7 @@ import {
   AdminModelIconsController,
   AdminModelsController,
   AdminModelSyncSnapshotsController,
+  AdminProfileTemplatesController,
   PublicModelIconsController,
   PublicModelsController,
 } from './model-catalog.controller';
@@ -21,6 +22,7 @@ import { ModelCatalogService } from './model-catalog.service';
     AdminModelsController,
     AdminExecutionProfilesController,
     AdminExecutionProfileRevisionsController,
+    AdminProfileTemplatesController,
     AdminModelIconsController,
     AdminModelSyncSnapshotsController,
   ],
