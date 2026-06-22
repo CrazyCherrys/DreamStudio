@@ -1,6 +1,6 @@
 # DreamStudio M5 图片任务与 Worker 主闭环开发任务清单
 
-当前状态：已实现。实际验证命令见第 8 节。
+当前状态：已实现。后续多模型适配阶段已把 Worker 执行切到 profile/revision snapshot、request mapping compiler 和 adapter registry；实际验证命令见第 8 节。
 
 M5 在 M4 存储、资产与上传完成后使用，目标是让用户可以在 `/studio` 提交图片生成任务，Worker 使用用户自己的 new-api 密钥调用上游图片接口，将结果图保存到 M4 存储，并让结果图进入资产库。M5 不实现支付、订阅、视频、聊天、团队、分享、模板市场、社区，也不做 M6 管理日志后台完善。
 
@@ -29,7 +29,7 @@ M5 不实现：
 - 模板市场。
 - 社区。
 - M6 管理日志后台完整页面。
-- `gemini_generate_content` 第一验收路径。
+- 直接 Gemini 官方密钥管理；Gemini 当前仍通过用户配置的 new-api bearer transport。
 
 ---
 
@@ -154,6 +154,7 @@ Worker 内部适配：
 
 - `POST {base_url}/v1/images/generations`
 - `POST {base_url}/v1/images/edits`
+- `POST {base_url}/v1beta/models/{model}:generateContent`
 
 请求字段：
 
@@ -161,9 +162,14 @@ Worker 内部适配：
 - `prompt` 来自解密后的 Prompt。
 - 其他参数来自 `parameter_snapshot`，再按 `request_mapping_snapshot.fields` 映射到上游字段；`send_policy=never` 的 schema 字段不会进入该快照或最终上游请求。
 - request mapping 编译逻辑来自共享包 `packages/config/src/request-mapping.compiler.ts`，Worker 实际请求、Admin profile lint 和 Admin preview 使用同一套规则。
-- generation adapter 使用 JSON body；edit adapter 使用 multipart body。
+- `openai_images_generation` adapter 使用 JSON body。
+- `openai_images_edit` adapter 使用 multipart body。
+- `gemini_generate_content` adapter 使用 JSON body，构造 `contents.parts`、`generationConfig.responseModalities` 和 `generationConfig.responseFormat.image.*`。
 - 参考图来自 M4 assets，经存储层读取为 Buffer 后 multipart 上传；edit adapter 的图片字段名来自 `request_mapping_snapshot.reference_field.target`，支持 `image` 和 `image[]`。
+- Gemini 参考图会作为 `contents[0].parts[]` 中的 `inlineData` 追加。
 - 没有 `execution_profile_snapshot` 或 `request_mapping_snapshot` 的开发期旧任务会失败，并提示用户重新提交任务。
+- OpenAI Image 响应解析支持 `data[].url` 和 `data[].b64_json`。
+- Gemini 响应解析支持 `candidates[].content.parts[].inlineData.data`，并转换为同一 result image 保存链路。
 
 错误映射：
 
@@ -175,6 +181,7 @@ Worker 内部适配：
 - 网络失败 -> `new_api_connection_failed`
 - 不支持的 adapter key -> `adapter_not_supported`
 - 缺少 profile snapshot -> `profile_snapshot_missing`
+- Gemini 或 OpenAI 返回结构缺少可用图片数据 -> `invalid_upstream_response`
 - mapping 或 adapter target 配置错误会在 request log 写入 `profile_error_hint`，方便管理员从 `/admin/request-logs` 定位 active profile、revision 和脱敏最终请求。
 
 ---
@@ -246,8 +253,10 @@ Worker 内部适配：
 - 创建任务校验用户 new-api 配置、模型状态、分类状态、参数 Schema 和参考图归属。
 - `client_request_id` 重复提交不会重复创建任务。
 - Worker 能处理 `openai_image_generations`。
+- Worker 能通过 `openai_images_generation`、`openai_images_edit` 和 `gemini_generate_content` adapter 构造当前支持的请求形态。
 - mock new-api 返回 `b64_json` 时任务成功，结果图入库。
 - mock new-api 返回 `url` 时 Worker 下载并保存结果图。
+- mock Gemini 返回 `inlineData` 时能解析为 result image 数据。
 - `/studio/assets?kind=result_image` 可查到结果图。
 - 上游失败时任务进入 `failed`，错误摘要可读。
 - `pending` 任务可取消。

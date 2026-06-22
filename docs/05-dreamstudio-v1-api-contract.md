@@ -39,8 +39,9 @@ DreamStudio v1 对接 `new-api` 时，第一验收路径使用：
 - `GET /v1/models`：连接测试和模型候选拉取。
 - `POST /v1/images/generations`：文生图。
 - `POST /v1/images/edits`：参考图、图生图或编辑。
+- `POST /v1beta/models/{model}:generateContent`：Gemini 原生图片请求形状，由 `gemini_generate_content` adapter 构造。
 
-Gemini 原生 `v1beta/models/{model}:generateContent` 仍保留为 v1 后段兼容目标，不作为第一验收路径。
+Gemini 原生路径仍通过用户配置的 new-api bearer transport 调用；如果当前 new-api 网关不支持该路径，Gemini profile 必须保持禁用或不设为用户侧默认 profile。
 
 参考依据：
 
@@ -1061,7 +1062,7 @@ DELETE /api/v1/admin/models/{model_record_id}
 - `parameter_schema` 必须能被前端渲染，也必须能被后端校验。
 - `openai_image_generations` 默认不需要参考图。
 - `openai_image_edits` 通常需要参考图或 mask 类文件能力。
-- `gemini_generate_content` 保留为后段兼容目标，不作为第一验收路径。
+- `gemini_generate_content` 用于 Gemini 原生 `generateContent` profile；默认种子 profile 保持禁用，管理员确认网关支持后才能启用。
 
 ### 10.2.1 上传模型图标
 
@@ -1137,6 +1138,101 @@ GET /api/v1/admin/model-sync-snapshots/{snapshot_id}
 
 - 只展示模型候选和原始结构。
 - 管理员需要手动创建或更新 DreamStudio 模型目录。
+
+### 10.5 执行 Profile 管理
+
+```http
+GET /api/v1/admin/models/{model_record_id}/execution-profiles
+POST /api/v1/admin/models/{model_record_id}/execution-profiles
+GET /api/v1/admin/execution-profiles/{profile_id}
+PATCH /api/v1/admin/execution-profiles/{profile_id}
+DELETE /api/v1/admin/execution-profiles/{profile_id}
+```
+
+Profile 请求核心字段：
+
+```json
+{
+  "name": "OpenAI Image generation",
+  "operation": "text_to_image",
+  "adapter_key": "openai_images_generation",
+  "adapter_version": "1",
+  "transport_key": "new_api_bearer",
+  "upstream_model_id": "gpt-image-2",
+  "upstream_endpoint_path": "/v1/images/generations",
+  "reference_transfer_mode": "none",
+  "supports_reference_image": false,
+  "max_reference_images": 0,
+  "parameter_schema": [],
+  "default_params": {},
+  "request_mapping": {},
+  "response_parser_key": "openai_image_data",
+  "capabilities": {},
+  "validation_rules": {},
+  "is_default": true,
+  "is_enabled": true,
+  "sort_order": 10
+}
+```
+
+规则：
+
+- 全部要求 `super_admin`；写操作要求 CSRF。
+- 一个模型可以有多个 profile，但普通用户侧只自动使用默认启用 profile。
+- 将某个 profile 设为默认时，服务端会取消同模型其他 profile 的默认标记。
+- 删除 profile 是软删除，同时取消默认和启用状态。
+
+### 10.6 执行 Profile Revision 管理
+
+```http
+GET /api/v1/admin/execution-profiles/{profile_id}/revisions
+POST /api/v1/admin/execution-profiles/{profile_id}/revisions
+POST /api/v1/admin/execution-profiles/{profile_id}/revisions/import-template/{template_id}
+PATCH /api/v1/admin/execution-profile-revisions/{revision_id}
+POST /api/v1/admin/execution-profile-revisions/{revision_id}/lint
+POST /api/v1/admin/execution-profile-revisions/{revision_id}/preview-request
+POST /api/v1/admin/execution-profile-revisions/{revision_id}/test
+GET /api/v1/admin/execution-profile-revisions/{revision_id}/diff
+POST /api/v1/admin/execution-profile-revisions/{revision_id}/activate
+GET /api/v1/admin/profile-templates
+```
+
+Revision 请求核心字段和 Admin UI 导出的 JSON 形态一致：
+
+```json
+{
+  "source_kind": "imported_json",
+  "source_url": null,
+  "source_checked_at": null,
+  "source_summary": "Imported profile revision JSON.",
+  "adapter_key": "gemini_generate_content",
+  "adapter_version": "1",
+  "transport_key": "new_api_bearer",
+  "upstream_model_id": "gemini-2.5-flash-image",
+  "upstream_endpoint_path": "/v1beta/models/gemini-2.5-flash-image:generateContent",
+  "reference_transfer_mode": "url",
+  "supports_reference_image": true,
+  "max_reference_images": 8,
+  "parameter_schema": [],
+  "default_params": {},
+  "request_mapping": {
+    "content_type": "json",
+    "fields": [{ "source": "prompt", "target": "contents[0].parts[0].text" }]
+  },
+  "response_parser_key": "gemini_inline_data",
+  "capabilities": {},
+  "validation_rules": {},
+  "change_summary": "Imported from revision JSON."
+}
+```
+
+规则：
+
+- 创建 revision 总是生成 `draft`，不会直接影响用户侧任务。
+- 模板导入只创建 draft revision；OpenAI-compatible copy 会把来源改为 `third_party_docs` 并要求管理员审阅字段。
+- Admin UI 支持导出当前 revision JSON，也支持粘贴 revision JSON 导入为新的 draft revision。
+- 发布 revision 前应先运行 lint、请求预览、dry-run test 和 diff。
+- Activate 会把同 profile 的旧 active revision 归档，并把目标 revision 发布为 active。
 
 ---
 
@@ -1474,6 +1570,7 @@ Content-Type: multipart/form-data
 
 - `data[].url`
 - `data[].b64_json`
+- `candidates[].content.parts[].inlineData.data`
 - `data[].revised_prompt`
 - `usage`
 
@@ -1481,8 +1578,53 @@ Content-Type: multipart/form-data
 
 - `url` 结果必须由 Worker 下载后保存到 DreamStudio storage。
 - `b64_json` 结果必须由 Worker 解码后保存到 DreamStudio storage。
+- Gemini `inlineData.data` 结果会按 `b64_json` 形态进入同一保存链路。
 - DreamStudio 不依赖上游 URL 作为长期资产地址。
 - `usage` 可以保存到请求日志脱敏参数或后续扩展字段，v1 不做成本计算。
+
+### 15.4.1 Gemini generateContent 图片请求
+
+```http
+POST {new_api_base_url}/v1beta/models/{model}:generateContent
+Authorization: Bearer <user_api_key>
+Content-Type: application/json
+```
+
+请求由 `gemini_generate_content` adapter 和 profile `request_mapping` 构造：
+
+```json
+{
+  "contents": [
+    {
+      "parts": [
+        { "text": "prompt" },
+        {
+          "inlineData": {
+            "data": "base64-reference-image",
+            "mimeType": "image/png"
+          }
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseModalities": ["IMAGE"],
+    "responseFormat": {
+      "image": {
+        "aspectRatio": "16:9",
+        "imageSize": "2K"
+      }
+    }
+  }
+}
+```
+
+规则：
+
+- DreamStudio 不直接保存 Gemini 官方 API key；v1 仍使用用户配置的 new-api bearer transport。
+- Gemini profile 默认不设为用户侧默认 profile，且种子 profile 默认 disabled。
+- 只有在管理员确认 new-api 网关支持该原生路径后，才应启用 Gemini profile。
+- 参考图会作为 `contents[0].parts[]` 中的 `inlineData` 追加。
 
 ### 15.5 错误映射
 

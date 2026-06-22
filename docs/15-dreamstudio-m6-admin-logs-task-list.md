@@ -1,6 +1,6 @@
 # DreamStudio M6 管理后台与日志审计完善开发任务清单
 
-当前状态：已实现。实际验证命令见第 8 节。
+当前状态：已实现。后续多模型适配阶段已在管理后台补齐 execution profile/revision 管理、模板导入、JSON draft 导入/导出、请求预览、diff、test 和发布流程；实际验证命令见第 8 节。
 
 M6 在 M5 图片任务与 Worker 主闭环完成后使用，目标是让管理员具备用户管理、请求排查和审计追踪能力。M6 不扩展 AI 创作主链路，不实现支付、订阅、视频、聊天、团队、分享、模板市场或社区。
 
@@ -15,6 +15,7 @@ M6 实现：
 - 请求日志列表、详情和敏感内容 reveal。
 - 审计日志列表和筛选。
 - 管理后台日志页面。
+- 模型详情页的 execution profile/revision 管理。
 - 管理员查看完整 Prompt 或完整参数时写审计日志。
 - M6 API 和页面验证脚本。
 
@@ -48,6 +49,24 @@ M6 不实现：
 - `POST /api/v1/admin/request-logs/:log_id/reveal-prompt`
 - `POST /api/v1/admin/request-logs/:log_id/reveal-params`
 
+Execution profile API：
+
+- `GET /api/v1/admin/models/:model_record_id/execution-profiles`
+- `POST /api/v1/admin/models/:model_record_id/execution-profiles`
+- `GET /api/v1/admin/execution-profiles/:profile_id`
+- `PATCH /api/v1/admin/execution-profiles/:profile_id`
+- `DELETE /api/v1/admin/execution-profiles/:profile_id`
+- `GET /api/v1/admin/execution-profiles/:profile_id/revisions`
+- `POST /api/v1/admin/execution-profiles/:profile_id/revisions`
+- `POST /api/v1/admin/execution-profiles/:profile_id/revisions/import-template/:template_id`
+- `PATCH /api/v1/admin/execution-profile-revisions/:revision_id`
+- `POST /api/v1/admin/execution-profile-revisions/:revision_id/lint`
+- `POST /api/v1/admin/execution-profile-revisions/:revision_id/preview-request`
+- `POST /api/v1/admin/execution-profile-revisions/:revision_id/test`
+- `GET /api/v1/admin/execution-profile-revisions/:revision_id/diff`
+- `POST /api/v1/admin/execution-profile-revisions/:revision_id/activate`
+- `GET /api/v1/admin/profile-templates`
+
 审计日志 API：
 
 - `GET /api/v1/admin/audit-logs`
@@ -63,7 +82,9 @@ M6 不实现：
 - 查看完整 Prompt 必须写审计日志。
 - 查看完整参数必须写审计日志。
 - 普通日志详情默认只返回摘要和脱敏参数。
+- 请求日志详情展示 adapter/profile、profile revision、脱敏最终上游请求、上游响应摘要和 profile error hint。
 - reveal 响应只返回本次请求需要展示的敏感内容，不缓存到前端状态以外的长期存储。
+- Profile/revision 的创建、更新、模板导入、JSON draft 导入和发布必须写审计日志。
 
 ---
 
@@ -102,6 +123,7 @@ M6 原则上复用已有表：
 - `/admin/request-logs`
 - `/admin/request-logs/[log_id]`
 - `/admin/audit-logs`
+- `/admin/models`
 
 需要更新：
 
@@ -117,8 +139,10 @@ M6 原则上复用已有表：
 - 用户详情支持启用、禁用、软删除和重置密码。
 - 请求日志列表支持状态、模型、用户、时间筛选。
 - 请求日志详情展示任务、模型、状态、HTTP 状态、耗时、错误摘要、Prompt 摘要、脱敏参数。
+- 请求日志详情展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示。
 - 请求日志详情提供 reveal Prompt 和 reveal 参数按钮，并有二次确认。
 - 审计日志列表支持操作者、动作、目标类型、结果、时间筛选。
+- 模型详情页支持 profile/revision 编辑、模板导入、Revision JSON 导出、Revision JSON 导入为 draft、lint、预览请求、diff、test 和发布。
 
 ---
 
@@ -184,6 +208,9 @@ M6 原则上复用已有表：
 - 管理员可以软删除用户。
 - 管理员可以重置用户密码并使旧会话失效。
 - 管理员可以查看请求日志列表和详情。
+- 管理员可以在请求日志中定位 adapter、profile、revision、脱敏最终请求和 profile error hint。
+- 管理员可以把当前 revision 导出为 JSON，也可以粘贴 JSON 导入为新的 draft revision。
+- 模板导入和 JSON 导入不会直接发布 active revision。
 - 请求日志默认不展示完整 Prompt 和完整参数。
 - reveal 完整 Prompt 必须写审计日志。
 - reveal 完整参数必须写审计日志。

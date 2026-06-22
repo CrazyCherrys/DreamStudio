@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 10 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；Request Mapping compiler 已沉到共享包并被 Worker、Admin lint、Admin preview 复用；RequestLog 已写入并展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示；Admin 已支持 OpenAI 官方模板、Gemini 官方模板和 OpenAI-compatible 最小模板导入为 draft revision、查看 active/draft diff、预览和测试；Worker 已接入 Gemini `generateContent` 原生请求和 `inlineData` 响应解析；下一步进入阶段 11 最终文档、验收和发布。
+当前状态：阶段 11 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；Request Mapping compiler 已沉到共享包并被 Worker、Admin lint、Admin preview 复用；RequestLog 已写入并展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示；Admin 已支持 OpenAI 官方模板、Gemini 官方模板和 OpenAI-compatible 最小模板导入为 draft revision、查看 active/draft diff、预览、测试、Revision JSON 导出和 JSON 导入为 draft；Worker 已接入 Gemini `generateContent` 原生请求和 `inlineData` 响应解析；最终 API、数据模型、Worker、Admin 日志和模型接入指南已同步。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -90,13 +90,13 @@ Studio UI 参数
 - `profile-templates/` 已内置 OpenAI Image generation、OpenAI Image edit、OpenAI Responses image tool 和 OpenAI-compatible 最小文生图模板。
 - `profile-templates/` 已内置 Gemini `generateContent` 图片模板，映射 `contents.parts`、`generationConfig.responseModalities` 和 `generationConfig.responseFormat.image.*`。
 - Admin API 已支持列出模板、把模板导入为 draft revision、复制 OpenAI 官方模板为 OpenAI-compatible 草稿，以及比较 draft revision 与当前 active revision。
-- Admin 模型详情页的执行配置区域已支持模板导入、OpenAI-compatible copy 警告、导入后选择 draft、以及查看 active/draft diff。
+- Admin 模型详情页的执行配置区域已支持模板导入、OpenAI-compatible copy 警告、导入后选择 draft、Revision JSON 导出、Revision JSON 导入为 draft、查看 active/draft diff。
 - `scripts/verify-profile-templates.ts` 验证模板可列出、导入只创建 draft、draft 不影响 public profile、发布后 public profile 才变化，以及 OpenAI-compatible 最小模板不会默认声明 OpenAI 全量参数。
 - `scripts/init-m0.ts` 已创建开发用 Gemini `generateContent` 非默认 profile 和 active revision；默认保持 disabled，直到管理员确认 new-api 网关支持 `/v1beta/models/{model}:generateContent` 后再启用。
 - Worker 已新增 `gemini_generate_content` adapter，通过 snapped request mapping 构造 Gemini JSON 请求，把参考图作为 `inlineData` parts 追加，并使用 `gemini_inline_data` parser 解析生成图。
 - OpenAI Responses image tool 当前只有 profile 模板和 request mapping 形态；`openai_responses_image` runtime adapter 仍未接入 Worker，不能把该模板发布给用户侧作为可执行默认 profile。
 
-这说明当前系统已经具备“模型级参数白名单”、profile/revision 管理、任务快照、request mapping compiler、adapter registry、OpenAI/Gemini runtime adapter 基础和官方/兼容模板导入；接下来还缺 OpenAI Responses image runtime adapter、最终文档同步、导入导出指南和整体验收。
+这说明当前系统已经具备“模型级参数白名单”、profile/revision 管理、任务快照、request mapping compiler、adapter registry、OpenAI/Gemini runtime adapter 基础、官方/兼容模板导入、Revision JSON 导入导出和模型接入指南；后续仍可单独补 `openai_responses_image` runtime adapter。
 
 ## 5. 当前痛点
 
@@ -723,12 +723,14 @@ Studio：
 
 ### 阶段 11：文档、验收和发布
 
-- 更新 API 契约文档。
-- 更新数据模型文档。
-- 更新模型目录文档。
-- 更新图片任务 Worker 文档。
-- 新增模型接入指南。
-- 支持 profile/revision 导入和导出 JSON。
+- 已更新 API 契约文档。
+- 已更新数据模型文档。
+- 已更新模型目录文档。
+- 已更新图片任务 Worker 文档。
+- 已更新管理后台和日志文档。
+- 已新增模型接入指南。
+- 已支持 revision JSON 导出，以及粘贴 JSON 导入为 draft revision。
+- 已完成最终验证和 Docker rebuild。
 
 ## 17. 新增模型流程
 

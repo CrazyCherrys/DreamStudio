@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 10 已完成，下一步进入阶段 11。
+当前状态：阶段 11 已完成。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -1201,6 +1201,54 @@ curl -I http://127.0.0.1:3000/
 - 管理员能预览、测试、发布、排障。
 - 普通用户只看到当前模型明确支持的参数。
 
+### 13.7 已完成
+
+已完成：
+
+- `docs/04-dreamstudio-v1-data-model.md` 已同步 profile/revision、任务快照、Gemini disabled profile 和 JSON draft 导入规则。
+- `docs/05-dreamstudio-v1-api-contract.md` 已同步 Admin execution profile/revision API、模板导入、Revision JSON 导入导出、Gemini `generateContent` 请求和 `inlineData` 解析。
+- `docs/12-dreamstudio-m3-model-catalog-task-list.md` 已补充 execution profile 管理接口和普通用户侧默认 active profile 规则。
+- `docs/14-dreamstudio-m5-image-task-worker-task-list.md` 已补充 adapter registry 当前支持的 OpenAI generation/edit 和 Gemini runtime 行为。
+- `docs/15-dreamstudio-m6-admin-logs-task-list.md` 已补充 profile/revision 管理、request log profile 排障字段和审计要求。
+- 新增 `docs/18-dreamstudio-model-onboarding-guide.md`，覆盖 OpenAI 官方、OpenAI-compatible、Gemini 官方模型接入流程，Revision JSON 导入导出和新增协议开发边界。
+- `docs/README.md` 已登记 18 号模型接入指南。
+- Admin 模型详情执行配置区域已支持导出当前 revision JSON，并把粘贴的 revision JSON 导入为新的 draft revision。
+- `scripts/verify-execution-profile-admin.ts` 已验证 JSON 导入只创建 draft revision，不影响 active revision。
+
+已验证：
+
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build
+npm run db:generate
+VERIFY_ENV="DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio REDIS_URL=redis://127.0.0.1:6379/0 DREAMSTUDIO_SECRET_KEY=local-verification-secret-key-32chars COOKIE_SECRET=local-cookie-secret-key-32chars APP_BASE_URL=http://127.0.0.1:3000"
+DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio npm run db:init:m0
+env $VERIFY_ENV npx tsx scripts/verify-model-profiles.ts
+env $VERIFY_ENV npx tsx scripts/verify-model-profile-api.ts
+env $VERIFY_ENV npx tsx scripts/verify-image-adapters.ts
+env $VERIFY_ENV npx tsx scripts/verify-gemini-adapter.ts
+env $VERIFY_ENV npx tsx scripts/verify-request-mapping.ts
+env $VERIFY_ENV npx tsx scripts/verify-parameter-schema-v2.ts
+env $VERIFY_ENV npx tsx scripts/verify-image-task-profile-snapshot.ts
+env $VERIFY_ENV npx tsx scripts/verify-execution-profile-admin.ts
+DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio npm run db:init:m0
+env $VERIFY_ENV npx tsx scripts/verify-profile-templates.ts
+DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio npm run db:init:m0
+docker compose up -d --build dreamstudio
+docker compose ps
+curl http://127.0.0.1:3001/healthz
+curl http://127.0.0.1:3001/readyz
+curl -I http://127.0.0.1:3000/
+```
+
+阶段 11 没有做：
+
+- 没有实现 `openai_responses_image` Worker runtime adapter；当前 Responses image tool 仍是 profile template/draft 能力。
+- 没有新增 direct OpenAI/Gemini 官方密钥管理；v1 继续使用用户配置的 new-api bearer transport。
+- 没有做最终人工产品审阅；按用户要求，最终审阅由用户执行。
+
 ## 14. 建议提交顺序
 
 建议每个阶段至少一个 commit：
@@ -1236,9 +1284,8 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 10 完成后，下一步应该进入阶段 11：
+阶段 11 已完成。后续如继续扩展，建议按独立阶段处理：
 
-1. 查看 `docs/README.md`、`docs/04-dreamstudio-v1-data-model.md`、`docs/05-dreamstudio-v1-api-contract.md`、`docs/12-dreamstudio-m3-model-catalog-task-list.md`、`docs/14-dreamstudio-m5-image-task-worker-task-list.md`、`docs/15-dreamstudio-m6-admin-logs-task-list.md` 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md`。
-2. 对照本轮 touched files 审核 API、Worker、Web Admin、Studio、Prisma、seed、profile template 和验证脚本是否都已被文档覆盖。
-3. 补齐模型接入指南、profile/revision JSON 导入导出说明、Gemini gateway support 边界和 OpenAI-compatible 字段审阅流程。
-4. 运行阶段 11 验收脚本、全局验证、Docker rebuild，并提交推送最终文档和验收更新。
+1. 实现 `openai_responses_image` Worker runtime adapter。
+2. 增加 direct OpenAI/Gemini 官方密钥管理时，先写独立 transport/密钥方案。
+3. 根据用户最终人工审阅反馈调整默认模型、模板和 Studio 暴露策略。

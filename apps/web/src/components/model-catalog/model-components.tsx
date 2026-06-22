@@ -925,6 +925,7 @@ export function ExecutionProfileManager({
   const [templateImportMode, setTemplateImportMode] =
     useState<ProfileTemplateImportMode>('template');
   const [templateUpstreamModelId, setTemplateUpstreamModelId] = useState(model.model_id);
+  const [revisionJsonText, setRevisionJsonText] = useState('');
   const [revisionDiff, setRevisionDiff] = useState<ExecutionProfileRevisionDiffResult | null>(null);
   const [preview, setPreview] = useState<ExecutionProfilePreviewResult | null>(null);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
@@ -971,6 +972,7 @@ export function ExecutionProfileManager({
       setSelectedRevisionId(nextRevision?.id ?? null);
       setProfileDraft(nextProfile ? profileToPayload(nextProfile) : emptyProfilePayload(model));
       setRevisionDraft(nextRevision ? revisionToPayload(nextRevision) : null);
+      setRevisionJsonText(nextRevision ? formatRevisionExport(nextRevision) : '');
       setTemplateUpstreamModelId(nextProfile?.upstream_model_id ?? model.model_id);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : '读取执行配置失败');
@@ -989,6 +991,7 @@ export function ExecutionProfileManager({
     setSelectedRevisionId(revision?.id ?? null);
     setProfileDraft(profileToPayload(profile));
     setRevisionDraft(revision ? revisionToPayload(revision) : null);
+    setRevisionJsonText(revision ? formatRevisionExport(revision) : '');
     setPreview(null);
     setRevisionDiff(null);
     setTemplateUpstreamModelId(profile.upstream_model_id);
@@ -997,6 +1000,7 @@ export function ExecutionProfileManager({
   function selectRevision(revision: AdminExecutionProfileRevision) {
     setSelectedRevisionId(revision.id);
     setRevisionDraft(revisionToPayload(revision));
+    setRevisionJsonText(formatRevisionExport(revision));
     setPreview(null);
     setRevisionDiff(null);
   }
@@ -1077,6 +1081,43 @@ export function ExecutionProfileManager({
       setRevisionDraft(revisionToPayload(created.item));
       setRevisionDiff(null);
     }, '模板已导入为 Draft revision。');
+  }
+
+  async function importRevisionJson() {
+    if (!selectedProfile) {
+      setProfileError('请选择 Profile');
+      return;
+    }
+    let payload: ExecutionProfileRevisionPayload;
+    try {
+      const parsedPayload = parseRevisionJsonPayload(revisionJsonText);
+      payload = {
+        ...parsedPayload,
+        source_kind: parsedPayload.source_kind ?? 'imported_json',
+        change_summary: parsedPayload.change_summary ?? 'Imported from revision JSON.',
+      };
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Revision JSON 格式不正确');
+      return;
+    }
+
+    await withProfileAction(async () => {
+      const created = await createExecutionProfileRevision(selectedProfile.id, payload, csrfToken!);
+      setSelectedRevisionId(created.item.id);
+      setRevisionDraft(revisionToPayload(created.item));
+      setRevisionJsonText(formatRevisionExport(created.item));
+      setRevisionDiff(null);
+    }, 'Revision JSON 已导入为 Draft。');
+  }
+
+  function exportSelectedRevisionJson() {
+    if (!selectedRevision) {
+      setProfileError('请选择 revision');
+      return;
+    }
+    setRevisionJsonText(formatRevisionExport(selectedRevision));
+    setProfileMessage('Revision JSON 已生成。');
+    setProfileError(null);
   }
 
   async function saveRevision() {
@@ -1197,6 +1238,7 @@ export function ExecutionProfileManager({
               setSelectedRevisionId(null);
               setProfileDraft(emptyProfilePayload(model));
               setRevisionDraft(null);
+              setRevisionJsonText('');
               setPreview(null);
             }}
             type="button"
@@ -1369,6 +1411,35 @@ export function ExecutionProfileManager({
               >
                 从模板导入 Draft
               </DsButton>
+            </div>
+          ) : null}
+
+          {selectedProfile ? (
+            <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
+              <h4 className="font-black">Revision JSON</h4>
+              <textarea
+                className="ds-input min-h-52 py-3 font-mono text-xs"
+                onChange={(event) => setRevisionJsonText(event.target.value)}
+                value={revisionJsonText}
+              />
+              <div className="flex flex-wrap gap-2">
+                <DsButton
+                  disabled={savingProfile || !selectedRevision}
+                  onClick={exportSelectedRevisionJson}
+                  type="button"
+                  variant="secondary"
+                >
+                  导出当前 Revision
+                </DsButton>
+                <DsButton
+                  disabled={savingProfile || !revisionJsonText.trim()}
+                  onClick={importRevisionJson}
+                  type="button"
+                  variant="secondary"
+                >
+                  导入为 Draft
+                </DsButton>
+              </div>
             </div>
           ) : null}
 
@@ -2025,6 +2096,49 @@ function revisionToPayload(
     validation_rules: revision.validation_rules,
     change_summary: revision.change_summary,
   };
+}
+
+const REVISION_JSON_PAYLOAD_KEYS = [
+  'source_kind',
+  'source_url',
+  'source_checked_at',
+  'source_summary',
+  'adapter_key',
+  'adapter_version',
+  'transport_key',
+  'upstream_model_id',
+  'upstream_endpoint_path',
+  'reference_transfer_mode',
+  'supports_reference_image',
+  'max_reference_images',
+  'parameter_schema',
+  'default_params',
+  'request_mapping',
+  'response_parser_key',
+  'capabilities',
+  'validation_rules',
+  'change_summary',
+] as const;
+
+function formatRevisionExport(revision: AdminExecutionProfileRevision) {
+  return JSON.stringify(revisionToPayload(revision), null, 2);
+}
+
+function parseRevisionJsonPayload(rawValue: string): ExecutionProfileRevisionPayload {
+  const parsed = JSON.parse(rawValue) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Revision JSON 必须是对象');
+  }
+
+  const source = parsed as Record<string, unknown>;
+  const payload: Record<string, unknown> = {};
+  for (const key of REVISION_JSON_PAYLOAD_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      payload[key] = source[key];
+    }
+  }
+
+  return payload as ExecutionProfileRevisionPayload;
 }
 
 function formatDateTimeLocal(value: string | null | undefined) {

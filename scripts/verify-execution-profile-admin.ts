@@ -159,6 +159,46 @@ async function main() {
   const test = await service.testExecutionProfileRevision(createdDraft.item.id);
   assert(test.result.ok && test.result.dry_run === true, 'revision dry-run test should pass');
 
+  const importedJsonDraft = await service.createExecutionProfileRevision(
+    profile.id,
+    {
+      source_kind: 'imported_json',
+      source_summary: 'verify imported revision JSON',
+      adapter_key: originalActive.adapterKey,
+      adapter_version: originalActive.adapterVersion,
+      transport_key: originalActive.transportKey,
+      upstream_model_id: originalActive.upstreamModelId,
+      upstream_endpoint_path: originalActive.upstreamEndpointPath,
+      reference_transfer_mode: originalActive.referenceTransferMode,
+      supports_reference_image: originalActive.supportsReferenceImage,
+      max_reference_images: originalActive.maxReferenceImages,
+      parameter_schema: originalActive.parameterSchema,
+      default_params: originalActive.defaultParams,
+      request_mapping: originalActive.requestMapping,
+      response_parser_key: originalActive.responseParserKey,
+      capabilities: originalActive.capabilities,
+      validation_rules: originalActive.validationRules,
+      change_summary: 'verify imported revision JSON draft',
+    },
+    session,
+    request,
+  );
+  assert(importedJsonDraft.item.status === 'draft', 'imported JSON revision should be draft');
+  assert(
+    importedJsonDraft.item.source_kind === 'imported_json',
+    'imported JSON revision source kind mismatch',
+  );
+  const activeAfterJsonImport = await prisma.aiModelExecutionProfileRevision.findFirstOrThrow({
+    where: {
+      executionProfileId: profile.id,
+      status: 'active',
+    },
+  });
+  assert(
+    activeAfterJsonImport.id === originalActive.id,
+    'imported JSON draft should not replace active revision before activation',
+  );
+
   const activated = await service.activateExecutionProfileRevision(
     createdDraft.item.id,
     session,
@@ -185,10 +225,12 @@ async function main() {
           'revision_lint_passes',
           'revision_preview_request_builds',
           'revision_test_dry_run_passes',
+          'revision_json_import_creates_draft',
           'activation_archives_previous_active_revision',
         ],
         profile_id: profile.id,
         draft_revision_id: createdDraft.item.id,
+        imported_json_revision_id: importedJsonDraft.item.id,
       },
       null,
       2,

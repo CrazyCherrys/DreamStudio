@@ -2,7 +2,7 @@
 
 本文档在 M2 new-api 配置与系统设置完成后使用，目标是让 DreamStudio 具备可维护的固定类型模型目录、参数 Schema 和模型候选拉取能力。M3 只完成“模型可配置、可展示、参数表单可渲染、参数可校验”的基础，不提交图片任务，不调用 Worker 生图，不处理资产上传。
 
-当前状态：已实现并通过 M3 验证脚本、构建和 Docker Compose 启动验证。
+当前状态：已实现并通过 M3 验证脚本、构建和 Docker Compose 启动验证。当前图片模型执行配置已扩展为 execution profile/revision；`ai_models.parameter_schema` 仍保留给表单兼容，用户侧图片任务优先读取默认 active profile revision。
 
 ---
 
@@ -12,12 +12,14 @@ M3 完成后需要满足：
 
 - 管理员可以创建、编辑、禁用和软删除图片模型。
 - 管理员可以配置模型端点类型、参考图能力、默认参数和参数 Schema。
+- 管理员可以在模型详情维护 execution profile、draft/active revision、request mapping 和模板导入。
 - 管理员可以从 `new-api` 拉取模型候选快照。
 - 模型候选不会自动暴露给普通用户。
 - 普通用户只能看到启用且未软删除的分类和模型。
 - 创作台可以根据模型 `parameter_schema` 渲染参数表单。
 - 后端可以校验 `parameter_schema` 结构。
 - 后端提供任务参数校验工具，为 M5 图片任务提交复用。
+- 普通用户侧 image 模型只有在存在默认启用 profile 和 active revision 时才可提交。
 
 ---
 
@@ -75,6 +77,8 @@ M3 需要补齐以下数据结构：
 - `sort_order`
 - `default_params`
 - `parameter_schema`
+- `ai_model_execution_profiles`
+- `ai_model_execution_profile_revisions`
 - `created_at`
 - `updated_at`
 - `deleted_at`
@@ -164,11 +168,36 @@ M3 需要补齐以下数据结构：
 - 删除为软删除。
 - 模型端点改为 `endpoint_types` 多选数组。
 - `endpoint_types` 支持 `openai_image_generations`、`openai_image_edits`、`gemini_generate_content`。
-- M3 第一验收路径优先支持 `openai_image_generations` 和 `openai_image_edits`。
-- `gemini_generate_content` 保留字段兼容，不作为第一验收路径。
+- M3 第一验收路径优先支持 `openai_image_generations` 和 `openai_image_edits`；当前后续实现已接入 `gemini_generate_content` adapter，但默认 Gemini profile 仍禁用，直到管理员确认 new-api 网关支持原生路径。
 - `parameter_schema` 必须通过后端校验。
 - `default_params` 必须通过对应 `parameter_schema` 校验。
 - 创建、更新、删除建议写审计日志。
+
+### 4.3.1 管理员执行配置接口
+
+当前后续阶段已补齐：
+
+- `GET /api/v1/admin/models/{model_record_id}/execution-profiles`
+- `POST /api/v1/admin/models/{model_record_id}/execution-profiles`
+- `GET /api/v1/admin/execution-profiles/{profile_id}`
+- `PATCH /api/v1/admin/execution-profiles/{profile_id}`
+- `DELETE /api/v1/admin/execution-profiles/{profile_id}`
+- `GET /api/v1/admin/execution-profiles/{profile_id}/revisions`
+- `POST /api/v1/admin/execution-profiles/{profile_id}/revisions`
+- `POST /api/v1/admin/execution-profiles/{profile_id}/revisions/import-template/{template_id}`
+- `PATCH /api/v1/admin/execution-profile-revisions/{revision_id}`
+- `POST /api/v1/admin/execution-profile-revisions/{revision_id}/lint`
+- `POST /api/v1/admin/execution-profile-revisions/{revision_id}/preview-request`
+- `POST /api/v1/admin/execution-profile-revisions/{revision_id}/test`
+- `GET /api/v1/admin/execution-profile-revisions/{revision_id}/diff`
+- `POST /api/v1/admin/execution-profile-revisions/{revision_id}/activate`
+- `GET /api/v1/admin/profile-templates`
+
+规则：
+
+- 模板导入和 JSON 粘贴导入只创建 draft revision。
+- 发布 active revision 前应运行 lint、请求预览、dry-run test 和 diff。
+- OpenAI-compatible copy 必须由管理员删除未确认支持的字段。
 
 ### 4.4 模型候选快照接口
 

@@ -23,6 +23,7 @@
 - `15-dreamstudio-m6-admin-logs-task-list.md`：M6 管理后台与日志审计完善开发任务清单，用于 M5 完成后进入用户管理、请求日志、敏感内容 reveal 和审计日志页面开发验收。
 - `16-dreamstudio-model-adapter-execution-profile-plan.md`：多模型生图适配层实施方案，用于后续将 OpenAI 官方模型、Gemini 官方模型和 OpenAI-compatible 模型统一包装为异步图片任务，并通过 execution profile、revision、request mapping 和 adapter registry 管理模型参数差异。
 - `17-dreamstudio-model-adapter-execution-profile-task-list.md`：多模型生图适配层执行任务清单，用于按阶段落地 `16` 的设计，明确每阶段要阅读的资料、本地代码 seam、修复计划、验证命令和面向小白的手动测试步骤。
+- `18-dreamstudio-model-onboarding-guide.md`：模型接入指南，用于说明 OpenAI 官方、OpenAI-compatible、Gemini 官方模型的 profile/revision/template 接入流程，以及 Revision JSON 导入导出和新增协议开发边界。
 
 ## 已清理文档
 
