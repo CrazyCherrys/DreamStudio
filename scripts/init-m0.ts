@@ -30,11 +30,17 @@ const PASSWORD_HASH_PREFIX = 'scrypt';
 const PASSWORD_KEY_LENGTH = 64;
 const DEFAULT_IMAGE_MODEL_ID = 'gpt-image-2';
 const DEFAULT_IMAGE_PROFILE_NAME = 'OpenAI Image generation';
+const DEFAULT_GEMINI_PROFILE_NAME = 'Gemini generateContent image';
 const DEFAULT_IMAGE_ADAPTER_KEY = 'openai_images_generation';
 const DEFAULT_IMAGE_ADAPTER_VERSION = '1';
 const DEFAULT_IMAGE_RESPONSE_PARSER_KEY = 'openai_image_data';
+const DEFAULT_GEMINI_ADAPTER_KEY = 'gemini_generate_content';
+const DEFAULT_GEMINI_ADAPTER_VERSION = '1';
+const DEFAULT_GEMINI_RESPONSE_PARSER_KEY = 'gemini_inline_data';
 const DEFAULT_IMAGE_SOURCE_URL = 'https://developers.openai.com/api/docs/guides/image-generation';
+const DEFAULT_GEMINI_SOURCE_URL = 'https://ai.google.dev/gemini-api/docs/image-generation';
 const DEFAULT_IMAGE_SOURCE_CHECKED_AT = new Date('2026-06-21T00:00:00.000Z');
+const DEFAULT_GEMINI_SOURCE_CHECKED_AT = new Date('2026-06-22T00:00:00.000Z');
 
 const defaultSettings = [
   {
@@ -323,6 +329,96 @@ const defaultImageValidationRules = {
   ],
 } satisfies Prisma.InputJsonObject;
 
+const defaultGeminiParameterSchema = [
+  {
+    key: 'aspect_ratio',
+    label: '比例',
+    type: 'select',
+    description: 'Gemini image aspect ratio.',
+    required: false,
+    default: '1:1',
+    options: [
+      { label: '1:1', value: '1:1' },
+      { label: '2:3', value: '2:3' },
+      { label: '3:2', value: '3:2' },
+      { label: '3:4', value: '3:4' },
+      { label: '4:3', value: '4:3' },
+      { label: '9:16', value: '9:16' },
+      { label: '16:9', value: '16:9' },
+    ],
+    ui: {
+      group: 'quick',
+      slot: 'aspect_ratio',
+      order: 10,
+    },
+    capability: 'aspect_ratio',
+    send_policy: 'when_present',
+    validation: {
+      enum: ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9'],
+    },
+    help_url: DEFAULT_GEMINI_SOURCE_URL,
+  },
+  {
+    key: 'image_size',
+    label: '图片尺寸',
+    type: 'select',
+    description: 'Gemini image size tier.',
+    required: false,
+    default: '1K',
+    options: [
+      { label: '1K', value: '1K' },
+      { label: '2K', value: '2K' },
+      { label: '4K', value: '4K' },
+    ],
+    ui: {
+      group: 'quick',
+      slot: 'resolution',
+      order: 20,
+    },
+    capability: 'image_size',
+    send_policy: 'when_present',
+    validation: {
+      enum: ['1K', '2K', '4K'],
+    },
+    help_url: DEFAULT_GEMINI_SOURCE_URL,
+  },
+] satisfies Prisma.InputJsonArray;
+
+const defaultGeminiRequestMapping = {
+  content_type: 'json',
+  fields: [
+    { source: 'prompt', target: 'contents[0].parts[0].text' },
+    {
+      source: 'params.aspect_ratio',
+      target: 'generationConfig.responseFormat.image.aspectRatio',
+      omit_if_null: true,
+    },
+    {
+      source: 'params.image_size',
+      target: 'generationConfig.responseFormat.image.imageSize',
+      omit_if_null: true,
+    },
+  ],
+  constants: [{ target: 'generationConfig.responseModalities', value: ['IMAGE'] }],
+} satisfies Prisma.InputJsonObject;
+
+const defaultGeminiCapabilities = {
+  supports_reference_image: true,
+  max_reference_images: 8,
+  supports_streaming: false,
+  response_parser: 'gemini_inline_data',
+  template_origin: 'gemini_official',
+  requires_gateway_support: true,
+} satisfies Prisma.InputJsonObject;
+
+const defaultGeminiValidationRules = {
+  version: 1,
+  notes: [
+    'Gemini generateContent stays disabled until the configured gateway supports the native path.',
+    'Aspect ratio and image size map to Gemini responseFormat.image fields.',
+  ],
+} satisfies Prisma.InputJsonObject;
+
 async function main() {
   await mkdir(inputPath, { recursive: true });
   await mkdir(outputPath, { recursive: true });
@@ -356,6 +452,7 @@ async function main() {
 
   const initialAdmin = await ensureInitialAdmin();
   const defaultImageModel = await ensureDefaultImageModel();
+  const defaultGeminiProfile = await ensureDefaultGeminiExecutionProfileForImageModel();
   const defaultImageProfiles = await ensureDefaultOpenAiGenerationProfiles();
 
   console.log(
@@ -367,6 +464,7 @@ async function main() {
       local_storage_root: localStorageRoot,
       initial_admin: initialAdmin,
       default_image_model: defaultImageModel,
+      default_gemini_profile: defaultGeminiProfile,
       default_image_profiles: defaultImageProfiles,
     }),
   );
@@ -385,7 +483,10 @@ async function ensureDefaultImageModel() {
       modality: ModelModality.image,
       description:
         'Development default GPT Image generation model. Execution rules live in the default active profile revision.',
-      endpointTypes: [ModelEndpointType.openai_image_generations],
+      endpointTypes: [
+        ModelEndpointType.openai_image_generations,
+        ModelEndpointType.gemini_generate_content,
+      ],
       referenceTransferMode: ReferenceTransferMode.none,
       supportsReferenceImage: false,
       isEnabled: true,
@@ -400,7 +501,10 @@ async function ensureDefaultImageModel() {
       modality: ModelModality.image,
       description:
         'Development default GPT Image generation model. Execution rules live in the default active profile revision.',
-      endpointTypes: [ModelEndpointType.openai_image_generations],
+      endpointTypes: [
+        ModelEndpointType.openai_image_generations,
+        ModelEndpointType.gemini_generate_content,
+      ],
       referenceTransferMode: ReferenceTransferMode.none,
       supportsReferenceImage: false,
       isEnabled: true,
@@ -557,6 +661,158 @@ async function upsertDefaultImageExecutionProfileRevision(
       capabilities: defaultImageCapabilities,
       validationRules: defaultImageValidationRules,
       changeSummary: 'Initial development default OpenAI Image generation profile.',
+      activatedAt: now,
+      archivedAt: null,
+    },
+  });
+}
+
+async function ensureDefaultGeminiExecutionProfileForImageModel() {
+  const model = await prisma.aiModel.findUniqueOrThrow({
+    where: {
+      id: '00000000-0000-4000-8000-00000000f201',
+    },
+  });
+  const profile = await upsertDefaultGeminiExecutionProfile(model);
+  const revision = await upsertDefaultGeminiExecutionProfileRevision(profile);
+  return {
+    model_id: model.modelId,
+    model_record_id: model.id,
+    execution_profile_id: profile.id,
+    active_revision_id: revision.id,
+  };
+}
+
+async function upsertDefaultGeminiExecutionProfile(
+  model: Pick<AiModel, 'id'>,
+): Promise<AiModelExecutionProfile> {
+  const existingProfile = await prisma.aiModelExecutionProfile.findFirst({
+    where: {
+      aiModelId: model.id,
+      name: DEFAULT_GEMINI_PROFILE_NAME,
+      deletedAt: null,
+    },
+  });
+
+  const data = {
+    aiModelId: model.id,
+    name: DEFAULT_GEMINI_PROFILE_NAME,
+    operation: ExecutionProfileOperation.image_to_image,
+    adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
+    adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
+    transportKey: 'new_api_bearer',
+    upstreamModelId: 'gemini-2.5-flash-image',
+    upstreamEndpointPath: '/v1beta/models/gemini-2.5-flash-image:generateContent',
+    referenceTransferMode: ReferenceTransferMode.url,
+    supportsReferenceImage: true,
+    maxReferenceImages: 8,
+    parameterSchema: defaultGeminiParameterSchema,
+    defaultParams: {
+      aspect_ratio: '1:1',
+      image_size: '1K',
+    },
+    requestMapping: defaultGeminiRequestMapping,
+    responseParserKey: DEFAULT_GEMINI_RESPONSE_PARSER_KEY,
+    capabilities: defaultGeminiCapabilities,
+    validationRules: defaultGeminiValidationRules,
+    isDefault: false,
+    isEnabled: false,
+    sortOrder: 50,
+    deletedAt: null,
+  };
+
+  if (existingProfile) {
+    return prisma.aiModelExecutionProfile.update({
+      where: {
+        id: existingProfile.id,
+      },
+      data,
+    });
+  }
+
+  return prisma.aiModelExecutionProfile.create({
+    data,
+  });
+}
+
+async function upsertDefaultGeminiExecutionProfileRevision(profile: AiModelExecutionProfile) {
+  const now = new Date();
+
+  await prisma.aiModelExecutionProfileRevision.updateMany({
+    where: {
+      executionProfileId: profile.id,
+      status: ExecutionProfileRevisionStatus.active,
+      revisionNo: {
+        not: 1,
+      },
+    },
+    data: {
+      status: ExecutionProfileRevisionStatus.archived,
+      archivedAt: now,
+    },
+  });
+
+  return prisma.aiModelExecutionProfileRevision.upsert({
+    where: {
+      executionProfileId_revisionNo: {
+        executionProfileId: profile.id,
+        revisionNo: 1,
+      },
+    },
+    create: {
+      executionProfileId: profile.id,
+      revisionNo: 1,
+      status: ExecutionProfileRevisionStatus.active,
+      sourceKind: ExecutionProfileSourceKind.gemini_official,
+      sourceUrl: DEFAULT_GEMINI_SOURCE_URL,
+      sourceCheckedAt: DEFAULT_GEMINI_SOURCE_CHECKED_AT,
+      sourceSummary:
+        'Gemini official image generation guide snapshot: generateContent uses text/reference image parts, generationConfig.responseModalities and responseFormat.image fields, and returns generated images as inlineData.',
+      adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
+      adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
+      transportKey: 'new_api_bearer',
+      upstreamModelId: 'gemini-2.5-flash-image',
+      upstreamEndpointPath: '/v1beta/models/gemini-2.5-flash-image:generateContent',
+      referenceTransferMode: ReferenceTransferMode.url,
+      supportsReferenceImage: true,
+      maxReferenceImages: 8,
+      parameterSchema: defaultGeminiParameterSchema,
+      defaultParams: {
+        aspect_ratio: '1:1',
+        image_size: '1K',
+      },
+      requestMapping: defaultGeminiRequestMapping,
+      responseParserKey: DEFAULT_GEMINI_RESPONSE_PARSER_KEY,
+      capabilities: defaultGeminiCapabilities,
+      validationRules: defaultGeminiValidationRules,
+      changeSummary: 'Initial development Gemini generateContent image profile.',
+      activatedAt: now,
+    },
+    update: {
+      status: ExecutionProfileRevisionStatus.active,
+      sourceKind: ExecutionProfileSourceKind.gemini_official,
+      sourceUrl: DEFAULT_GEMINI_SOURCE_URL,
+      sourceCheckedAt: DEFAULT_GEMINI_SOURCE_CHECKED_AT,
+      sourceSummary:
+        'Gemini official image generation guide snapshot: generateContent uses text/reference image parts, generationConfig.responseModalities and responseFormat.image fields, and returns generated images as inlineData.',
+      adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
+      adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
+      transportKey: 'new_api_bearer',
+      upstreamModelId: 'gemini-2.5-flash-image',
+      upstreamEndpointPath: '/v1beta/models/gemini-2.5-flash-image:generateContent',
+      referenceTransferMode: ReferenceTransferMode.url,
+      supportsReferenceImage: true,
+      maxReferenceImages: 8,
+      parameterSchema: defaultGeminiParameterSchema,
+      defaultParams: {
+        aspect_ratio: '1:1',
+        image_size: '1K',
+      },
+      requestMapping: defaultGeminiRequestMapping,
+      responseParserKey: DEFAULT_GEMINI_RESPONSE_PARSER_KEY,
+      capabilities: defaultGeminiCapabilities,
+      validationRules: defaultGeminiValidationRules,
+      changeSummary: 'Initial development Gemini generateContent image profile.',
       activatedAt: now,
       archivedAt: null,
     },

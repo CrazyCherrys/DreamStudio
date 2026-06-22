@@ -22,6 +22,7 @@ export interface NewApiJsonImageRequest {
   apiKey: string;
   endpointPath: string;
   body: Record<string, unknown>;
+  responseParser?: 'gemini_inline_data' | 'openai_image_data';
   timeoutMs?: number;
 }
 
@@ -109,6 +110,7 @@ export class NewApiImageClient {
         'content-type': 'application/json',
       },
       body: JSON.stringify(input.body),
+      responseParser: input.responseParser ?? 'openai_image_data',
       timeoutMs: input.timeoutMs,
     });
   }
@@ -125,6 +127,7 @@ export class NewApiImageClient {
         authorization: `Bearer ${input.apiKey}`,
       },
       body: this.buildMultipartBody(input),
+      responseParser: 'openai_image_data',
       timeoutMs: input.timeoutMs,
     });
   }
@@ -135,6 +138,7 @@ export class NewApiImageClient {
     endpointPath: string;
     headers: HeadersInit;
     body: BodyInit;
+    responseParser: 'gemini_inline_data' | 'openai_image_data';
     timeoutMs?: number;
   }): Promise<NewApiImageResponse> {
     const controller = new AbortController();
@@ -155,7 +159,7 @@ export class NewApiImageClient {
       }
 
       return {
-        data: readImageData(raw),
+        data: readImageData(raw, input.responseParser),
         raw,
         httpStatus: response.status,
       };
@@ -216,7 +220,14 @@ function parseJson(rawText: string): unknown {
   }
 }
 
-function readImageData(raw: unknown): NewApiImageData[] {
+function readImageData(
+  raw: unknown,
+  parser: 'gemini_inline_data' | 'openai_image_data',
+): NewApiImageData[] {
+  if (parser === 'gemini_inline_data') {
+    return readGeminiInlineData(raw);
+  }
+
   if (!isRecord(raw) || !Array.isArray(raw.data)) {
     throw new NewApiImageClientError({
       code: 'invalid_upstream_response',
@@ -236,6 +247,42 @@ function readImageData(raw: unknown): NewApiImageData[] {
     throw new NewApiImageClientError({
       code: 'invalid_upstream_response',
       message: '上游图片接口没有返回图片',
+    });
+  }
+
+  return data;
+}
+
+function readGeminiInlineData(raw: unknown): NewApiImageData[] {
+  if (!isRecord(raw) || !Array.isArray(raw.candidates)) {
+    throw new NewApiImageClientError({
+      code: 'invalid_upstream_response',
+      message: 'Gemini 返回格式不正确',
+    });
+  }
+
+  const data = raw.candidates.flatMap((candidate) => {
+    if (
+      !isRecord(candidate) ||
+      !isRecord(candidate.content) ||
+      !Array.isArray(candidate.content.parts)
+    ) {
+      return [];
+    }
+    return candidate.content.parts
+      .filter(isRecord)
+      .map((part) => (isRecord(part.inlineData) ? part.inlineData : part.inline_data))
+      .filter(isRecord)
+      .map((inlineData) => ({
+        b64_json: typeof inlineData.data === 'string' ? inlineData.data : undefined,
+      }))
+      .filter((item) => item.b64_json);
+  });
+
+  if (data.length === 0) {
+    throw new NewApiImageClientError({
+      code: 'invalid_upstream_response',
+      message: 'Gemini 没有返回 inlineData 图片',
     });
   }
 

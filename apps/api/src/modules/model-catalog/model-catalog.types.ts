@@ -82,7 +82,7 @@ export interface ExecutionProfilePreviewBody {
   reference_asset_ids?: unknown;
 }
 
-export type ProfileTemplateCategory = 'openai_official' | 'openai_compatible';
+export type ProfileTemplateCategory = 'gemini_official' | 'openai_official' | 'openai_compatible';
 export type ProfileTemplateImportMode = 'template' | 'openai_compatible_copy';
 
 export interface ProfileTemplateSummary {

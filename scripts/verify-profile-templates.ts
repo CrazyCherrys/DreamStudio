@@ -56,6 +56,7 @@ async function main() {
     'openai-image-generation-gpt-image-2',
     'openai-image-edit-gpt-image-2',
     'openai-responses-image-tool',
+    'gemini-generate-content-image',
     'openai-compatible-image-generation-minimal',
   ]) {
     assert(templateIds.has(requiredTemplate), `missing template ${requiredTemplate}`);
@@ -81,6 +82,15 @@ async function main() {
   assert(
     compatibleMinimal.source_kind === 'third_party_docs',
     'compatible template source_kind mismatch',
+  );
+  const geminiTemplate = templates.items.find(
+    (template) => template.id === 'gemini-generate-content-image',
+  );
+  assert(geminiTemplate?.category === 'gemini_official', 'Gemini template category mismatch');
+  assert(geminiTemplate.source_kind === 'gemini_official', 'Gemini template source_kind mismatch');
+  assert(
+    geminiTemplate.adapter_key === 'gemini_generate_content',
+    'Gemini template adapter mismatch',
   );
 
   const model = await prisma.aiModel.findFirstOrThrow({

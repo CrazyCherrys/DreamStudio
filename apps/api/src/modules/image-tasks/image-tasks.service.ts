@@ -488,6 +488,10 @@ export class ImageTasksService implements OnModuleDestroy {
       return ModelEndpointType.openai_image_generations;
     }
 
+    if (profile.adapterKey === 'gemini_generate_content') {
+      return ModelEndpointType.gemini_generate_content;
+    }
+
     throw apiError(
       HttpStatus.BAD_REQUEST,
       'adapter_not_supported',
@@ -551,9 +555,7 @@ export class ImageTasksService implements OnModuleDestroy {
   }): Prisma.InputJsonObject {
     const endpointPath =
       input.revision.upstreamEndpointPath ??
-      (input.endpointType === ModelEndpointType.openai_image_edits
-        ? '/v1/images/edits'
-        : '/v1/images/generations');
+      defaultEndpointPathForTask(input.endpointType, input.revision.upstreamModelId);
 
     return {
       adapter_key: input.revision.adapterKey,
@@ -811,6 +813,16 @@ export class ImageTasksService implements OnModuleDestroy {
     }
     return parsed;
   }
+}
+
+function defaultEndpointPathForTask(endpointType: ModelEndpointType, upstreamModelId: string) {
+  if (endpointType === ModelEndpointType.openai_image_edits) {
+    return '/v1/images/edits';
+  }
+  if (endpointType === ModelEndpointType.gemini_generate_content) {
+    return `/v1beta/models/${encodeURIComponent(upstreamModelId)}:generateContent`;
+  }
+  return '/v1/images/generations';
 }
 
 function summarizeText(text: string) {

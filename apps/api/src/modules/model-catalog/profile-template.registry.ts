@@ -58,6 +58,7 @@ const TEMPLATE_FILENAMES = [
   'openai-image-generation-gpt-image-2.json',
   'openai-image-edit-gpt-image-2.json',
   'openai-responses-image-tool.json',
+  'gemini-generate-content-image.json',
   'openai-compatible-image-generation-minimal.json',
 ];
 
@@ -135,7 +136,11 @@ function readProfileTemplate(path: string): ProfileTemplateDefinition {
   assertString(parsed.label, path, 'label');
   assertString(parsed.description, path, 'description');
   assertString(parsed.category, path, 'category');
-  if (parsed.category !== 'openai_official' && parsed.category !== 'openai_compatible') {
+  if (
+    parsed.category !== 'gemini_official' &&
+    parsed.category !== 'openai_official' &&
+    parsed.category !== 'openai_compatible'
+  ) {
     throw new Error(`Invalid profile template category: ${path}`);
   }
   assertString(parsed.compatible_warning, path, 'compatible_warning');
@@ -186,6 +191,9 @@ function operationFromAdapterKey(adapterKey: string): ExecutionProfileOperation 
   }
   if (adapterKey === 'openai_responses_image') {
     return 'conversational_image';
+  }
+  if (adapterKey === 'gemini_generate_content') {
+    return 'image_to_image';
   }
   return 'text_to_image';
 }

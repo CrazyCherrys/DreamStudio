@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 9 已完成，下一步进入阶段 10。
+当前状态：阶段 10 已完成，下一步进入阶段 11。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -1059,6 +1059,59 @@ npm run build
 - 系统架构支持 Gemini 原生图片请求形状。
 - 不破坏当前 v1 用户自带 new-api key 的产品边界。
 
+### 12.7 已完成
+
+已完成：
+
+- 新增 Worker `gemini_generate_content` adapter，目标路径限制为 `/v1beta/models/{model}:generateContent`，并按任务快照中的 `upstream_endpoint_path` 调用 new-api。
+- Gemini adapter 复用共享 request mapping compiler，构造 `contents[0].parts[0].text`、`generationConfig.responseModalities`、`generationConfig.responseFormat.image.aspectRatio` 和 `generationConfig.responseFormat.image.imageSize`。
+- 参考图会追加为 Gemini `inlineData` parts，字段包含 base64 `data` 和 `mimeType`。
+- `NewApiImageClient` 新增 `gemini_inline_data` response parser，解析 `candidates[].content.parts[].inlineData.data` 为现有 `b64_json` result image 形态。
+- API 侧允许 `gemini_generate_content` active revision 解析为 image task endpoint type，并在脱敏请求快照中使用 Gemini 默认路径。
+- Admin lint/preview 的 adapter target allowlist 已支持 `{model}` 占位路径，避免固定模板路径误拦截。
+- 新增 Gemini 官方 profile template `profile-templates/gemini-generate-content-image.json`，记录 Gemini 官方来源、`responseModalities`、`responseFormat.image.*`、`gemini_inline_data` parser 和 gateway support warning。
+- `scripts/init-m0.ts` 新增开发用 Gemini `generateContent` 非默认 profile 和 active revision；默认保持 disabled，直到管理员确认配置的 new-api 网关支持原生 Gemini 路径后再启用。
+- `scripts/verify-gemini-adapter.ts` 使用 mock HTTP gateway 验证 Gemini 请求 JSON、参考图 inlineData 映射、`inlineData` 解析、unsupported adapter 错误归一化，以及默认环境下 Gemini profile 不作为用户侧可提交默认 profile。
+- `scripts/verify-profile-templates.ts` 已覆盖 Gemini 模板存在性、`gemini_official` 来源和 `gemini_generate_content` adapter。
+
+已验证：
+
+```bash
+npx tsc -p apps/api/tsconfig.json --noEmit
+npx tsc -p apps/worker/tsconfig.json --noEmit
+npm run typecheck -w @dreamstudio/web
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build
+npm run db:generate
+VERIFY_ENV="DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio REDIS_URL=redis://127.0.0.1:6379/0 DREAMSTUDIO_SECRET_KEY=local-verification-secret-key-32chars COOKIE_SECRET=local-cookie-secret-key-32chars APP_BASE_URL=http://127.0.0.1:3000"
+DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio npm run db:init:m0
+env $VERIFY_ENV npx tsx scripts/verify-gemini-adapter.ts
+env $VERIFY_ENV npx tsx scripts/verify-model-profiles.ts
+env $VERIFY_ENV npx tsx scripts/verify-model-profile-api.ts
+env $VERIFY_ENV npx tsx scripts/verify-image-adapters.ts
+env $VERIFY_ENV npx tsx scripts/verify-request-mapping.ts
+env $VERIFY_ENV npx tsx scripts/verify-parameter-schema-v2.ts
+env $VERIFY_ENV npx tsx scripts/verify-image-task-profile-snapshot.ts
+env $VERIFY_ENV npx tsx scripts/verify-execution-profile-admin.ts
+DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio npm run db:init:m0
+env $VERIFY_ENV npx tsx scripts/verify-profile-templates.ts
+DATABASE_URL=postgresql://dreamstudio:dreamstudio@127.0.0.1:5432/dreamstudio npm run db:init:m0
+docker compose up -d --build dreamstudio
+docker compose ps
+curl http://127.0.0.1:3001/healthz
+curl http://127.0.0.1:3001/readyz
+curl -I http://127.0.0.1:3000/
+```
+
+阶段 10 没有做：
+
+- 没有实现 `openai_responses_image` Worker runtime adapter。
+- 没有新增 direct Gemini key 管理；v1 继续使用用户配置的 new-api bearer transport。
+- 没有把 Gemini profile 自动设为默认或自动暴露给普通用户提交。
+- 没有完成最终 API/数据模型/Worker/模型接入指南同步；这属于阶段 11。
+
 ## 13. 阶段 11：最终文档、验收和发布
 
 ### 13.1 先查看资料
@@ -1183,10 +1236,9 @@ docker compose up -d --build dreamstudio
 
 ## 15. 当前下一步
 
-阶段 9 完成后，下一步应该进入阶段 10：
+阶段 10 完成后，下一步应该进入阶段 11：
 
-1. 查看本文件阶段 10 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 `Gemini 官方模型`、`Adapter Registry`、`Request Mapping`。
-2. 查看 Gemini Image Generation Guide、Gemini Generate Content API，以及 new-api 当前是否支持 Gemini 原生路径。
-3. 查看 `apps/worker/src/modules/image-generation/`、`packages/config/src/request-mapping.compiler.ts`、`apps/api/src/modules/model-catalog/` 和当前 `profile-templates/`。
-4. 实现 `gemini_generate_content` adapter、Gemini 请求 mapping 和 `inlineData` 响应解析。
-5. 新增 Gemini profile 模板和验证脚本，保持导入为 draft revision、preview/test/activate 流程不变。
+1. 查看 `docs/README.md`、`docs/04-dreamstudio-v1-data-model.md`、`docs/05-dreamstudio-v1-api-contract.md`、`docs/12-dreamstudio-m3-model-catalog-task-list.md`、`docs/14-dreamstudio-m5-image-task-worker-task-list.md`、`docs/15-dreamstudio-m6-admin-logs-task-list.md` 和 `docs/16-dreamstudio-model-adapter-execution-profile-plan.md`。
+2. 对照本轮 touched files 审核 API、Worker、Web Admin、Studio、Prisma、seed、profile template 和验证脚本是否都已被文档覆盖。
+3. 补齐模型接入指南、profile/revision JSON 导入导出说明、Gemini gateway support 边界和 OpenAI-compatible 字段审阅流程。
+4. 运行阶段 11 验收脚本、全局验证、Docker rebuild，并提交推送最终文档和验收更新。

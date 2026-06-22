@@ -16,7 +16,7 @@ export type ExecutionProfileSourceKind =
   | 'gemini_official'
   | 'third_party_docs'
   | 'imported_json';
-export type ProfileTemplateCategory = 'openai_official' | 'openai_compatible';
+export type ProfileTemplateCategory = 'gemini_official' | 'openai_official' | 'openai_compatible';
 export type ProfileTemplateImportMode = 'template' | 'openai_compatible_copy';
 
 export interface ParameterSchemaOption {

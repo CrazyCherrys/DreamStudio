@@ -41,7 +41,7 @@ const openAiImagesGenerationAdapter: ImageGenerationAdapter = {
   allowedTargetPaths: ['/v1/images/generations'],
   async execute(input) {
     const endpointPath = readEndpointPath(input.task, '/v1/images/generations');
-    assertAllowedTargetPath(this, endpointPath);
+    assertAllowedTargetPath(this, endpointPath, input.task.modelIdSnapshot);
     const compiled = compileRequestMapping(readRequestMapping(input.task), {
       model: input.task.modelIdSnapshot,
       prompt: input.prompt,
@@ -67,7 +67,7 @@ const openAiImagesEditAdapter: ImageGenerationAdapter = {
   allowedTargetPaths: ['/v1/images/edits'],
   async execute(input) {
     const endpointPath = readEndpointPath(input.task, '/v1/images/edits');
-    assertAllowedTargetPath(this, endpointPath);
+    assertAllowedTargetPath(this, endpointPath, input.task.modelIdSnapshot);
     const compiled = compileRequestMapping(readRequestMapping(input.task), {
       model: input.task.modelIdSnapshot,
       prompt: input.prompt,
@@ -92,8 +92,40 @@ const openAiImagesEditAdapter: ImageGenerationAdapter = {
   },
 };
 
+const geminiGenerateContentAdapter: ImageGenerationAdapter = {
+  key: 'gemini_generate_content',
+  version: 1,
+  allowedTargetPaths: ['/v1beta/models/{model}:generateContent'],
+  async execute(input) {
+    const endpointPath = readEndpointPath(
+      input.task,
+      `/v1beta/models/${encodeURIComponent(input.task.modelIdSnapshot)}:generateContent`,
+    );
+    assertAllowedTargetPath(this, endpointPath, input.task.modelIdSnapshot);
+    const compiled = compileRequestMapping(readRequestMapping(input.task), {
+      model: input.task.modelIdSnapshot,
+      prompt: input.prompt,
+      params: input.parameters,
+    });
+    if (compiled.contentType !== 'json') {
+      throw adapterFailure('invalid_request_mapping', 'Gemini adapter 需要 json request mapping');
+    }
+
+    return input.client.sendJsonImageRequest({
+      baseUrl: input.task.newApiBaseUrlSnapshot,
+      apiKey: input.apiKey,
+      endpointPath,
+      body: appendGeminiReferenceParts(compiled.body, input.references),
+      responseParser: 'gemini_inline_data',
+      timeoutMs: input.timeoutMs,
+    });
+  },
+};
+
 const IMAGE_ADAPTERS = new Map(
-  [openAiImagesGenerationAdapter, openAiImagesEditAdapter].map((adapter) => [adapter.key, adapter]),
+  [openAiImagesGenerationAdapter, openAiImagesEditAdapter, geminiGenerateContentAdapter].map(
+    (adapter) => [adapter.key, adapter],
+  ),
 );
 
 export function getImageGenerationAdapter(adapterKey: string | null): ImageGenerationAdapter {
@@ -139,8 +171,15 @@ function readEndpointPath(task: ImageTask, fallback: string) {
   return endpointPath;
 }
 
-function assertAllowedTargetPath(adapter: ImageGenerationAdapter, endpointPath: string) {
-  if (!adapter.allowedTargetPaths.includes(endpointPath)) {
+function assertAllowedTargetPath(
+  adapter: ImageGenerationAdapter,
+  endpointPath: string,
+  modelId: string,
+) {
+  const allowedPaths = adapter.allowedTargetPaths.map((path) =>
+    path.replace('{model}', encodeURIComponent(modelId)),
+  );
+  if (!allowedPaths.includes(endpointPath)) {
     throw adapterFailure('adapter_target_not_allowed', '当前 adapter 不允许请求该上游路径');
   }
 }
@@ -176,4 +215,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return isRecord(value) ? value : null;
+}
+
+function appendGeminiReferenceParts(
+  body: Record<string, unknown>,
+  references: NewApiImageReference[],
+): Record<string, unknown> {
+  if (references.length === 0) {
+    return body;
+  }
+
+  const contents = Array.isArray(body.contents) ? [...body.contents] : [];
+  const firstContent = isRecord(contents[0]) ? { ...contents[0] } : {};
+  const parts = Array.isArray(firstContent.parts) ? [...firstContent.parts] : [];
+  parts.push(
+    ...references.map((reference) => ({
+      inlineData: {
+        data: reference.buffer.toString('base64'),
+        mimeType: reference.contentType,
+      },
+    })),
+  );
+  firstContent.parts = parts;
+  contents[0] = firstContent;
+
+  return {
+    ...body,
+    contents,
+  };
 }

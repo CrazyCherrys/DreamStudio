@@ -95,6 +95,7 @@ const ADAPTER_ALLOWED_TARGET_PATHS: Record<string, string[]> = {
   openai_images_generation: ['/v1/images/generations'],
   openai_images_edit: ['/v1/images/edits'],
   openai_responses_image: ['/v1/responses'],
+  gemini_generate_content: ['/v1beta/models/{model}:generateContent'],
 };
 
 const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
@@ -1725,11 +1726,12 @@ export class ModelCatalogService {
 
     const endpointPath =
       revision.upstreamEndpointPath ??
-      (revision.adapterKey === 'openai_images_edit'
-        ? '/v1/images/edits'
-        : '/v1/images/generations');
+      defaultEndpointPathForRevision(revision.adapterKey, revision.upstreamModelId);
     const mappingLint = lintRequestMapping(revision.requestMapping, {
-      allowedTargetPaths: ADAPTER_ALLOWED_TARGET_PATHS[revision.adapterKey],
+      allowedTargetPaths: allowedTargetPathsForRevision(
+        revision.adapterKey,
+        revision.upstreamModelId,
+      ),
       endpointPath,
     });
     errors.push(...mappingLint.errors);
@@ -1777,9 +1779,7 @@ export class ModelCatalogService {
     });
     const endpointPath =
       revision.upstreamEndpointPath ??
-      (revision.adapterKey === 'openai_images_edit'
-        ? '/v1/images/edits'
-        : '/v1/images/generations');
+      defaultEndpointPathForRevision(revision.adapterKey, revision.upstreamModelId);
 
     return {
       adapter_key: revision.adapterKey,
@@ -2389,4 +2389,23 @@ function readRevisionField(
 ) {
   const value = (revision as unknown as Record<string, unknown>)[key as string];
   return serialize ? serialize(value) : value;
+}
+
+function defaultEndpointPathForRevision(adapterKey: string, upstreamModelId: string) {
+  if (adapterKey === 'openai_images_edit') {
+    return '/v1/images/edits';
+  }
+  if (adapterKey === 'gemini_generate_content') {
+    return `/v1beta/models/${encodeURIComponent(upstreamModelId)}:generateContent`;
+  }
+  if (adapterKey === 'openai_responses_image') {
+    return '/v1/responses';
+  }
+  return '/v1/images/generations';
+}
+
+function allowedTargetPathsForRevision(adapterKey: string, upstreamModelId: string) {
+  return ADAPTER_ALLOWED_TARGET_PATHS[adapterKey]?.map((path) =>
+    path.replace('{model}', encodeURIComponent(upstreamModelId)),
+  );
 }
