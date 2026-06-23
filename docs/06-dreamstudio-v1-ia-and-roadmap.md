@@ -123,8 +123,8 @@ GET /api/v1/auth/me
 | URL | 页面 |
 | --- | --- |
 | `/admin` | 管理后台首页 |
-| `/admin/users` | 用户管理 |
-| `/admin/users/{user_id}` | 用户详情 |
+| `/admin/users` | 用户管理，详情和操作在当前页弹窗中完成 |
+| `/admin/users/{user_id}` | 用户详情兼容直达页 |
 | `/admin/models` | 模型管理 |
 | `/admin/model-sync` | 模型候选拉取 |
 | `/admin/system-settings` | 系统设置 |
@@ -452,31 +452,35 @@ v1 结论：
 - 用户状态筛选。
 - 用户名搜索。
 - 查看密钥配置状态。
-- 启用、禁用、软删除用户。
-- 重置用户密码。
-- 进入用户详情。
+- 在当前页弹窗中查看用户详情。
+- 在详情弹窗中启用、禁用、软删除用户。
+- 在详情弹窗中重置用户密码。
+- 在详情弹窗中代用户配置或清空 `new-api` 密钥。
 
 接口：
 
 - `GET /api/v1/admin/users`
+- `GET /api/v1/admin/users/{user_id}`
 - `PATCH /api/v1/admin/users/{user_id}/status`
 - `POST /api/v1/admin/users/{user_id}/reset-password`
+- `PUT /api/v1/admin/users/{user_id}/new-api-config`
+- `DELETE /api/v1/admin/users/{user_id}/new-api-config`
 
 规则：
 
 - 不展示密钥明文。
 - 禁用用户后现有会话失效。
 - 敏感操作写审计日志。
+- 用户列表不跳转到详情页，行内“详情/管理”按钮打开产品内弹窗。
 
-### 6.3 用户详情 `/admin/users/{user_id}`
+### 6.3 用户详情兼容页 `/admin/users/{user_id}`
 
 功能：
 
-- 查看用户基础信息。
-- 查看用户 `new-api` 配置状态和掩码。
-- 管理员代用户配置或替换密钥。
-- 管理员清空用户密钥配置。
-- 查看该用户近期任务和请求日志入口。
+- 复用 `/admin/users` 的用户详情面板。
+- 作为兼容直达页保留，不作为后台用户列表的主交互路径。
+- 查看用户基础信息、`new-api` 配置状态和掩码、会话摘要。
+- 支持管理员代用户配置、替换或清空密钥。
 
 接口：
 

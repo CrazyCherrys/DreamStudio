@@ -1,7 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 import { DsButton } from '@/components/ui';
 
@@ -22,9 +22,21 @@ export function AdminDialog({
   onClose: () => void;
   title: string;
 }) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const titleId = useId();
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !disabled) {
+      if (event.key !== 'Escape' || disabled) {
+        return;
+      }
+
+      const dialogs = Array.from(document.querySelectorAll('[data-admin-dialog="true"]'));
+      const topmostDialog = dialogs.at(-1);
+
+      if (topmostDialog === dialogRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
         onClose();
       }
     }
@@ -35,14 +47,16 @@ export function AdminDialog({
 
   return (
     <div
-      aria-labelledby="admin-dialog-title"
+      aria-labelledby={titleId}
       aria-modal="true"
       className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-6 backdrop-blur-sm"
+      data-admin-dialog="true"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !disabled) {
           onClose();
         }
       }}
+      ref={dialogRef}
       role="dialog"
     >
       <div
@@ -51,10 +65,7 @@ export function AdminDialog({
         <div className="flex items-start justify-between gap-4 border-b border-[var(--ds-border)] p-5">
           <div>
             {badge ? <span className="ds-badge">{badge}</span> : null}
-            <h2
-              className={badge ? 'mt-3 text-2xl font-black' : 'text-2xl font-black'}
-              id="admin-dialog-title"
-            >
+            <h2 className={badge ? 'mt-3 text-2xl font-black' : 'text-2xl font-black'} id={titleId}>
               {title}
             </h2>
             {description ? <p className="ds-muted mt-2 text-sm leading-6">{description}</p> : null}
