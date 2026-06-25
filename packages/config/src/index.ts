@@ -103,6 +103,7 @@ export function publicConfigSnapshot(config = loadConfig()) {
 }
 
 export * from './request-mapping.compiler';
+export * from './image-adapter-manifest';
 
 export function isAllowedAppOrigin(origin: string, config = loadConfig()): boolean {
   const appUrl = new URL(config.appBaseUrl);

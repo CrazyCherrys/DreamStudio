@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层执行任务清单
 
-当前状态：阶段 11 已完成。
+当前状态：阶段 12 已完成。
 
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
@@ -1245,11 +1245,99 @@ curl -I http://127.0.0.1:3000/
 
 阶段 11 没有做：
 
-- 没有实现 `openai_responses_image` Worker runtime adapter；当前 Responses image tool 仍是 profile template/draft 能力。
 - 没有新增 direct OpenAI/Gemini 官方密钥管理；v1 继续使用用户配置的 new-api bearer transport。
 - 没有做最终人工产品审阅；按用户要求，最终审阅由用户执行。
 
-## 14. 建议提交顺序
+## 14. 阶段 12：Adapter Manifest、Responses Runtime 和官方参数补齐
+
+### 14.1 先查看资料
+
+- OpenAI Image Generation Guide。
+- OpenAI Create Image API Reference。
+- OpenAI Image Edit API Reference。
+- OpenAI Responses API Reference。
+- Gemini Image Generation Guide。
+- Gemini Generate Content API。
+- `docs/16-dreamstudio-model-adapter-execution-profile-plan.md` 的 adapter、template 和发布边界。
+
+### 14.2 再查看本地代码
+
+- `packages/config/src/request-mapping.compiler.ts`
+- `packages/config/src/image-adapter-manifest.ts`
+- `apps/api/src/modules/model-catalog/`
+- `apps/worker/src/modules/image-generation/`
+- `apps/web/src/components/model-catalog/model-components.tsx`
+- `profile-templates/*.json`
+- `scripts/verify-adapter-manifest.ts`
+- `scripts/verify-image-adapters.ts`
+- `scripts/verify-profile-templates.ts`
+
+### 14.3 修复计划
+
+- 新增共享 adapter manifest，集中声明 runtime support、publishable、allowed target path 和 response parser key。
+- API lint、Admin preview、模板 summary 和 Worker adapter registry 共用 manifest，不再各自维护 adapter allowlist。
+- 实现 `openai_responses_image` Worker runtime adapter。
+- 支持 Responses `prompt -> input` 映射、参考图 `input_image` 追加和 `image_generation_call` 图片结果解析。
+- 补齐 OpenAI Image generation/edit/Responses 官方模板字段和跨字段校验。
+- 新增 Gemini Interactions 图片模板，但在当前网关 runtime 未确认前保持 draft-only。
+- OpenAI-compatible copy 必须清空未确认官方默认参数，字段保持 `suspect` 并阻断 lint/发布。
+- Admin 模板导入和 preview 显示 runtime/publish 状态、parser key 和 publish blockers。
+
+### 14.4 验证操作
+
+```bash
+npm run typecheck -w @dreamstudio/api
+npm run typecheck -w @dreamstudio/worker
+npm run typecheck -w @dreamstudio/web
+npm run build -w @dreamstudio/config
+npx tsx scripts/verify-adapter-manifest.ts
+npx tsx scripts/verify-image-adapters.ts
+npx tsx scripts/verify-profile-templates.ts
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build
+docker compose up -d --build dreamstudio
+docker compose ps
+curl http://127.0.0.1:3001/healthz
+curl http://127.0.0.1:3001/readyz
+curl -I http://127.0.0.1:3000/
+```
+
+### 14.5 小白手动测试
+
+1. 打开 `http://localhost:3000/admin/models`。
+2. 进入任意图片模型执行配置。
+3. 点击从模板导入。
+4. 确认 OpenAI Responses image tool 显示 runtime supported/publishable。
+5. 确认 Gemini Interactions image 显示 runtime unsupported/blocked。
+6. 导入 OpenAI Responses image tool 为 draft。
+7. 点击预览请求，确认 endpoint 是 `/v1/responses`，body 包含 `input` 和 `tools[0].type=image_generation`。
+8. 复制 OpenAI 官方模板为 OpenAI-compatible 草稿。
+9. 点击 lint，确认未确认字段会阻断发布；删除或确认字段后再发布。
+
+### 14.6 达成效果
+
+- Adapter 是否可运行、可发布、可用 parser 和允许路径有单一声明源。
+- Responses image tool 不再只是模板，Worker 可按任务快照执行。
+- Gemini Interactions 官方模板可以先作为草稿参考存在，但不会误发布到用户侧。
+- OpenAI-compatible copy 不会把 OpenAI 官方全量字段带着默认值误发布。
+
+### 14.7 已完成
+
+已完成：
+
+- 新增 `packages/config/src/image-adapter-manifest.ts`，声明 `openai_images_generation`、`openai_images_edit`、`openai_responses_image`、`gemini_generate_content` 和 draft-only `gemini_interactions_image`。
+- API lint、Admin preview 和 Worker adapter registry 已改为读取 manifest，未知 adapter、runtime unsupported、publishable false 和 parser key 不匹配都会阻断发布。
+- `openai_responses_image` Worker adapter 已支持 `/v1/responses` JSON 请求、Responses `input` 结构、参考图 `input_image` 和 `image_generation_call` parser。
+- Request mapping compiler 新增 `promptToResponsesInput` 和 GPT Image 2 size 校验 transform。
+- Parameter schema 校验新增 `openai_output_compression_requires_jpeg_or_webp`、`openai_partial_images_requires_stream` 和 `compatible_field_confirmed`。
+- OpenAI generation/edit/Responses 模板已补齐本轮官方参数、跨字段校验和来源检查时间。
+- 新增 `profile-templates/gemini-interactions-image.json`，当前通过 manifest 和 capabilities 标记为 draft-only。
+- Admin 模板列表和 request preview 显示 runtime/publish 状态、parser 和 publish blockers；test 文案改为 dry-run。
+- `scripts/verify-adapter-manifest.ts` 已验证 manifest 声明；`scripts/verify-image-adapters.ts` 已覆盖 Responses runtime；`scripts/verify-profile-templates.ts` 已覆盖 Gemini Interactions draft-only、Responses publishable 和 compatible copy 阻断。
+
+## 15. 建议提交顺序
 
 建议每个阶段至少一个 commit：
 
@@ -1265,6 +1353,7 @@ curl -I http://127.0.0.1:3000/
 10. `feat(templates): add official image profile templates`
 11. `feat(worker): add gemini image adapter`
 12. `docs: finalize model adapter implementation guide`
+13. `feat(adapters): support responses image profiles`
 
 每次提交前至少运行：
 
@@ -1282,10 +1371,10 @@ npm run build
 docker compose up -d --build dreamstudio
 ```
 
-## 15. 当前下一步
+## 16. 当前下一步
 
-阶段 11 已完成。后续如继续扩展，建议按独立阶段处理：
+阶段 12 已完成。后续如继续扩展，建议按独立阶段处理：
 
-1. 实现 `openai_responses_image` Worker runtime adapter。
-2. 增加 direct OpenAI/Gemini 官方密钥管理时，先写独立 transport/密钥方案。
+1. 增加 direct OpenAI/Gemini 官方密钥管理时，先写独立 transport/密钥方案。
+2. 如果 new-api 网关确认支持 Gemini `/v1beta/interactions`，再把 `gemini_interactions_image` manifest 改为 runtime supported/publishable，并补 Worker adapter/verifier。
 3. 根据用户最终人工审阅反馈调整默认模型、模板和 Studio 暴露策略。

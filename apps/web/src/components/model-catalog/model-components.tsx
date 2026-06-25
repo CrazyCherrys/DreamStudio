@@ -1153,7 +1153,7 @@ export function ExecutionProfileManager({
       } else if (kind === 'test') {
         const result = await testExecutionProfileRevision(selectedRevision.id, csrfToken);
         setProfileMessage(
-          result.result.message ?? (result.result.ok ? '测试通过。' : '测试失败。'),
+          result.result.message ?? (result.result.ok ? 'Dry run 通过。' : 'Dry run 失败。'),
         );
       } else {
         await activateExecutionProfileRevision(selectedRevision.id, csrfToken);
@@ -1397,6 +1397,11 @@ export function ExecutionProfileManager({
                   <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
                   <p className="break-all font-semibold">
                     {selectedTemplate.adapter_key} · {selectedTemplate.source_url ?? 'no source'}
+                  </p>
+                  <p className="text-xs font-semibold">
+                    Runtime {selectedTemplate.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
+                    {selectedTemplate.publishable ? 'publishable' : 'blocked'}
+                    {selectedTemplate.blocked_reason ? ` · ${selectedTemplate.blocked_reason}` : ''}
                   </p>
                   <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
                     {selectedTemplate.compatible_warning}
@@ -1681,7 +1686,7 @@ function RevisionEditor({
             type="button"
             variant="secondary"
           >
-            Test
+            Dry run
           </DsButton>
           <DsButton disabled={disabled} onClick={() => void onAction('activate')} type="button">
             发布
@@ -1792,9 +1797,24 @@ function RevisionEditor({
       </label>
 
       {preview ? (
-        <pre className="max-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-xs">
-          {JSON.stringify(preview, null, 2)}
-        </pre>
+        <div className="grid gap-2">
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-3 text-xs font-semibold">
+            Runtime {preview.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
+            {preview.publishable ? 'publishable' : 'blocked'} · parser {preview.parser_key}
+          </div>
+          {preview.publish_blockers.length > 0 ? (
+            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface)] p-3 text-xs font-semibold text-[var(--ds-danger)]">
+              {preview.publish_blockers.map((blocker) => (
+                <p key={`${blocker.field}-${blocker.message}`}>
+                  {blocker.field}: {blocker.message}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          <pre className="max-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-xs">
+            {JSON.stringify(preview, null, 2)}
+          </pre>
+        </div>
       ) : null}
 
       {revisionDiff ? (

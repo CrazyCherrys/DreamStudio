@@ -247,6 +247,10 @@ export interface ExecutionProfilePreviewResult {
   content_type: string;
   body: Record<string, unknown>;
   reference_asset_ids: string[];
+  runtime_supported: boolean;
+  publishable: boolean;
+  parser_key: string;
+  publish_blockers: Array<{ field: string; message: string }>;
 }
 
 export interface ProfileTemplateSummary {
@@ -260,6 +264,9 @@ export interface ProfileTemplateSummary {
   source_checked_at: string | null;
   adapter_key: string;
   operation: ExecutionProfileOperation;
+  runtime_supported: boolean;
+  publishable: boolean;
+  blocked_reason: string | null;
   compatible_copy_allowed: boolean;
   compatible_warning: string;
 }

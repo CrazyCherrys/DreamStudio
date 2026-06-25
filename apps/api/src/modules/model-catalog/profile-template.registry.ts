@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { findImageAdapterManifest } from '@dreamstudio/config';
 import type { ExecutionProfileOperation, ExecutionProfileSourceKind } from '@prisma/client';
 
 import type {
@@ -59,6 +60,7 @@ const TEMPLATE_FILENAMES = [
   'openai-image-edit-gpt-image-2.json',
   'openai-responses-image-tool.json',
   'gemini-generate-content-image.json',
+  'gemini-interactions-image.json',
   'openai-compatible-image-generation-minimal.json',
 ];
 
@@ -94,6 +96,11 @@ export function buildTemplateRevisionBody(
       template_origin: 'openai_compatible_copy',
       requires_provider_field_review: true,
     };
+    revision.parameter_schema = markSchemaFieldsForCompatibleReview(revision.parameter_schema);
+    revision.default_params = dropDefaultParamsForCompatibleReview(
+      revision.default_params,
+      revision.parameter_schema,
+    );
     revision.validation_rules = {
       ...(isRecord(revision.validation_rules) ? revision.validation_rules : {}),
       warnings: [
@@ -110,7 +117,53 @@ export function buildTemplateRevisionBody(
   return revision;
 }
 
+function markSchemaFieldsForCompatibleReview(schema: unknown) {
+  if (!Array.isArray(schema)) {
+    return schema;
+  }
+  return schema.map((field) => {
+    if (!isRecord(field)) {
+      return field;
+    }
+    const nextField = { ...field };
+    delete nextField.default;
+    return {
+      ...nextField,
+      validation: {
+        ...(isRecord(field.validation) ? field.validation : {}),
+        custom_validator: 'compatible_field_confirmed',
+        review_status: 'suspect',
+      },
+    };
+  });
+}
+
+function dropDefaultParamsForCompatibleReview(defaultParams: unknown, schema: unknown) {
+  if (!isRecord(defaultParams) || !Array.isArray(schema)) {
+    return defaultParams;
+  }
+  const suspectKeys = new Set(
+    schema
+      .filter(isRecord)
+      .filter((field) => isRecord(field.validation) && field.validation.review_status === 'suspect')
+      .map((field) => (typeof field.key === 'string' ? field.key : null))
+      .filter((key): key is string => Boolean(key)),
+  );
+  const nextParams = { ...defaultParams };
+  for (const key of suspectKeys) {
+    delete nextParams[key];
+  }
+  return nextParams;
+}
+
 function serializeTemplateSummary(template: ProfileTemplateDefinition): ProfileTemplateSummary {
+  const manifest = findImageAdapterManifest(template.revision.adapter_key);
+  const capabilityRecord = isRecord(template.revision.capabilities)
+    ? template.revision.capabilities
+    : {};
+  const runtimeSupported =
+    manifest?.runtimeSupported === true && capabilityRecord.runtime_supported !== false;
+  const publishable = runtimeSupported && manifest?.publishable === true;
   return {
     id: template.id,
     label: template.label,
@@ -122,6 +175,13 @@ function serializeTemplateSummary(template: ProfileTemplateDefinition): ProfileT
     source_checked_at: readOptionalString(template.revision.source_checked_at),
     adapter_key: template.revision.adapter_key,
     operation: operationFromAdapterKey(template.revision.adapter_key),
+    runtime_supported: runtimeSupported,
+    publishable,
+    blocked_reason: publishable
+      ? null
+      : manifest
+        ? '该模板对应的 runtime adapter 当前不可发布'
+        : '该模板使用未知 adapter',
     compatible_copy_allowed: template.compatible_copy_allowed,
     compatible_warning: template.compatible_warning,
   };
@@ -192,7 +252,7 @@ function operationFromAdapterKey(adapterKey: string): ExecutionProfileOperation 
   if (adapterKey === 'openai_responses_image') {
     return 'conversational_image';
   }
-  if (adapterKey === 'gemini_generate_content') {
+  if (adapterKey === 'gemini_generate_content' || adapterKey === 'gemini_interactions_image') {
     return 'image_to_image';
   }
   return 'text_to_image';

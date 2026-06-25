@@ -29,11 +29,13 @@ export class RequestMappingError extends Error {
 
 const ALLOWED_TRANSFORMS = new Set([
   'validateOpenAIImageSize',
+  'validateGptImage2Size',
   'aspectRatioToOpenAISize',
   'dropUnsupported',
   'numberToString',
   'booleanToFlag',
   'joinArray',
+  'promptToResponsesInput',
 ]);
 
 export function compileRequestMapping(
@@ -246,6 +248,21 @@ function applyTransforms(value: unknown, transforms: string[]): unknown {
           return current;
         }
         throw mappingFailure('invalid_request_mapping', 'OpenAI image size 不合法');
+      case 'validateGptImage2Size':
+        if (isValidGptImage2Size(current)) {
+          return current;
+        }
+        throw mappingFailure('invalid_request_mapping', 'GPT Image 2 size 不合法');
+      case 'promptToResponsesInput':
+        if (typeof current !== 'string') {
+          return current;
+        }
+        return [
+          {
+            role: 'user',
+            content: [{ type: 'input_text', text: current }],
+          },
+        ];
       default:
         return current;
     }
@@ -358,6 +375,29 @@ function readString(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isValidGptImage2Size(value: unknown) {
+  if (value === 'auto') {
+    return true;
+  }
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const match = /^([1-9]\d{2,4})x([1-9]\d{2,4})$/.exec(value);
+  if (!match) {
+    return false;
+  }
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (width % 16 !== 0 || height % 16 !== 0) {
+    return false;
+  }
+  if (width < 512 || height < 512 || width > 4096 || height > 4096) {
+    return false;
+  }
+  const pixels = width * height;
+  return pixels >= 512 * 512 && pixels <= 4096 * 4096;
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {

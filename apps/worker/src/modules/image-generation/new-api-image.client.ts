@@ -22,7 +22,7 @@ export interface NewApiJsonImageRequest {
   apiKey: string;
   endpointPath: string;
   body: Record<string, unknown>;
-  responseParser?: 'gemini_inline_data' | 'openai_image_data';
+  responseParser?: ImageResponseParserKey;
   timeoutMs?: number;
 }
 
@@ -46,6 +46,11 @@ export interface NewApiImageResponse {
   raw: unknown;
   httpStatus: number;
 }
+
+export type ImageResponseParserKey =
+  | 'gemini_inline_data'
+  | 'openai_image_data'
+  | 'openai_responses_image_generation_call';
 
 export class NewApiImageClientError extends Error {
   code: string;
@@ -138,7 +143,7 @@ export class NewApiImageClient {
     endpointPath: string;
     headers: HeadersInit;
     body: BodyInit;
-    responseParser: 'gemini_inline_data' | 'openai_image_data';
+    responseParser: ImageResponseParserKey;
     timeoutMs?: number;
   }): Promise<NewApiImageResponse> {
     const controller = new AbortController();
@@ -220,12 +225,12 @@ function parseJson(rawText: string): unknown {
   }
 }
 
-function readImageData(
-  raw: unknown,
-  parser: 'gemini_inline_data' | 'openai_image_data',
-): NewApiImageData[] {
+function readImageData(raw: unknown, parser: ImageResponseParserKey): NewApiImageData[] {
   if (parser === 'gemini_inline_data') {
     return readGeminiInlineData(raw);
+  }
+  if (parser === 'openai_responses_image_generation_call') {
+    return readOpenAiResponsesImageGenerationCall(raw);
   }
 
   if (!isRecord(raw) || !Array.isArray(raw.data)) {
@@ -247,6 +252,62 @@ function readImageData(
     throw new NewApiImageClientError({
       code: 'invalid_upstream_response',
       message: '上游图片接口没有返回图片',
+    });
+  }
+
+  return data;
+}
+
+function readOpenAiResponsesImageGenerationCall(raw: unknown): NewApiImageData[] {
+  if (!isRecord(raw) || !Array.isArray(raw.output)) {
+    throw new NewApiImageClientError({
+      code: 'invalid_upstream_response',
+      message: 'Responses 图片接口返回格式不正确',
+    });
+  }
+
+  const data: NewApiImageData[] = raw.output
+    .filter(isRecord)
+    .filter((item) => item.type === 'image_generation_call')
+    .flatMap<NewApiImageData>((item) => {
+      const result = item.result;
+      if (typeof result === 'string' && result.trim()) {
+        return [{ b64_json: result, url: undefined }];
+      }
+      if (Array.isArray(result)) {
+        return result
+          .filter(isRecord)
+          .map((entry) => ({
+            b64_json:
+              typeof entry.b64_json === 'string'
+                ? entry.b64_json
+                : typeof entry.data === 'string'
+                  ? entry.data
+                  : undefined,
+            url: typeof entry.url === 'string' ? entry.url : undefined,
+          }))
+          .filter((entry) => entry.b64_json || entry.url);
+      }
+      if (isRecord(result)) {
+        return [
+          {
+            b64_json:
+              typeof result.b64_json === 'string'
+                ? result.b64_json
+                : typeof result.data === 'string'
+                  ? result.data
+                  : undefined,
+            url: typeof result.url === 'string' ? result.url : undefined,
+          } satisfies NewApiImageData,
+        ].filter((entry) => entry.b64_json || entry.url);
+      }
+      return [];
+    });
+
+  if (data.length === 0) {
+    throw new NewApiImageClientError({
+      code: 'invalid_upstream_response',
+      message: 'Responses 图片接口没有返回图片',
     });
   }
 

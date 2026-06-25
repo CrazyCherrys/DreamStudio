@@ -1,30 +1,29 @@
 {
-  "id": "gemini-generate-content-image",
-  "label": "Gemini generateContent image",
-  "description": "Official Gemini image generation profile using generateContent with responseModalities and inlineData image output. Import creates a draft revision only.",
+  "id": "gemini-interactions-image",
+  "label": "Gemini Interactions image",
+  "description": "Gemini official Interactions image template. Draft-only until the configured new-api gateway confirms /v1beta/interactions support.",
   "category": "gemini_official",
   "compatible_copy_allowed": false,
-  "compatible_warning": "Gemini generateContent is not OpenAI-compatible. Enable this profile only when the configured new-api gateway supports the native Gemini path.",
-  "tags": ["gemini", "generate-content", "image", "nano-banana"],
+  "compatible_warning": "Gemini Interactions is not OpenAI-compatible. Keep this draft-only unless the gateway supports /v1beta/interactions.",
+  "tags": ["gemini", "interactions", "image", "gemini-3"],
   "revision": {
     "source_kind": "gemini_official",
     "source_url": "https://ai.google.dev/gemini-api/docs/image-generation",
     "source_checked_at": "2026-06-25T00:00:00.000Z",
-    "source_summary": "Legacy Gemini generateContent image template. New Gemini image models should prefer the Interactions template when gateway support is available.",
-    "adapter_key": "gemini_generate_content",
+    "source_summary": "Gemini image generation guide snapshot for the Interactions API. Uses response_format.type=image with image mime type, aspect ratio and image size controls.",
+    "adapter_key": "gemini_interactions_image",
     "adapter_version": "1",
     "transport_key": "new_api_bearer",
-    "upstream_model_id": "gemini-2.5-flash-image",
-    "upstream_endpoint_path": "/v1beta/models/gemini-2.5-flash-image:generateContent",
+    "upstream_model_id": "gemini-3.1-flash-image",
+    "upstream_endpoint_path": "/v1beta/interactions",
     "reference_transfer_mode": "url",
     "supports_reference_image": true,
-    "max_reference_images": 8,
+    "max_reference_images": 14,
     "parameter_schema": [
       {
         "key": "aspect_ratio",
         "label": "比例",
         "type": "select",
-        "description": "Gemini image response aspect ratio.",
         "required": false,
         "default": "1:1",
         "options": [
@@ -52,7 +51,6 @@
         "key": "image_size",
         "label": "图片尺寸",
         "type": "select",
-        "description": "Gemini image size tier.",
         "required": false,
         "default": "1K",
         "options": [
@@ -71,44 +69,74 @@
           "enum": ["1K", "2K", "4K"]
         },
         "help_url": "https://ai.google.dev/gemini-api/docs/image-generation"
+      },
+      {
+        "key": "mime_type",
+        "label": "输出 MIME",
+        "type": "select",
+        "required": false,
+        "default": "image/png",
+        "options": [
+          { "label": "PNG", "value": "image/png" },
+          { "label": "JPEG", "value": "image/jpeg" },
+          { "label": "WebP", "value": "image/webp" }
+        ],
+        "ui": {
+          "group": "advanced",
+          "slot": "format",
+          "order": 30
+        },
+        "capability": "format",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": ["image/png", "image/jpeg", "image/webp"]
+        },
+        "help_url": "https://ai.google.dev/gemini-api/docs/image-generation"
       }
     ],
     "default_params": {
       "aspect_ratio": "1:1",
-      "image_size": "1K"
+      "image_size": "1K",
+      "mime_type": "image/png"
     },
     "request_mapping": {
       "content_type": "json",
       "fields": [
-        { "source": "prompt", "target": "contents[0].parts[0].text" },
+        { "source": "model", "target": "model" },
+        { "source": "prompt", "target": "input" },
+        {
+          "source": "params.mime_type",
+          "target": "response_format.mime_type",
+          "omit_if_null": true
+        },
         {
           "source": "params.aspect_ratio",
-          "target": "generationConfig.responseFormat.image.aspectRatio",
+          "target": "response_format.aspect_ratio",
           "omit_if_null": true
         },
         {
           "source": "params.image_size",
-          "target": "generationConfig.responseFormat.image.imageSize",
+          "target": "response_format.image_size",
           "omit_if_null": true
         }
       ],
-      "constants": [{ "target": "generationConfig.responseModalities", "value": ["IMAGE"] }]
+      "constants": [{ "target": "response_format.type", "value": "image" }]
     },
     "response_parser_key": "gemini_inline_data",
     "capabilities": {
       "supports_reference_image": true,
-      "max_reference_images": 8,
-      "response_parser": "gemini_inline_data",
+      "max_reference_images": 14,
+      "runtime_supported": false,
       "template_origin": "gemini_official",
       "requires_gateway_support": true
     },
     "validation_rules": {
       "version": 1,
       "warnings": [
-        "Enable only when the configured new-api gateway supports /v1beta/models/{model}:generateContent.",
-        "Gemini generateContent is not OpenAI-compatible and must use the gemini_generate_content adapter."
+        "Draft-only until the configured new-api gateway supports /v1beta/interactions.",
+        "Gemini Interactions is not OpenAI-compatible and must use a dedicated adapter."
       ]
     },
-    "change_summary": "Imported Gemini official generateContent image template."
+    "change_summary": "Imported Gemini official Interactions image template as draft-only gateway placeholder."
   }
 }

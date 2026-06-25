@@ -9,8 +9,8 @@
   "revision": {
     "source_kind": "openai_official",
     "source_url": "https://developers.openai.com/api/docs/guides/image-generation",
-    "source_checked_at": "2026-06-22T00:00:00.000Z",
-    "source_summary": "OpenAI Image API edit template for GPT Image 2. Uses multipart form-data, repeated image[] references and documented output customization fields.",
+    "source_checked_at": "2026-06-25T00:00:00.000Z",
+    "source_summary": "OpenAI Image API edit template for GPT Image 2. Uses multipart form-data, repeated image[] references and documented edit output customization fields.",
     "adapter_key": "openai_images_edit",
     "adapter_version": "1",
     "transport_key": "new_api_bearer",
@@ -18,8 +18,30 @@
     "upstream_endpoint_path": "/v1/images/edits",
     "reference_transfer_mode": "multipart",
     "supports_reference_image": true,
-    "max_reference_images": 8,
+    "max_reference_images": 16,
     "parameter_schema": [
+      {
+        "key": "n",
+        "label": "张数",
+        "type": "integer",
+        "description": "一次编辑请求生成的图片数量。",
+        "required": false,
+        "default": 1,
+        "min": 1,
+        "max": 4,
+        "ui": {
+          "group": "quick",
+          "slot": "count",
+          "order": 10
+        },
+        "capability": "count",
+        "send_policy": "when_present",
+        "validation": {
+          "min": 1,
+          "max": 4
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
       {
         "key": "size",
         "label": "分辨率",
@@ -92,6 +114,28 @@
         "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
       },
       {
+        "key": "output_compression",
+        "label": "输出压缩",
+        "type": "integer",
+        "description": "JPEG/WebP 输出压缩级别，范围 0-100。",
+        "required": false,
+        "min": 0,
+        "max": 100,
+        "ui": {
+          "group": "advanced",
+          "slot": "format",
+          "order": 45
+        },
+        "capability": "format",
+        "send_policy": "when_present",
+        "validation": {
+          "min": 0,
+          "max": 100,
+          "custom_validator": "openai_output_compression_requires_jpeg_or_webp"
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
         "key": "background",
         "label": "背景",
         "type": "select",
@@ -112,13 +156,37 @@
           "enum": ["auto", "opaque"]
         },
         "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "moderation",
+        "label": "内容审核",
+        "type": "select",
+        "required": false,
+        "default": "auto",
+        "options": [
+          { "label": "Auto", "value": "auto" },
+          { "label": "Low", "value": "low" }
+        ],
+        "ui": {
+          "group": "advanced",
+          "slot": "safety",
+          "order": 60
+        },
+        "capability": "safety",
+        "send_policy": "when_present",
+        "validation": {
+          "enum": ["auto", "low"]
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
       }
     ],
     "default_params": {
+      "n": 1,
       "size": "1024x1024",
       "quality": "auto",
       "output_format": "png",
-      "background": "auto"
+      "background": "auto",
+      "moderation": "auto"
     },
     "request_mapping": {
       "content_type": "multipart",
@@ -129,6 +197,7 @@
       "fields": [
         { "source": "model", "target": "model" },
         { "source": "prompt", "target": "prompt" },
+        { "source": "params.n", "target": "n", "omit_if_null": true },
         { "source": "params.size", "target": "size", "omit_if_null": true },
         { "source": "params.quality", "target": "quality", "omit_if_null": true },
         {
@@ -136,22 +205,29 @@
           "target": "output_format",
           "omit_if_null": true
         },
-        { "source": "params.background", "target": "background", "omit_if_null": true }
+        {
+          "source": "params.output_compression",
+          "target": "output_compression",
+          "omit_if_null": true
+        },
+        { "source": "params.background", "target": "background", "omit_if_null": true },
+        { "source": "params.moderation", "target": "moderation", "omit_if_null": true }
       ]
     },
     "response_parser_key": "openai_image_data",
     "capabilities": {
       "supports_reference_image": true,
-      "max_reference_images": 8,
+      "max_reference_images": 16,
       "reference_field": "image[]",
       "supports_mask": true,
+      "input_fidelity": "automatic_for_gpt_image_2",
       "template_origin": "openai_official"
     },
     "validation_rules": {
       "version": 1,
       "notes": [
         "Mask upload UI is not part of this phase; this template enables reference-image edits only.",
-        "GPT Image 2 processes image inputs at high fidelity automatically."
+        "GPT Image 2 processes image inputs at high fidelity automatically; do not send input_fidelity for this model."
       ]
     },
     "change_summary": "Imported OpenAI official GPT Image 2 edit template."

@@ -9,8 +9,8 @@
   "revision": {
     "source_kind": "openai_official",
     "source_url": "https://developers.openai.com/api/docs/guides/image-generation",
-    "source_checked_at": "2026-06-22T00:00:00.000Z",
-    "source_summary": "OpenAI Image API generation template for GPT Image 2. Exposes conservative GPT Image 2 fields documented for image generation: n, size, quality, output format, output compression, background and moderation.",
+    "source_checked_at": "2026-06-25T00:00:00.000Z",
+    "source_summary": "OpenAI Image API generation template for GPT Image 2. Exposes documented GPT Image 2 generation fields: n, size, quality, output format, output compression, background, moderation, stream and partial_images.",
     "adapter_key": "openai_images_generation",
     "adapter_version": "1",
     "transport_key": "new_api_bearer",
@@ -135,7 +135,6 @@
         "type": "integer",
         "description": "JPEG/WebP 输出压缩级别，范围 0-100。",
         "required": false,
-        "default": 100,
         "min": 0,
         "max": 100,
         "ui": {
@@ -147,7 +146,8 @@
         "send_policy": "when_present",
         "validation": {
           "min": 0,
-          "max": 100
+          "max": 100,
+          "custom_validator": "openai_output_compression_requires_jpeg_or_webp"
         },
         "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
       },
@@ -196,6 +196,45 @@
           "enum": ["auto", "low"]
         },
         "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "stream",
+        "label": "流式输出",
+        "type": "boolean",
+        "description": "启用 OpenAI Image API streaming；当前 Studio 仅保存最终图片。",
+        "required": false,
+        "default": false,
+        "ui": {
+          "group": "hidden",
+          "slot": "style",
+          "order": 80
+        },
+        "capability": "streaming",
+        "send_policy": "when_present",
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "partial_images",
+        "label": "流式预览张数",
+        "type": "integer",
+        "description": "请求 OpenAI 返回的 partial image 数量，范围 0-3；大于 0 时必须启用 stream。",
+        "required": false,
+        "default": 0,
+        "min": 0,
+        "max": 3,
+        "ui": {
+          "group": "hidden",
+          "slot": "count",
+          "order": 90
+        },
+        "capability": "streaming",
+        "send_policy": "when_present",
+        "validation": {
+          "min": 0,
+          "max": 3,
+          "custom_validator": "openai_partial_images_requires_stream"
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
       }
     ],
     "default_params": {
@@ -203,9 +242,10 @@
       "size": "1024x1024",
       "quality": "auto",
       "output_format": "png",
-      "output_compression": 100,
       "background": "auto",
-      "moderation": "auto"
+      "moderation": "auto",
+      "stream": false,
+      "partial_images": 0
     },
     "request_mapping": {
       "content_type": "json",
@@ -226,7 +266,13 @@
           "omit_if_null": true
         },
         { "source": "params.background", "target": "background", "omit_if_null": true },
-        { "source": "params.moderation", "target": "moderation", "omit_if_null": true }
+        { "source": "params.moderation", "target": "moderation", "omit_if_null": true },
+        { "source": "params.stream", "target": "stream", "omit_if_null": true },
+        {
+          "source": "params.partial_images",
+          "target": "partial_images",
+          "omit_if_null": true
+        }
       ]
     },
     "response_parser_key": "openai_image_data",
@@ -234,6 +280,7 @@
       "supports_reference_image": false,
       "max_reference_images": 0,
       "output_formats": ["png", "jpeg", "webp"],
+      "supports_streaming": true,
       "transparent_background": false,
       "template_origin": "openai_official"
     },
@@ -241,7 +288,8 @@
       "version": 1,
       "notes": [
         "GPT Image 2 does not currently support transparent backgrounds.",
-        "2K and larger output sizes should be treated as higher-cost profile choices."
+        "2K and larger output sizes should be treated as higher-cost profile choices.",
+        "Studio v1 does not surface partial image previews; stream and partial_images remain hidden by default."
       ]
     },
     "change_summary": "Imported OpenAI official GPT Image 2 generation template."

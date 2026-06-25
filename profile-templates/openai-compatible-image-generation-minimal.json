@@ -9,7 +9,7 @@
   "revision": {
     "source_kind": "third_party_docs",
     "source_url": "https://github.com/QuantumNous/new-api-docs/blob/main/docs/en/api/openai-image.md",
-    "source_checked_at": "2026-06-22T00:00:00.000Z",
+    "source_checked_at": "2026-06-25T00:00:00.000Z",
     "source_summary": "Generic OpenAI-compatible image generation template based on new-api OpenAI Image docs. It declares only model, prompt, n, size and response_format and intentionally excludes OpenAI-specific full parameter sets.",
     "adapter_key": "openai_images_generation",
     "adapter_version": "1",
@@ -38,7 +38,9 @@
         "send_policy": "when_present",
         "validation": {
           "min": 1,
-          "max": 1
+          "max": 1,
+          "custom_validator": "compatible_field_confirmed",
+          "review_status": "confirmed"
         },
         "help_url": "https://github.com/QuantumNous/new-api-docs/blob/main/docs/en/api/openai-image.md"
       },
@@ -62,7 +64,9 @@
         "capability": "resolution",
         "send_policy": "when_present",
         "validation": {
-          "enum": ["1024x1024", "1024x1792", "1792x1024"]
+          "enum": ["1024x1024", "1024x1792", "1792x1024"],
+          "custom_validator": "compatible_field_confirmed",
+          "review_status": "confirmed"
         },
         "help_url": "https://github.com/QuantumNous/new-api-docs/blob/main/docs/en/api/openai-image.md"
       },
@@ -85,7 +89,9 @@
         "capability": "response_format",
         "send_policy": "when_present",
         "validation": {
-          "enum": ["url", "b64_json"]
+          "enum": ["url", "b64_json"],
+          "custom_validator": "compatible_field_confirmed",
+          "review_status": "confirmed"
         },
         "help_url": "https://github.com/QuantumNous/new-api-docs/blob/main/docs/en/api/openai-image.md"
       }

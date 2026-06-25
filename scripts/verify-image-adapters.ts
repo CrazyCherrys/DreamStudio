@@ -40,6 +40,16 @@ const editMapping = {
   ],
 };
 
+const responsesMapping = {
+  content_type: 'json',
+  fields: [
+    { source: 'model', target: 'model' },
+    { source: 'prompt', target: 'input', transform: 'promptToResponsesInput' },
+    { source: 'params.action', target: 'tools[0].action', omit_if_null: true },
+  ],
+  constants: [{ target: 'tools[0].type', value: 'image_generation' }],
+};
+
 async function main() {
   const requests: CapturedRequest[] = [];
   const server = createServer(async (request, response) => {
@@ -144,6 +154,40 @@ async function main() {
     assert(multipartBody.includes('name="image"'), 'edit multipart missing image reference');
     assert(editResponse.data[0]?.b64_json === 'dmVyaWZ5LWltYWdl', 'b64_json parse failed');
 
+    const responsesAdapter = getImageGenerationAdapter('openai_responses_image');
+    const responsesResponse = await responsesAdapter.execute({
+      apiKey: 'sk-verify-adapters',
+      client,
+      parameters: {
+        action: 'generate',
+      },
+      prompt: 'adapter responses verifier',
+      references,
+      task: buildTask({
+        adapterKey: 'openai_responses_image',
+        endpointPath: '/v1/responses',
+        requestMapping: responsesMapping,
+        baseUrl,
+      }),
+      timeoutMs: 30_000,
+    });
+
+    const responsesRequest = requests.at(-1);
+    assert(responsesRequest, 'responses request was not captured');
+    assert(responsesRequest.method === 'POST', 'responses adapter must POST');
+    assert(responsesRequest.url === '/v1/responses', 'responses adapter used wrong endpoint');
+    const responsesBody = JSON.parse(responsesRequest.body.toString('utf8')) as Record<
+      string,
+      unknown
+    >;
+    assert(responsesBody.model === 'gpt-image-2', 'responses body model mismatch');
+    assert(Array.isArray(responsesBody.input), 'responses body input must be structured');
+    assert(Array.isArray(responsesBody.tools), 'responses body tools must be present');
+    assert(
+      responsesResponse.data[0]?.b64_json === 'cmVzcG9uc2VzLWltYWdl',
+      'responses image_generation_call parse failed',
+    );
+
     try {
       getImageGenerationAdapter('not_supported');
       throw new Error('unsupported adapter should have failed');
@@ -191,6 +235,8 @@ async function main() {
             'edit_adapter_posts_images_edits_multipart',
             'image_data_url_parsed',
             'image_data_b64_json_parsed',
+            'responses_adapter_posts_responses_json',
+            'responses_image_generation_call_parsed',
             'unsupported_adapter_normalized',
             'missing_profile_snapshot_fails',
           ],
@@ -208,6 +254,19 @@ async function main() {
 
 function sendMockResponse(request: IncomingMessage, response: ServerResponse) {
   response.setHeader('content-type', 'application/json');
+  if (request.url === '/v1/responses') {
+    response.end(
+      JSON.stringify({
+        output: [
+          {
+            type: 'image_generation_call',
+            result: 'cmVzcG9uc2VzLWltYWdl',
+          },
+        ],
+      }),
+    );
+    return;
+  }
   if (request.url === '/v1/images/edits') {
     response.end(
       JSON.stringify({

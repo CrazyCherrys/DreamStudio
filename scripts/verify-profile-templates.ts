@@ -57,6 +57,7 @@ async function main() {
     'openai-image-edit-gpt-image-2',
     'openai-responses-image-tool',
     'gemini-generate-content-image',
+    'gemini-interactions-image',
     'openai-compatible-image-generation-minimal',
   ]) {
     assert(templateIds.has(requiredTemplate), `missing template ${requiredTemplate}`);
@@ -92,6 +93,31 @@ async function main() {
     geminiTemplate.adapter_key === 'gemini_generate_content',
     'Gemini template adapter mismatch',
   );
+  assert(geminiTemplate.runtime_supported === true, 'Gemini generateContent should be runnable');
+  const geminiInteractionsTemplate = templates.items.find(
+    (template) => template.id === 'gemini-interactions-image',
+  );
+  assert(
+    geminiInteractionsTemplate?.category === 'gemini_official',
+    'Gemini interactions template category mismatch',
+  );
+  assert(
+    geminiInteractionsTemplate.adapter_key === 'gemini_interactions_image',
+    'Gemini interactions adapter mismatch',
+  );
+  assert(
+    geminiInteractionsTemplate.runtime_supported === false,
+    'Gemini interactions should be draft-only',
+  );
+  assert(
+    geminiInteractionsTemplate.publishable === false,
+    'Gemini interactions should not be publishable',
+  );
+  const responsesTemplate = templates.items.find(
+    (template) => template.id === 'openai-responses-image-tool',
+  );
+  assert(responsesTemplate?.runtime_supported === true, 'Responses template should be runnable');
+  assert(responsesTemplate.publishable === true, 'Responses template should be publishable');
 
   const model = await prisma.aiModel.findFirstOrThrow({
     where: {
@@ -171,7 +197,6 @@ async function main() {
       size: '1024x1024',
       quality: 'auto',
       output_format: 'png',
-      output_compression: 100,
       background: 'auto',
       moderation: 'auto',
     },
@@ -214,6 +239,33 @@ async function main() {
   assert(
     compatibleCapabilities.requires_provider_field_review === true,
     'compatible copy should require provider field review',
+  );
+  const compatibleDefaultParams = readObject(compatibleCopy.item.default_params);
+  assert(
+    Object.keys(compatibleDefaultParams).length === 0,
+    'compatible copy should not retain unconfirmed OpenAI defaults',
+  );
+  const compatibleFields = Array.isArray(compatibleCopy.item.parameter_schema)
+    ? compatibleCopy.item.parameter_schema.map(readObject)
+    : [];
+  assert(compatibleFields.length > 0, 'compatible copy should keep fields for review');
+  assert(
+    compatibleFields.every((field) => {
+      const validation = readObject(field.validation);
+      return (
+        validation.custom_validator === 'compatible_field_confirmed' &&
+        validation.review_status === 'suspect'
+      );
+    }),
+    'compatible copy fields should be marked suspect',
+  );
+  const compatibleLint = await service.lintExecutionProfileRevision(compatibleCopy.item.id);
+  assert(!compatibleLint.result.ok, 'compatible copy with suspect fields should not lint');
+  assert(
+    compatibleLint.result.errors.some((error) =>
+      error.message.includes('OpenAI-compatible 字段必须删除或确认支持后才能发布'),
+    ),
+    'compatible copy lint should explain provider field review',
   );
   assert(
     Array.isArray(compatibleValidationRules.warnings) &&
@@ -271,12 +323,14 @@ async function main() {
         checks: [
           'profile_templates_listed',
           'official_templates_include_source_metadata',
+          'runtime_publish_status_is_declared',
           'compatible_template_is_minimal',
           'template_import_creates_draft',
           'draft_import_does_not_change_public_profile',
           'imported_template_lints_and_previews',
           'revision_diff_reports_active_changes',
           'openai_compatible_copy_requires_provider_review',
+          'openai_compatible_copy_blocks_suspect_fields',
           'activation_updates_public_profile',
         ],
         profile_id: profile.id,

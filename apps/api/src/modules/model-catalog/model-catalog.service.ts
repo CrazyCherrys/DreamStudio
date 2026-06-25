@@ -16,7 +16,14 @@ import {
   type AiModel,
 } from '@prisma/client';
 
-import { compileRequestMapping, lintRequestMapping, loadConfig } from '@dreamstudio/config';
+import {
+  allowedTargetPathsForAdapter,
+  compileRequestMapping,
+  defaultEndpointPathForAdapter,
+  findImageAdapterManifest,
+  lintRequestMapping,
+  loadConfig,
+} from '@dreamstudio/config';
 import { prisma } from '@dreamstudio/db';
 import { DEFAULT_MAX_IMAGE_BYTES } from '@dreamstudio/storage';
 import { apiError, validationFailed } from '../auth/auth.errors';
@@ -90,13 +97,6 @@ type ExecutionProfileWithRevisions = Prisma.AiModelExecutionProfileGetPayload<{
   };
 }>;
 type ExecutionProfileRevisionRecord = Prisma.AiModelExecutionProfileRevisionGetPayload<object>;
-
-const ADAPTER_ALLOWED_TARGET_PATHS: Record<string, string[]> = {
-  openai_images_generation: ['/v1/images/generations'],
-  openai_images_edit: ['/v1/images/edits'],
-  openai_responses_image: ['/v1/responses'],
-  gemini_generate_content: ['/v1beta/models/{model}:generateContent'],
-};
 
 const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -1716,17 +1716,30 @@ export class ModelCatalogService {
   private lintRevision(revision: ExecutionProfileRevisionRecord): ExecutionProfileLintResult {
     const errors: ValidationDetail[] = [];
     const warnings: ValidationDetail[] = [];
+    let schema: ParameterSchemaField[] = [];
 
     try {
-      const schema = normalizeParameterSchema(revision.parameterSchema);
+      schema = normalizeParameterSchema(revision.parameterSchema);
       assertDefaultParams(schema, revision.defaultParams);
     } catch (error) {
       this.pushSchemaValidationDetails(error, errors);
+    }
+    for (const field of schema) {
+      if (
+        field.validation?.custom_validator === 'compatible_field_confirmed' &&
+        field.validation.review_status !== 'confirmed'
+      ) {
+        errors.push({
+          field: `parameter_schema.${field.key}`,
+          message: 'OpenAI-compatible 字段必须删除或确认支持后才能发布',
+        });
+      }
     }
 
     const endpointPath =
       revision.upstreamEndpointPath ??
       defaultEndpointPathForRevision(revision.adapterKey, revision.upstreamModelId);
+    const manifest = findImageAdapterManifest(revision.adapterKey);
     const mappingLint = lintRequestMapping(revision.requestMapping, {
       allowedTargetPaths: allowedTargetPathsForRevision(
         revision.adapterKey,
@@ -1737,6 +1750,21 @@ export class ModelCatalogService {
     errors.push(...mappingLint.errors);
     if (!revision.adapterKey.trim()) {
       errors.push({ field: 'adapter_key', message: 'adapter_key 不能为空' });
+    } else if (!manifest) {
+      errors.push({ field: 'adapter_key', message: '当前 adapter 未注册 runtime manifest' });
+    } else {
+      if (!manifest.runtimeSupported) {
+        errors.push({ field: 'adapter_key', message: '当前 adapter runtime 尚未实现' });
+      }
+      if (!manifest.publishable) {
+        errors.push({ field: 'adapter_key', message: '当前 adapter 标记为不可发布' });
+      }
+      if (!new Set<string>(manifest.responseParserKeys).has(revision.responseParserKey)) {
+        errors.push({
+          field: 'response_parser_key',
+          message: '当前 response_parser_key 不属于该 adapter',
+        });
+      }
     }
     if (!revision.upstreamModelId.trim()) {
       errors.push({ field: 'upstream_model_id', message: 'upstream_model_id 不能为空' });
@@ -1749,6 +1777,12 @@ export class ModelCatalogService {
     }
     if (!revision.sourceCheckedAt) {
       warnings.push({ field: 'source_checked_at', message: '建议记录来源检查时间' });
+    }
+    if (asJsonObject(revision.capabilities)?.runtime_supported === false) {
+      errors.push({
+        field: 'capabilities.runtime_supported',
+        message: '该 revision 标记为不可发布',
+      });
     }
 
     return {
@@ -1780,6 +1814,8 @@ export class ModelCatalogService {
     const endpointPath =
       revision.upstreamEndpointPath ??
       defaultEndpointPathForRevision(revision.adapterKey, revision.upstreamModelId);
+    const manifest = findImageAdapterManifest(revision.adapterKey);
+    const publishBlockers = this.lintRevision(revision).errors;
 
     return {
       adapter_key: revision.adapterKey,
@@ -1791,6 +1827,10 @@ export class ModelCatalogService {
       reference_asset_ids: Array.isArray(body.reference_asset_ids)
         ? body.reference_asset_ids.map(String).slice(0, revision.maxReferenceImages)
         : [],
+      runtime_supported: manifest?.runtimeSupported === true,
+      publishable: manifest?.publishable === true && publishBlockers.length === 0,
+      parser_key: revision.responseParserKey,
+      publish_blockers: publishBlockers,
     };
   }
 
@@ -2392,20 +2432,9 @@ function readRevisionField(
 }
 
 function defaultEndpointPathForRevision(adapterKey: string, upstreamModelId: string) {
-  if (adapterKey === 'openai_images_edit') {
-    return '/v1/images/edits';
-  }
-  if (adapterKey === 'gemini_generate_content') {
-    return `/v1beta/models/${encodeURIComponent(upstreamModelId)}:generateContent`;
-  }
-  if (adapterKey === 'openai_responses_image') {
-    return '/v1/responses';
-  }
-  return '/v1/images/generations';
+  return defaultEndpointPathForAdapter(adapterKey, upstreamModelId);
 }
 
 function allowedTargetPathsForRevision(adapterKey: string, upstreamModelId: string) {
-  return ADAPTER_ALLOWED_TARGET_PATHS[adapterKey]?.map((path) =>
-    path.replace('{model}', encodeURIComponent(upstreamModelId)),
-  );
+  return allowedTargetPathsForAdapter(adapterKey, upstreamModelId);
 }

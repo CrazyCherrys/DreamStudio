@@ -1,7 +1,7 @@
 {
   "id": "openai-responses-image-tool",
   "label": "OpenAI Responses image tool",
-  "description": "Official OpenAI Responses API template for the image_generation built-in tool. Runtime adapter support is planned for a later phase.",
+  "description": "Official OpenAI Responses API template for the image_generation built-in tool. Import creates a draft revision only.",
   "category": "openai_official",
   "compatible_copy_allowed": false,
   "compatible_warning": "Responses image tool compatibility must be confirmed per provider and is not assumed for OpenAI-compatible image endpoints.",
@@ -9,8 +9,8 @@
   "revision": {
     "source_kind": "openai_official",
     "source_url": "https://developers.openai.com/api/docs/guides/image-generation",
-    "source_checked_at": "2026-06-22T00:00:00.000Z",
-    "source_summary": "OpenAI Responses API image_generation tool template. Draft-only until the openai_responses_image adapter is implemented.",
+    "source_checked_at": "2026-06-25T00:00:00.000Z",
+    "source_summary": "OpenAI Responses API image_generation tool template using the image_generation built-in tool.",
     "adapter_key": "openai_responses_image",
     "adapter_version": "1",
     "transport_key": "new_api_bearer",
@@ -20,6 +20,25 @@
     "supports_reference_image": true,
     "max_reference_images": 8,
     "parameter_schema": [
+      {
+        "key": "size",
+        "label": "分辨率",
+        "type": "string",
+        "description": "OpenAI Responses image_generation tool size. 支持 auto 或符合模型约束的 WIDTHxHEIGHT。",
+        "required": false,
+        "default": "auto",
+        "ui": {
+          "group": "quick",
+          "slot": "resolution",
+          "order": 5
+        },
+        "capability": "resolution",
+        "send_policy": "when_present",
+        "validation": {
+          "regex": "^(auto|[1-9][0-9]{2,4}x[1-9][0-9]{2,4})$"
+        },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
       {
         "key": "action",
         "label": "图片动作",
@@ -60,24 +79,48 @@
         "send_policy": "when_present",
         "validation": {
           "min": 0,
-          "max": 3
+          "max": 3,
+          "custom_validator": "openai_partial_images_requires_stream"
         },
+        "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "key": "stream",
+        "label": "流式输出",
+        "type": "boolean",
+        "required": false,
+        "default": false,
+        "ui": {
+          "group": "hidden",
+          "slot": "style",
+          "order": 30
+        },
+        "capability": "streaming",
+        "send_policy": "when_present",
         "help_url": "https://developers.openai.com/api/docs/guides/image-generation"
       }
     ],
     "default_params": {
+      "size": "auto",
       "action": "generate",
-      "partial_images": 0
+      "partial_images": 0,
+      "stream": false
     },
     "request_mapping": {
       "content_type": "json",
       "fields": [
         { "source": "model", "target": "model" },
-        { "source": "prompt", "target": "input" },
+        { "source": "prompt", "target": "input", "transform": "promptToResponsesInput" },
+        { "source": "params.size", "target": "tools[0].size", "omit_if_null": true },
         { "source": "params.action", "target": "tools[0].action", "omit_if_null": true },
         {
           "source": "params.partial_images",
           "target": "tools[0].partial_images",
+          "omit_if_null": true
+        },
+        {
+          "source": "params.stream",
+          "target": "stream",
           "omit_if_null": true
         }
       ],
@@ -88,14 +131,14 @@
       "supports_reference_image": true,
       "max_reference_images": 8,
       "supports_streaming": true,
-      "runtime_supported": false,
+      "runtime_supported": true,
       "template_origin": "openai_official"
     },
     "validation_rules": {
       "version": 1,
       "notes": [
-        "Draft-only until Phase 10+ adds the openai_responses_image adapter and parser.",
-        "Choose a mainline Responses model that supports the image_generation tool before publishing."
+        "Choose a mainline Responses model that supports the image_generation tool before publishing.",
+        "Studio v1 stores final images only and does not display partial image previews."
       ]
     },
     "change_summary": "Imported OpenAI official Responses image tool template."

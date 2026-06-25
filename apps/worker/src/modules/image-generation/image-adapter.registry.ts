@@ -1,7 +1,9 @@
 import type { ImageTask } from '@prisma/client';
 import {
   compileRequestMapping,
+  findImageAdapterManifest,
   RequestMappingError,
+  renderAdapterPath,
   type RequestMapping,
 } from '@dreamstudio/config';
 
@@ -122,10 +124,43 @@ const geminiGenerateContentAdapter: ImageGenerationAdapter = {
   },
 };
 
+const openAiResponsesImageAdapter: ImageGenerationAdapter = {
+  key: 'openai_responses_image',
+  version: 1,
+  allowedTargetPaths: ['/v1/responses'],
+  async execute(input) {
+    const endpointPath = readEndpointPath(input.task, '/v1/responses');
+    assertAllowedTargetPath(this, endpointPath, input.task.modelIdSnapshot);
+    const compiled = compileRequestMapping(readRequestMapping(input.task), {
+      model: input.task.modelIdSnapshot,
+      prompt: input.prompt,
+      params: input.parameters,
+    });
+    if (compiled.contentType !== 'json') {
+      throw adapterFailure(
+        'invalid_request_mapping',
+        'Responses 图片 adapter 需要 json request mapping',
+      );
+    }
+
+    return input.client.sendJsonImageRequest({
+      baseUrl: input.task.newApiBaseUrlSnapshot,
+      apiKey: input.apiKey,
+      endpointPath,
+      body: appendResponsesReferenceInputs(compiled.body, input.references),
+      responseParser: 'openai_responses_image_generation_call',
+      timeoutMs: input.timeoutMs,
+    });
+  },
+};
+
 const IMAGE_ADAPTERS = new Map(
-  [openAiImagesGenerationAdapter, openAiImagesEditAdapter, geminiGenerateContentAdapter].map(
-    (adapter) => [adapter.key, adapter],
-  ),
+  [
+    openAiImagesGenerationAdapter,
+    openAiImagesEditAdapter,
+    openAiResponsesImageAdapter,
+    geminiGenerateContentAdapter,
+  ].map((adapter) => [adapter.key, adapter]),
 );
 
 export function getImageGenerationAdapter(adapterKey: string | null): ImageGenerationAdapter {
@@ -134,7 +169,8 @@ export function getImageGenerationAdapter(adapterKey: string | null): ImageGener
   }
 
   const adapter = IMAGE_ADAPTERS.get(adapterKey);
-  if (!adapter) {
+  const manifest = findImageAdapterManifest(adapterKey);
+  if (!adapter || !manifest?.runtimeSupported) {
     throw adapterFailure('adapter_not_supported', '当前图片执行 adapter 暂不支持');
   }
   return adapter;
@@ -176,9 +212,7 @@ function assertAllowedTargetPath(
   endpointPath: string,
   modelId: string,
 ) {
-  const allowedPaths = adapter.allowedTargetPaths.map((path) =>
-    path.replace('{model}', encodeURIComponent(modelId)),
-  );
+  const allowedPaths = adapter.allowedTargetPaths.map((path) => renderAdapterPath(path, modelId));
   if (!allowedPaths.includes(endpointPath)) {
     throw adapterFailure('adapter_target_not_allowed', '当前 adapter 不允许请求该上游路径');
   }
@@ -242,5 +276,37 @@ function appendGeminiReferenceParts(
   return {
     ...body,
     contents,
+  };
+}
+
+function appendResponsesReferenceInputs(
+  body: Record<string, unknown>,
+  references: NewApiImageReference[],
+): Record<string, unknown> {
+  if (references.length === 0) {
+    return body;
+  }
+
+  const input = Array.isArray(body.input) ? [...body.input] : [{ role: 'user', content: [] }];
+  const firstMessage: Record<string, unknown> = isRecord(input[0])
+    ? { ...input[0] }
+    : { role: 'user' };
+  const content = Array.isArray(firstMessage.content)
+    ? [...firstMessage.content]
+    : typeof body.input === 'string'
+      ? [{ type: 'input_text', text: body.input }]
+      : [];
+  content.push(
+    ...references.map((reference) => ({
+      type: 'input_image',
+      image_url: `data:${reference.contentType};base64,${reference.buffer.toString('base64')}`,
+    })),
+  );
+  firstMessage.content = content;
+  input[0] = firstMessage;
+
+  return {
+    ...body,
+    input,
   };
 }

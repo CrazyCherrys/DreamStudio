@@ -32,6 +32,8 @@ export interface ParameterSchemaField {
   deprecated?: boolean;
 }
 
+type ParameterRecord = Record<string, string | number | boolean | null>;
+
 export interface ParameterValidationResult {
   ok: boolean;
   errors: Array<{ field: string; message: string }>;
@@ -115,11 +117,70 @@ export function validateParameters(
     }
   }
 
+  validateCrossFieldRules(schema, value, errors);
+
   return {
     ok: errors.length === 0,
     errors,
     value,
   };
+}
+
+function validateCrossFieldRules(
+  schema: ParameterSchemaField[],
+  value: ParameterRecord,
+  errors: Array<{ field: string; message: string }>,
+) {
+  for (const field of schema) {
+    const validation = field.validation;
+    if (!validation) {
+      continue;
+    }
+
+    const customValidator = validation.custom_validator;
+    if (customValidator !== undefined && !isAllowedCustomValidator(customValidator)) {
+      errors.push({
+        field: field.key,
+        message: 'custom_validator 不受支持',
+      });
+      continue;
+    }
+
+    if (customValidator === 'openai_output_compression_requires_jpeg_or_webp') {
+      const outputFormat = value.output_format;
+      if (
+        value[field.key] !== undefined &&
+        value[field.key] !== null &&
+        outputFormat !== 'jpeg' &&
+        outputFormat !== 'webp'
+      ) {
+        errors.push({
+          field: field.key,
+          message: 'output_compression 仅适用于 jpeg 或 webp 输出格式',
+        });
+      }
+    }
+
+    if (customValidator === 'openai_partial_images_requires_stream') {
+      const partialImages = value[field.key];
+      if (typeof partialImages === 'number' && partialImages > 0 && value.stream !== true) {
+        errors.push({
+          field: field.key,
+          message: 'partial_images 大于 0 时必须启用 stream',
+        });
+      }
+    }
+
+    if (customValidator === 'compatible_field_confirmed') {
+      const status = validation.review_status;
+      if (status !== 'confirmed' && value[field.key] !== undefined && value[field.key] !== null) {
+        errors.push({
+          field: field.key,
+          message: 'OpenAI-compatible 字段必须先确认支持后才能发送',
+        });
+      }
+    }
+  }
 }
 
 export function parameterSchemaToJson(schema: ParameterSchemaField[]): Prisma.InputJsonArray {
@@ -363,6 +424,14 @@ function parseField(
     }
   }
 
+  const regex = field.validation?.regex;
+  if (regex !== undefined && typeof regex !== 'string') {
+    errors.push({
+      field: `${path}.validation.regex`,
+      message: 'validation.regex 必须是字符串',
+    });
+  }
+
   return field;
 }
 
@@ -526,6 +595,13 @@ function coerceAndValidateFieldValue(
         });
         return undefined;
       }
+      const regex = typeof field.validation?.regex === 'string' ? field.validation.regex : null;
+      if (regex && !new RegExp(regex).test(rawValue)) {
+        errors.push({
+          field: path,
+          message: '参数格式不合法',
+        });
+      }
       return rawValue;
     }
     case 'number':
@@ -587,6 +663,14 @@ function coerceAndValidateFieldValue(
       return rawValue;
     }
   }
+}
+
+function isAllowedCustomValidator(value: unknown): value is string {
+  return (
+    value === 'openai_output_compression_requires_jpeg_or_webp' ||
+    value === 'openai_partial_images_requires_stream' ||
+    value === 'compatible_field_confirmed'
+  );
 }
 
 function normalizePlainObject(rawValue: unknown, field: string): JsonObject {
