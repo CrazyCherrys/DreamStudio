@@ -40,12 +40,12 @@ assert(
   'Responses image should be publishable',
 );
 assert(
-  findImageAdapterManifest('gemini_interactions_image')?.publishable === false,
-  'Gemini interactions should remain draft-only until gateway runtime is confirmed',
+  findImageAdapterManifest('gemini_interactions_image')?.publishable === true,
+  'Gemini interactions should be publishable',
 );
 assert(
-  findImageAdapterManifest('gemini_interactions_image')?.runtimeSupported === false,
-  'Gemini interactions runtime should remain unsupported',
+  findImageAdapterManifest('gemini_interactions_image')?.runtimeSupported === true,
+  'Gemini interactions runtime should be supported',
 );
 
 console.log(
@@ -58,7 +58,7 @@ console.log(
         'gemini_generate_content_path_renders_model',
         'responses_runtime_supported',
         'responses_publishable',
-        'gemini_interactions_draft_only',
+        'gemini_interactions_runtime_supported',
       ],
       adapters: listImageAdapterManifests().map((manifest) => ({
         key: manifest.key,

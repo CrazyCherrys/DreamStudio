@@ -64,6 +64,8 @@ const MODEL_MODALITIES: ModelModality[] = ['chat', 'image', 'video'];
 const ENDPOINT_TYPES: ModelEndpointType[] = [
   'openai_image_generations',
   'openai_image_edits',
+  'openai_responses_image',
+  'gemini_interactions_image',
   'gemini_generate_content',
 ];
 const TRANSFER_MODES: ReferenceTransferMode[] = ['none', 'multipart', 'url'];
@@ -835,7 +837,11 @@ export function ModelForm({
       </label>
 
       <fieldset className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
-        <legend className="px-1 text-sm font-black">端点类型</legend>
+        <legend className="px-1 text-sm font-black">端点标签</legend>
+        <p className="ds-muted text-sm">
+          这里只用于目录展示和筛选提示。Studio 实际生图协议由默认启用的 active execution profile
+          决定。
+        </p>
         <div className="grid gap-3 md:grid-cols-3">
           {ENDPOINT_TYPES.map((type) => (
             <label

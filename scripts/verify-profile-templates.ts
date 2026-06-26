@@ -106,12 +106,12 @@ async function main() {
     'Gemini interactions adapter mismatch',
   );
   assert(
-    geminiInteractionsTemplate.runtime_supported === false,
-    'Gemini interactions should be draft-only',
+    geminiInteractionsTemplate.runtime_supported === true,
+    'Gemini interactions should be runnable',
   );
   assert(
-    geminiInteractionsTemplate.publishable === false,
-    'Gemini interactions should not be publishable',
+    geminiInteractionsTemplate.publishable === true,
+    'Gemini interactions should be publishable',
   );
   const responsesTemplate = templates.items.find(
     (template) => template.id === 'openai-responses-image-tool',

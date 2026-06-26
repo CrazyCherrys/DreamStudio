@@ -33,7 +33,9 @@ enum NewApiConfigStatus {
 enum ModelEndpointType {
   openai_image_generations
   openai_image_edits
+  openai_responses_image
   gemini_generate_content
+  gemini_interactions_image
 
   @@map("model_endpoint_type")
 }

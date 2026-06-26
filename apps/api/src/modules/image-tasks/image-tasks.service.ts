@@ -488,6 +488,14 @@ export class ImageTasksService implements OnModuleDestroy {
       return ModelEndpointType.openai_image_generations;
     }
 
+    if (profile.adapterKey === 'openai_responses_image') {
+      return ModelEndpointType.openai_responses_image;
+    }
+
+    if (profile.adapterKey === 'gemini_interactions_image') {
+      return ModelEndpointType.gemini_interactions_image;
+    }
+
     if (profile.adapterKey === 'gemini_generate_content') {
       return ModelEndpointType.gemini_generate_content;
     }
@@ -556,6 +564,7 @@ export class ImageTasksService implements OnModuleDestroy {
     const endpointPath =
       input.revision.upstreamEndpointPath ??
       defaultEndpointPathForTask(input.endpointType, input.revision.upstreamModelId);
+    const contentType = contentTypeForEndpointType(input.endpointType);
 
     return {
       adapter_key: input.revision.adapterKey,
@@ -563,8 +572,7 @@ export class ImageTasksService implements OnModuleDestroy {
       transport_key: input.revision.transportKey,
       endpoint_type: input.endpointType,
       endpoint_path: endpointPath,
-      content_type:
-        input.endpointType === ModelEndpointType.openai_image_edits ? 'multipart' : 'json',
+      content_type: contentType,
       body: {
         model: input.revision.upstreamModelId,
         prompt: summarizeText(input.prompt),
@@ -819,10 +827,20 @@ function defaultEndpointPathForTask(endpointType: ModelEndpointType, upstreamMod
   if (endpointType === ModelEndpointType.openai_image_edits) {
     return '/v1/images/edits';
   }
+  if (endpointType === ModelEndpointType.openai_responses_image) {
+    return '/v1/responses';
+  }
+  if (endpointType === ModelEndpointType.gemini_interactions_image) {
+    return '/v1beta/interactions';
+  }
   if (endpointType === ModelEndpointType.gemini_generate_content) {
     return `/v1beta/models/${encodeURIComponent(upstreamModelId)}:generateContent`;
   }
   return '/v1/images/generations';
+}
+
+function contentTypeForEndpointType(endpointType: ModelEndpointType) {
+  return endpointType === ModelEndpointType.openai_image_edits ? 'multipart' : 'json';
 }
 
 function summarizeText(text: string) {

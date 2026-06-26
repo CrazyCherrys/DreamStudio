@@ -2155,6 +2155,14 @@ export class ModelCatalogService {
       return ModelEndpointType.openai_image_edits;
     }
 
+    if (value === ModelEndpointType.openai_responses_image) {
+      return ModelEndpointType.openai_responses_image;
+    }
+
+    if (value === ModelEndpointType.gemini_interactions_image) {
+      return ModelEndpointType.gemini_interactions_image;
+    }
+
     if (value === ModelEndpointType.gemini_generate_content) {
       return ModelEndpointType.gemini_generate_content;
     }

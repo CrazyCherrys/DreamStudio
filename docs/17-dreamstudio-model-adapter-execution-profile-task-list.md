@@ -983,7 +983,7 @@ npm run typecheck -w @dreamstudio/web
 
 阶段 9 没有做：
 
-- 没有实现 `openai_responses_image` Worker runtime adapter。
+- `openai_responses_image` Worker runtime adapter 已实现，并可由默认 active profile 驱动 Studio 提交。
 - 没有接入 Gemini 原生 adapter。
 - 没有让模板导入自动发布 active revision。
 - 没有把 OpenAI 官方全量字段默认套用到 OpenAI-compatible 第三方模型。
@@ -1279,7 +1279,7 @@ curl -I http://127.0.0.1:3000/
 - 实现 `openai_responses_image` Worker runtime adapter。
 - 支持 Responses `prompt -> input` 映射、参考图 `input_image` 追加和 `image_generation_call` 图片结果解析。
 - 补齐 OpenAI Image generation/edit/Responses 官方模板字段和跨字段校验。
-- 新增 Gemini Interactions 图片模板，但在当前网关 runtime 未确认前保持 draft-only。
+- Gemini Interactions 图片模板已升级为可运行/可发布官方主线，面向 `gemini-3-pro-image-preview` 及后续新官方模型。
 - OpenAI-compatible copy 必须清空未确认官方默认参数，字段保持 `suspect` 并阻断 lint/发布。
 - Admin 模板导入和 preview 显示 runtime/publish 状态、parser key 和 publish blockers。
 
@@ -1327,13 +1327,13 @@ curl -I http://127.0.0.1:3000/
 
 已完成：
 
-- 新增 `packages/config/src/image-adapter-manifest.ts`，声明 `openai_images_generation`、`openai_images_edit`、`openai_responses_image`、`gemini_generate_content` 和 draft-only `gemini_interactions_image`。
+- 新增 `packages/config/src/image-adapter-manifest.ts`，声明 `openai_images_generation`、`openai_images_edit`、`openai_responses_image`、`gemini_generate_content` 和 `gemini_interactions_image`。
 - API lint、Admin preview 和 Worker adapter registry 已改为读取 manifest，未知 adapter、runtime unsupported、publishable false 和 parser key 不匹配都会阻断发布。
 - `openai_responses_image` Worker adapter 已支持 `/v1/responses` JSON 请求、Responses `input` 结构、参考图 `input_image` 和 `image_generation_call` parser。
 - Request mapping compiler 新增 `promptToResponsesInput` 和 GPT Image 2 size 校验 transform。
 - Parameter schema 校验新增 `openai_output_compression_requires_jpeg_or_webp`、`openai_partial_images_requires_stream` 和 `compatible_field_confirmed`。
 - OpenAI generation/edit/Responses 模板已补齐本轮官方参数、跨字段校验和来源检查时间。
-- 新增 `profile-templates/gemini-interactions-image.json`，当前通过 manifest 和 capabilities 标记为 draft-only。
+- 新增 `profile-templates/gemini-interactions-image.json`，作为 Gemini 新官方图片模型主模板。
 - Admin 模板列表和 request preview 显示 runtime/publish 状态、parser 和 publish blockers；test 文案改为 dry-run。
 - `scripts/verify-adapter-manifest.ts` 已验证 manifest 声明；`scripts/verify-image-adapters.ts` 已覆盖 Responses runtime；`scripts/verify-profile-templates.ts` 已覆盖 Gemini Interactions draft-only、Responses publishable 和 compatible copy 阻断。
 

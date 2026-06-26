@@ -66,37 +66,37 @@ OpenAI-compatible 不等于 OpenAI full-compatible。
 
 ## 4. Gemini 官方图片模型
 
-Gemini 原生图片请求使用 `gemini_generate_content` adapter。
+Gemini 新官方图片模型主线使用 `gemini_interactions_image` adapter。
 
-默认模板：
+推荐模板：
 
-- `profile-templates/gemini-generate-content-image.json`
-- Adapter：`gemini_generate_content`
+- `profile-templates/gemini-interactions-image.json`
+- Adapter：`gemini_interactions_image`
 - Parser：`gemini_inline_data`
-- 默认路径：`/v1beta/models/{model}:generateContent`
+- 默认路径：`/v1beta/interactions`
+- 默认 `upstream_model_id`：`gemini-3-pro-image-preview`
 
 请求映射：
 
-- Prompt -> `contents[0].parts[0].text`
-- 参考图 -> `contents[0].parts[] inlineData`
-- `aspect_ratio` -> `generationConfig.responseFormat.image.aspectRatio`
-- `image_size` -> `generationConfig.responseFormat.image.imageSize`
-- 常量 `generationConfig.responseModalities=["IMAGE"]`
+- Prompt -> `input[0].text`
+- 参考图 -> `input[] inlineData`
+- `mime_type` -> `response_format.mime_type`
+- `aspect_ratio` -> `response_format.aspect_ratio`
+- `image_size` -> `response_format.image_size`
+- 常量 `response_format.type=image`
 
 边界：
 
 - DreamStudio 不直接管理 Gemini 官方 API key。
 - 当前仍通过用户配置的 new-api gateway 调用。
-- 种子 Gemini profile 默认禁用且非默认。
-- 只有确认 new-api gateway 支持 `/v1beta/models/{model}:generateContent` 后，管理员才应启用 Gemini profile。
+- 种子 Gemini Interactions profile 默认禁用且非默认。
+- 只有确认 new-api gateway 支持 `/v1beta/interactions` 后，管理员才应启用该 profile。
+- 后续官方 Gemini 图片模型直接通过后台修改 `upstream_model_id` 接入，不要把具体模型 ID 写死在代码里。
 
-Gemini Interactions：
+Gemini legacy：
 
-- `profile-templates/gemini-interactions-image.json` 只作为官方参数参考草稿。
-- Adapter：`gemini_interactions_image`
-- 默认路径：`/v1beta/interactions`
-- 当前 manifest 标记为 `runtime_supported=false`、`publishable=false`。
-- 只有确认 new-api gateway 和 Worker runtime 都支持 Interactions 后，才能把 manifest 改为可运行/可发布。
+- `profile-templates/gemini-generate-content-image.json` 保留给旧 `generateContent` 官方链路参考。
+- `gemini_generate_content` runtime 仍可执行，但不再作为新官方 Gemini 图片模型的推荐接入主线。
 
 ## 5. Revision JSON 导入导出
 
@@ -153,8 +153,5 @@ Admin 模型详情页支持：
 - `openai_images_generation`
 - `openai_images_edit`
 - `openai_responses_image`
-- `gemini_generate_content`
-
-当前 draft-only 模板：
-
 - `gemini_interactions_image`
+- `gemini_generate_content`

@@ -5,6 +5,8 @@ import { apiRequest } from '@/lib/auth';
 export type ModelEndpointType =
   | 'openai_image_generations'
   | 'openai_image_edits'
+  | 'openai_responses_image'
+  | 'gemini_interactions_image'
   | 'gemini_generate_content';
 export type ModelModality = 'chat' | 'image' | 'video';
 export type ReferenceTransferMode = 'none' | 'multipart' | 'url';
@@ -571,8 +573,12 @@ export function endpointTypeLabel(value: ModelEndpointType) {
   switch (value) {
     case 'openai_image_edits':
       return '图片编辑';
+    case 'openai_responses_image':
+      return 'OpenAI Responses';
+    case 'gemini_interactions_image':
+      return 'Gemini Interactions';
     case 'gemini_generate_content':
-      return 'Gemini';
+      return 'Gemini generateContent';
     default:
       return '图片生成';
   }
@@ -582,8 +588,12 @@ export function endpointTypeShortLabel(value: ModelEndpointType) {
   switch (value) {
     case 'openai_image_edits':
       return '编辑';
+    case 'openai_responses_image':
+      return 'Responses';
+    case 'gemini_interactions_image':
+      return 'Interactions';
     case 'gemini_generate_content':
-      return 'Gemini';
+      return 'GenContent';
     default:
       return '生成';
   }

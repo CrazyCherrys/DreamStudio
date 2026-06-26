@@ -1,6 +1,6 @@
 # DreamStudio 多模型生图适配层实现方案
 
-当前状态：阶段 12 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit、OpenAI Responses image tool 和 Gemini `generateContent` 基础闭环，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；Request Mapping compiler 已沉到共享包并被 Worker、Admin lint、Admin preview 复用；RequestLog 已写入并展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示；Admin 已支持 OpenAI 官方模板、Gemini 官方模板和 OpenAI-compatible 最小模板导入为 draft revision、查看 active/draft diff、预览、测试、Revision JSON 导出和 JSON 导入为 draft；Adapter manifest 已集中声明 runtime/publish/parser/path 边界，Gemini Interactions 模板保持 draft-only；最终 API、数据模型、Worker、Admin 日志和模型接入指南已同步。
+当前状态：阶段 12 已完成；任务创建已写入默认 active profile snapshot、adapter snapshot、request mapping snapshot 和最终脱敏请求预览，Worker 已通过 adapter registry 执行 OpenAI Image generation/edit、OpenAI Responses image tool、Gemini `generateContent` legacy 链路和 Gemini Interactions 官方主线，Parameter Schema v2 元数据已被后端校验、Admin 可编辑、Studio 按 `ui.group=quick` 和 `ui.slot` 渲染快捷参数；Admin 已能管理 execution profile 和 draft/active/archived revision；Request Mapping compiler 已沉到共享包并被 Worker、Admin lint、Admin preview 复用；RequestLog 已写入并展示 adapter/profile、脱敏最终请求、上游响应摘要和 profile 排障提示；Admin 已支持 OpenAI 官方模板、Gemini 官方模板和 OpenAI-compatible 最小模板导入为 draft revision、查看 active/draft diff、预览、测试、Revision JSON 导出和 JSON 导入为 draft；Adapter manifest 已集中声明 runtime/publish/parser/path 边界；最终 API、数据模型、Worker、Admin 日志和模型接入指南已同步。
 
 目标：在 DreamStudio 继续以 new-api 作为统一网关的前提下，将 OpenAI 官方生图模型、Gemini 官方生图模型、OpenAI-compatible 第三方生图模型都包装为 DreamStudio 异步图片任务，并尽量把“模型参数更新”降级为配置更新，而不是每次都修改 Worker 代码。
 
@@ -21,7 +21,7 @@ Studio UI 参数
 因此：
 
 - OpenAI 官方 Image/Responses 接口是重要协议基线，但不是所有模型的统一真理。
-- Gemini 原生图片生成不是 OpenAI Image API 的字段子集，必须通过 Gemini adapter 构造 `generateContent` 请求。
+- Gemini 官方图片生成不是 OpenAI Image API 的字段子集，必须通过 Gemini adapter 构造原生请求；当前新官方主线是 Interactions，`generateContent` 仅保留为 legacy。
 - OpenAI-compatible 只代表路径、鉴权、基础字段或响应风格接近 OpenAI，不代表支持 OpenAI 官方全部参数。
 - 官方模型也必须按“模型支持的参数子集”建 profile，不能把同一套 OpenAI 参数表展示给所有 OpenAI 模型。
 - 模型参数更新时，应导入为新的 profile revision 草稿，经过 diff、请求预览和 smoke test 后发布；已经排队的任务继续使用创建任务时快照的旧 profile。

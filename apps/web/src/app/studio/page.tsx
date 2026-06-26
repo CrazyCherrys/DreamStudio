@@ -391,9 +391,13 @@ function StudioContent() {
   const selectedImageModelSupported = Boolean(
     selectedModel?.modality === 'image' &&
     selectedExecutionProfile &&
-    (selectedExecutionProfile.operation === 'text_to_image' ||
-      selectedExecutionProfile.operation === 'image_to_image' ||
-      selectedExecutionProfile.operation === 'image_edit'),
+    [
+      'openai_images_generation',
+      'openai_images_edit',
+      'openai_responses_image',
+      'gemini_interactions_image',
+      'gemini_generate_content',
+    ].includes(selectedExecutionProfile.adapter_key),
   );
   const canSubmit = Boolean(selectedImageModelSupported && prompt.trim() && !submitting);
   const resultTask = modelTasks.find((task) => task.result_assets.length > 0) ?? null;
