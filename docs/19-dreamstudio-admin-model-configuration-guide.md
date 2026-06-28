@@ -23,11 +23,23 @@
 ## 2. 后台页面怎么进入
 
 1. 打开 `http://localhost:3000/admin/models`
-2. 点击 `新增模型`，或者打开已有模型的 `编辑`
-3. 在模型弹窗里先保存模型基础信息
-4. 在同一个弹窗下方的 `执行配置` 区域配置 profile / revision
+2. 在列表页先按需要筛选：
+   - 搜索关键字
+   - 模型类型
+   - 端点标签
+   - 启用状态 / 推荐状态
+   - `只看缺 Profile`
+3. 点击 `新增模型`，或者在现有模型卡片上点 `编辑` / `继续配置`
+4. 在弹窗中按步骤完成：
+   - `1. 基础信息`
+   - `2. 执行配置`
+   - `3. 发布检查`
 
-推荐先建好模型，再在同一个弹窗里完成 execution profile 配置，不要只保存模型表单后就离开。
+重要变化：
+
+- 新建模型保存成功后，弹窗不会关闭。
+- 系统会直接把你带到 `执行配置` 步骤，不需要回列表再点一次编辑。
+- 列表卡片上的 `Profile 可用 / 缺默认 Profile / Draft 数` 才是当前维护优先级提示。
 
 ## 3. 模型表单怎么填
 
@@ -57,6 +69,14 @@
 - Gemini `gemini-3-pro-image-preview`：勾 `gemini_interactions_image`
 - 同一模型未来可能切协议时，可以同时勾多个标签
 
+### 模型级回退参数说明
+
+基础信息页底部的 `模型级回退参数` 已经降为兼容区：
+
+- `/studio` 优先读取默认 active execution profile 的 `parameter_schema` 和 `default_params`
+- 这里的 `默认参数 JSON / Studio 快捷参数 / Schema` 只在没有可用 default profile 时作为回退
+- 正常配置官方图片模型时，不建议把这里当成主配置入口
+
 ## 4. 执行配置区怎么操作
 
 执行配置区里，真正重要的是这几个概念：
@@ -69,14 +89,26 @@
 
 标准操作顺序：
 
-1. 创建或选中一个 profile
-2. 从模板导入 draft revision
+1. 如果模型还没有默认 Profile，优先使用 `一键生成默认 Profile`
+2. 选择合适模板并生成首个 Draft revision
 3. 检查 `adapter_key`、`upstream_model_id`、`parameter_schema`、`request_mapping`
-4. 依次执行 `Lint`、`请求预览`、`Test`
+4. 依次执行 `Lint`、`请求预览`、`Diff`、`Dry run`
 5. 确认无误后点击 `发布`
 6. 确认该 profile 同时是 `默认` 且 `启用`
 
 只要没有 `发布`，`/studio` 都不会切到新配置。
+
+### 新版执行配置界面怎么理解
+
+- `执行配置` 步骤：
+  - 重点看模板向导、Profile 摘要、快捷参数和默认参数
+  - 适合日常配置和官方模板维护
+- `发布检查` 步骤：
+  - 重点看 `Lint / 预览请求 / Diff / Dry run / 发布`
+  - 请求预览会直接显示 `runtime_supported / publishable / parser / publish_blockers`
+- `专家字段`：
+  - `request_mapping`、`capabilities`、`validation_rules`、原始 revision 字段默认折叠
+  - 只在需要协议级自定义时展开
 
 ## 5. OpenAI 官方怎么配
 
@@ -188,18 +220,18 @@
 1. `Lint`
 2. `请求预览`
 3. `Diff`
-4. `Test`
+4. `Dry run`
 
 含义：
 
 - `Lint`：检查 adapter、parser、allowed path、参数 schema、兼容字段门禁
 - `请求预览`：确认最终脱敏请求结构正确
 - `Diff`：看 draft 相比 active 改了什么
-- `Test`：当前是 dry-run，只确认能构造请求，不会真的打上游
+- `Dry run`：只确认能构造请求，不会真的打上游
 
 注意：
 
-- `Test` 通过不代表你的 new-api gateway 一定支持该官方协议
+- `Dry run` 通过不代表你的 new-api gateway 一定支持该官方协议
 - 对 OpenAI Responses 和 Gemini Interactions，仍需要你自己确认网关实际兼容
 
 ## 8. 怎样确认 Studio 已经切过去
@@ -240,7 +272,7 @@
 2. 新建 profile
 3. 导入 `openai-image-generation-gpt-image-2`
 4. 确认 `upstream_model_id=gpt-image-2`
-5. `Lint -> 预览 -> Test -> 发布`
+5. `Lint -> 预览 -> Diff -> Dry run -> 发布`
 6. 设为默认启用
 
 ### 配 OpenAI Responses 官方模型
@@ -249,7 +281,7 @@
 2. 新建 profile
 3. 导入 `openai-responses-image-tool`
 4. 改 `upstream_model_id`
-5. `Lint -> 预览 -> Test -> 发布`
+5. `Lint -> 预览 -> Diff -> Dry run -> 发布`
 6. 设为默认启用
 
 ### 配 Gemini `gemini-3-pro-image-preview`

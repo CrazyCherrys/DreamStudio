@@ -138,6 +138,14 @@ export interface PublicAiModel {
 }
 
 export interface AdminAiModel extends PublicAiModel {
+  management_summary: {
+    profile_count: number;
+    draft_revision_count: number;
+    active_revision_count: number;
+    latest_draft_profile_id: string | null;
+    latest_draft_revision_id: string | null;
+    has_default_active_profile: boolean;
+  };
   is_enabled: boolean;
   sort_order: number;
   created_at: string;

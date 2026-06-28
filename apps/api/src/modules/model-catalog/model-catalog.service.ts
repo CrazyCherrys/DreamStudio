@@ -80,6 +80,9 @@ type SerializablePublicModel = Pick<
 >;
 type SerializableAdminModel = SerializablePublicModel &
   Pick<AiModel, 'isEnabled' | 'sortOrder' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+type SerializableAdminModelWithProfiles = SerializableAdminModel & {
+  executionProfiles?: ExecutionProfileWithRevisions[];
+};
 
 type FavoriteAwareModel = SerializablePublicModel & {
   favorites?: Array<{ userId: string; modelId: string }>;
@@ -131,6 +134,18 @@ const defaultExecutionProfileInclude = {
         revisionNo: 'desc',
       },
       take: 1,
+    },
+  },
+  orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+} satisfies Prisma.AiModel$executionProfilesArgs;
+
+const adminExecutionProfilesInclude = {
+  where: {
+    deletedAt: null,
+  },
+  include: {
+    revisions: {
+      orderBy: [{ revisionNo: 'desc' }, { createdAt: 'desc' }],
     },
   },
   orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -277,11 +292,16 @@ export class ModelCatalogService {
     const modality = this.readOptionalModality(query.modality);
     const endpointType = this.readOptionalEndpointType(query.endpoint_type);
     const search = this.readOptionalSearch(query.q);
+    const enabled = this.readOptionalBooleanString(query.enabled, 'enabled');
+    const recommended = this.readOptionalBooleanString(query.recommended, 'recommended');
+    const missingProfile = this.readOptionalBooleanString(query.missing_profile, 'missing_profile');
     const models = await prisma.aiModel.findMany({
       where: {
         deletedAt: null,
         ...(modality ? { modality } : {}),
         ...(endpointType ? { endpointTypes: { has: endpointType } } : {}),
+        ...(enabled === undefined ? {} : { isEnabled: enabled }),
+        ...(recommended === undefined ? {} : { isRecommended: recommended }),
         ...(search
           ? {
               OR: [
@@ -294,13 +314,18 @@ export class ModelCatalogService {
           : {}),
       },
       include: {
-        executionProfiles: defaultExecutionProfileInclude,
+        executionProfiles: adminExecutionProfilesInclude,
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
+    const filteredModels =
+      missingProfile === undefined
+        ? models
+        : models.filter((model) => !missingProfile || !this.findDefaultExecutionProfile(model));
+
     return {
-      items: models.map((model) => this.serializeAdminModel(model)),
+      items: filteredModels.map((model) => this.serializeAdminModel(model)),
     };
   }
 
@@ -312,7 +337,7 @@ export class ModelCatalogService {
         deletedAt: null,
       },
       include: {
-        executionProfiles: defaultExecutionProfileInclude,
+        executionProfiles: adminExecutionProfilesInclude,
       },
     });
 
@@ -332,6 +357,9 @@ export class ModelCatalogService {
 
     const model = await prisma.aiModel.create({
       data: input,
+      include: {
+        executionProfiles: adminExecutionProfilesInclude,
+      },
     });
 
     await this.auditLogService.write({
@@ -368,6 +396,9 @@ export class ModelCatalogService {
         id: modelRecordId,
       },
       data: input,
+      include: {
+        executionProfiles: adminExecutionProfilesInclude,
+      },
     });
 
     await this.auditLogService.write({
@@ -400,6 +431,9 @@ export class ModelCatalogService {
       data: {
         isEnabled: false,
         deletedAt: new Date(),
+      },
+      include: {
+        executionProfiles: adminExecutionProfilesInclude,
       },
     });
 
@@ -1627,9 +1661,45 @@ export class ModelCatalogService {
     };
   }
 
-  private serializeAdminModel(model: SerializableAdminModel): AdminAiModel {
+  private serializeAdminModel(model: SerializableAdminModelWithProfiles): AdminAiModel {
+    const executionProfiles =
+      'executionProfiles' in model && Array.isArray(model.executionProfiles)
+        ? model.executionProfiles
+        : [];
+    const draftRevisions = executionProfiles.flatMap((profile) =>
+      Array.isArray(profile.revisions)
+        ? profile.revisions.filter(
+            (revision: ExecutionProfileRevisionRecord) =>
+              revision.status === ExecutionProfileRevisionStatus.draft,
+          )
+        : [],
+    );
+    const activeRevisions = executionProfiles.flatMap((profile) =>
+      Array.isArray(profile.revisions)
+        ? profile.revisions.filter(
+            (revision: ExecutionProfileRevisionRecord) =>
+              revision.status === ExecutionProfileRevisionStatus.active,
+          )
+        : [],
+    );
+    const latestDraft = draftRevisions.sort((left, right) => {
+      const revisionNoDelta = right.revisionNo - left.revisionNo;
+      if (revisionNoDelta !== 0) {
+        return revisionNoDelta;
+      }
+      return right.createdAt.getTime() - left.createdAt.getTime();
+    })[0];
+
     return {
       ...this.serializePublicModel(model),
+      management_summary: {
+        profile_count: executionProfiles.length,
+        draft_revision_count: draftRevisions.length,
+        active_revision_count: activeRevisions.length,
+        latest_draft_profile_id: latestDraft?.executionProfileId ?? null,
+        latest_draft_revision_id: latestDraft?.id ?? null,
+        has_default_active_profile: Boolean(this.findDefaultExecutionProfile(model)),
+      },
       is_favorite: false,
       is_enabled: model.isEnabled,
       sort_order: model.sortOrder,

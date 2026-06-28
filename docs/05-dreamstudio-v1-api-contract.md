@@ -1031,6 +1031,15 @@ PATCH /api/v1/admin/models/{model_record_id}
 DELETE /api/v1/admin/models/{model_record_id}
 ```
 
+`GET /api/v1/admin/models` 支持查询参数：
+
+- `q`
+- `modality`
+- `endpoint_type`
+- `enabled`
+- `recommended`
+- `missing_profile`
+
 创建或更新请求核心字段：
 
 ```json
@@ -1063,6 +1072,26 @@ DELETE /api/v1/admin/models/{model_record_id}
 - `openai_image_generations` 默认不需要参考图。
 - `openai_image_edits` 通常需要参考图或 mask 类文件能力。
 - `gemini_generate_content` 用于 Gemini 原生 `generateContent` profile；默认种子 profile 保持禁用，管理员确认网关支持后才能启用。
+
+管理员列表响应中的每个模型现在额外包含：
+
+```json
+{
+  "management_summary": {
+    "profile_count": 1,
+    "draft_revision_count": 1,
+    "active_revision_count": 1,
+    "latest_draft_profile_id": "uuid-or-null",
+    "latest_draft_revision_id": "uuid-or-null",
+    "has_default_active_profile": true
+  }
+}
+```
+
+说明：
+
+- `management_summary` 只用于后台 `/admin/models` 的状态提示和快捷管理。
+- 普通用户侧运行时真值仍以 `default_execution_profile` 为准。
 
 ### 10.2.1 上传模型图标
 

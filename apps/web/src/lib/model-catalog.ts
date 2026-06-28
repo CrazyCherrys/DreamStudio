@@ -94,6 +94,14 @@ export interface PublicAiModel {
 }
 
 export interface AdminAiModel extends PublicAiModel {
+  management_summary: {
+    profile_count: number;
+    draft_revision_count: number;
+    active_revision_count: number;
+    latest_draft_profile_id: string | null;
+    latest_draft_revision_id: string | null;
+    has_default_active_profile: boolean;
+  };
   is_enabled: boolean;
   sort_order: number;
   created_at: string;
@@ -330,8 +338,37 @@ export function unfavoriteModel(modelId: string, csrfToken: string) {
   });
 }
 
-export function fetchAdminModels() {
-  return apiRequest<{ items: AdminAiModel[] }>('/api/v1/admin/models', {
+export function fetchAdminModels(
+  query: {
+    modality?: ModelModality;
+    endpoint_type?: ModelEndpointType;
+    q?: string;
+    enabled?: boolean;
+    recommended?: boolean;
+    missing_profile?: boolean;
+  } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.modality) {
+    params.set('modality', query.modality);
+  }
+  if (query.endpoint_type) {
+    params.set('endpoint_type', query.endpoint_type);
+  }
+  if (query.q) {
+    params.set('q', query.q);
+  }
+  if (query.enabled !== undefined) {
+    params.set('enabled', String(query.enabled));
+  }
+  if (query.recommended !== undefined) {
+    params.set('recommended', String(query.recommended));
+  }
+  if (query.missing_profile !== undefined) {
+    params.set('missing_profile', String(query.missing_profile));
+  }
+
+  return apiRequest<{ items: AdminAiModel[] }>(`/api/v1/admin/models${withQuery(params)}`, {
     cache: 'no-store',
   });
 }

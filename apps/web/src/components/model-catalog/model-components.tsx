@@ -82,7 +82,12 @@ const SOURCE_KINDS: ExecutionProfileSourceKind[] = [
   'third_party_docs',
   'imported_json',
 ];
+type ExecutionProfileManagerMode = 'configure' | 'release';
 type StudioQuickParameterKind = 'count' | 'ratio' | 'resolution';
+type ExecutionTemplatePreset =
+  | 'openai-image-generation-gpt-image-2'
+  | 'openai-responses-image-tool'
+  | 'gemini-interactions-image';
 
 interface StudioQuickParameterConfig {
   defaultField: ParameterSchemaField;
@@ -175,6 +180,68 @@ const STUDIO_QUICK_PARAMETER_CONFIGS: StudioQuickParameterConfig[] = [
     kind: 'resolution',
     slot: 'resolution',
     title: '分辨率',
+  },
+];
+
+const EXECUTION_TEMPLATE_PRESETS: Array<{
+  adapterKey: string;
+  description: string;
+  id: ExecutionTemplatePreset;
+  label: string;
+  profileDefaults: Pick<
+    ExecutionProfilePayload,
+    | 'adapter_key'
+    | 'operation'
+    | 'reference_transfer_mode'
+    | 'supports_reference_image'
+    | 'max_reference_images'
+    | 'upstream_endpoint_path'
+  > & { name: string };
+}> = [
+  {
+    id: 'openai-image-generation-gpt-image-2',
+    label: 'OpenAI Image generation',
+    description: '适合 `gpt-image-2` 与兼容 OpenAI Image API generation 的官方模型。',
+    adapterKey: 'openai_images_generation',
+    profileDefaults: {
+      name: 'OpenAI Image generation',
+      adapter_key: 'openai_images_generation',
+      operation: 'text_to_image',
+      reference_transfer_mode: 'none',
+      supports_reference_image: false,
+      max_reference_images: 0,
+      upstream_endpoint_path: '/v1/images/generations',
+    },
+  },
+  {
+    id: 'openai-responses-image-tool',
+    label: 'OpenAI Responses image',
+    description: '适合通过 `/v1/responses` + image tool 提交的官方图片模型。',
+    adapterKey: 'openai_responses_image',
+    profileDefaults: {
+      name: 'OpenAI Responses image',
+      adapter_key: 'openai_responses_image',
+      operation: 'text_to_image',
+      reference_transfer_mode: 'url',
+      supports_reference_image: true,
+      max_reference_images: 8,
+      upstream_endpoint_path: '/v1/responses',
+    },
+  },
+  {
+    id: 'gemini-interactions-image',
+    label: 'Gemini Interactions image',
+    description: '适合 `gemini-3-pro-image-preview` 及后续 Gemini 新官方图片模型。',
+    adapterKey: 'gemini_interactions_image',
+    profileDefaults: {
+      name: 'Gemini Interactions image',
+      adapter_key: 'gemini_interactions_image',
+      operation: 'text_to_image',
+      reference_transfer_mode: 'url',
+      supports_reference_image: true,
+      max_reference_images: 8,
+      upstream_endpoint_path: '/v1beta/interactions',
+    },
   },
 ];
 
@@ -676,6 +743,7 @@ export function ModelForm({
   );
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [iconError, setIconError] = useState<string | null>(null);
+  const [showFallbackSchema, setShowFallbackSchema] = useState(false);
 
   function patchForm(patch: Partial<AiModelPayload>) {
     setForm((current) => ({
@@ -886,25 +954,67 @@ export function ModelForm({
         </label>
       </div>
 
-      <label className="grid gap-2 text-sm font-bold">
-        <span>默认参数 JSON</span>
-        <textarea
-          className="ds-input min-h-28 py-3 font-mono text-xs"
-          onChange={(event) => setDefaultParamsJson(event.target.value)}
-          value={defaultParamsJson}
-        />
-      </label>
+      <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-black">模型级回退参数</h3>
+            <p className="ds-muted mt-1 text-sm leading-6">
+              `/studio` 优先读取默认 execution profile 的参数配置。这里仅保留给未完成 profile
+              配置时的兼容回退，不建议作为主配置入口。
+            </p>
+          </div>
+          <DsButton
+            onClick={() => setShowFallbackSchema((current) => !current)}
+            type="button"
+            variant="secondary"
+          >
+            {showFallbackSchema ? '收起兼容回退区' : '展开兼容回退区'}
+          </DsButton>
+        </div>
 
-      <StudioQuickParameterSettings
-        onChange={(parameterSchema) => patchForm({ parameter_schema: parameterSchema })}
-        schema={form.parameter_schema}
-      />
+        {showFallbackSchema ? (
+          <div className="grid gap-5">
+            <label className="grid gap-2 text-sm font-bold">
+              <span>默认参数 JSON</span>
+              <textarea
+                className="ds-input min-h-28 py-3 font-mono text-xs"
+                onChange={(event) => setDefaultParamsJson(event.target.value)}
+                value={defaultParamsJson}
+              />
+            </label>
 
-      <SchemaBuilder
-        onChange={(parameterSchema) => patchForm({ parameter_schema: parameterSchema })}
-        schema={form.parameter_schema}
-      />
-      <SchemaPreview schema={form.parameter_schema} />
+            <StudioQuickParameterSettings
+              onChange={(parameterSchema) => patchForm({ parameter_schema: parameterSchema })}
+              schema={form.parameter_schema}
+            />
+
+            <SchemaBuilder
+              onChange={(parameterSchema) => patchForm({ parameter_schema: parameterSchema })}
+              schema={form.parameter_schema}
+            />
+            <SchemaPreview schema={form.parameter_schema} />
+          </div>
+        ) : (
+          <div className="grid gap-2 text-sm md:grid-cols-3">
+            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3">
+              <p className="ds-muted text-xs">回退 Schema 字段</p>
+              <p className="mt-1 font-black">{form.parameter_schema.length}</p>
+            </div>
+            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3">
+              <p className="ds-muted text-xs">快捷参数</p>
+              <p className="mt-1 font-black">
+                {form.parameter_schema.filter((field) => field.ui?.group === 'quick').length}
+              </p>
+            </div>
+            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3">
+              <p className="ds-muted text-xs">默认参数键数</p>
+              <p className="mt-1 font-black">
+                {Object.keys(parseJsonObject(defaultParamsJson || '{}')).length}
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
 
       <DsButton className="w-fit" disabled={submitting} type="submit">
         {submitting ? '保存中...' : initialModel ? '保存模型' : '创建模型'}
@@ -915,10 +1025,12 @@ export function ModelForm({
 
 export function ExecutionProfileManager({
   csrfToken,
+  mode = 'configure',
   model,
   onChanged,
 }: {
   csrfToken: string | null;
+  mode?: ExecutionProfileManagerMode;
   model: AdminAiModel;
   onChanged: () => Promise<void>;
 }) {
@@ -939,11 +1051,20 @@ export function ExecutionProfileManager({
   const [profileError, setProfileError] = useState<string | null>(null);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<ExecutionTemplatePreset>(
+    'openai-image-generation-gpt-image-2',
+  );
+  const [showExpertProfileFields, setShowExpertProfileFields] = useState(false);
+  const [showRevisionJson, setShowRevisionJson] = useState(false);
 
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId) ?? null;
   const selectedRevision =
     selectedProfile?.revisions?.find((revision) => revision.id === selectedRevisionId) ?? null;
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
+  const selectedPreset =
+    EXECUTION_TEMPLATE_PRESETS.find((preset) => preset.id === selectedPresetId) ??
+    EXECUTION_TEMPLATE_PRESETS[0];
+  const hasUsableConfiguration = model.management_summary.has_default_active_profile;
 
   useEffect(() => {
     void loadProfiles();
@@ -958,6 +1079,13 @@ export function ExecutionProfileManager({
       setTemplateImportMode('template');
     }
   }, [selectedTemplate, templateImportMode]);
+
+  useEffect(() => {
+    if (selectedTemplateId) {
+      return;
+    }
+    setSelectedTemplateId(selectedPresetId);
+  }, [selectedPresetId, selectedTemplateId]);
 
   async function loadProfiles(preferredProfileId = selectedProfileId) {
     setLoadingProfiles(true);
@@ -981,6 +1109,7 @@ export function ExecutionProfileManager({
       setRevisionDraft(nextRevision ? revisionToPayload(nextRevision) : null);
       setRevisionJsonText(nextRevision ? formatRevisionExport(nextRevision) : '');
       setTemplateUpstreamModelId(nextProfile?.upstream_model_id ?? model.model_id);
+      setShowRevisionJson(false);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : '读取执行配置失败');
     } finally {
@@ -1016,7 +1145,7 @@ export function ExecutionProfileManager({
     try {
       const response = await fetchProfileTemplates();
       setTemplates(response.items);
-      setSelectedTemplateId((current) => current || response.items[0]?.id || '');
+      setSelectedTemplateId((current) => current || response.items[0]?.id || selectedPresetId);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : '读取 Profile 模板失败');
     }
@@ -1047,11 +1176,10 @@ export function ExecutionProfileManager({
       return;
     }
     await withProfileAction(async () => {
-      if (selectedProfile) {
-        await updateExecutionProfile(selectedProfile.id, profileDraft, csrfToken!);
-      } else {
-        await createExecutionProfile(model.id, profileDraft, csrfToken!);
-      }
+      const saved = selectedProfile
+        ? await updateExecutionProfile(selectedProfile.id, profileDraft, csrfToken!)
+        : await createExecutionProfile(model.id, profileDraft, csrfToken!);
+      setSelectedProfileId(saved.item.id);
     }, '执行配置已保存。');
   }
 
@@ -1087,7 +1215,53 @@ export function ExecutionProfileManager({
       setSelectedRevisionId(created.item.id);
       setRevisionDraft(revisionToPayload(created.item));
       setRevisionDiff(null);
+      setShowRevisionJson(false);
     }, '模板已导入为 Draft revision。');
+  }
+
+  async function createProfileFromPreset() {
+    if (!csrfToken) {
+      setProfileError('登录状态已失效，请重新登录');
+      return;
+    }
+    const template = templates.find((item) => item.id === selectedPreset.id);
+    if (!template) {
+      setProfileError('模板列表尚未加载完成，请稍后重试');
+      return;
+    }
+
+    const profilePayload = createProfileFromTemplatePreset(model, selectedPreset);
+    setSavingProfile(true);
+    setProfileMessage(null);
+    setProfileError(null);
+    try {
+      const createdProfile = await createExecutionProfile(model.id, profilePayload, csrfToken);
+      const createdRevision = await importProfileTemplateRevision(
+        createdProfile.item.id,
+        selectedPreset.id,
+        {
+          mode: 'template',
+          upstream_model_id: profilePayload.upstream_model_id,
+        },
+        csrfToken,
+      );
+      setSelectedProfileId(createdProfile.item.id);
+      setSelectedRevisionId(createdRevision.item.id);
+      setSelectedTemplateId(selectedPreset.id);
+      setProfileDraft(profileToPayload(createdProfile.item));
+      setRevisionDraft(revisionToPayload(createdRevision.item));
+      setRevisionJsonText(formatRevisionExport(createdRevision.item));
+      setTemplateUpstreamModelId(profilePayload.upstream_model_id ?? model.model_id);
+      setPreview(null);
+      setRevisionDiff(null);
+      setProfileMessage('已按模板创建默认 Profile，并生成首个 Draft revision。');
+      await onChanged();
+      await loadProfiles(createdProfile.item.id);
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : '模板向导创建失败');
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   async function importRevisionJson() {
@@ -1198,7 +1372,10 @@ export function ExecutionProfileManager({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-black">执行配置</h3>
-          <p className="ds-muted mt-1 text-sm">Profile 和 revision 发布后才会影响用户侧 Studio。</p>
+          <p className="ds-muted mt-1 text-sm">
+            Profile 和 revision 发布后才会影响用户侧 Studio。默认生图参数以默认 active revision
+            为准。
+          </p>
         </div>
         <DsButton onClick={() => void loadProfiles()} type="button" variant="secondary">
           刷新配置
@@ -1214,6 +1391,73 @@ export function ExecutionProfileManager({
         <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {profileError}
         </p>
+      ) : null}
+
+      {!hasUsableConfiguration ? (
+        <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface-raised)] p-4">
+          <div>
+            <h4 className="font-black">当前模型还没有可用默认 Profile</h4>
+            <p className="ds-muted mt-1 text-sm leading-6">
+              先选择一个官方模板，系统会自动创建默认 Profile 并导入首个 Draft
+              revision。之后再在下方继续检查和发布。
+            </p>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+            <label className="grid gap-2 text-sm font-bold">
+              <span>推荐模板</span>
+              <select
+                className="ds-input"
+                onChange={(event) => {
+                  const nextPresetId = event.target.value as ExecutionTemplatePreset;
+                  setSelectedPresetId(nextPresetId);
+                  setSelectedTemplateId(nextPresetId);
+                }}
+                value={selectedPresetId}
+              >
+                {EXECUTION_TEMPLATE_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <DsInput
+              label="upstream_model_id"
+              onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
+              value={templateUpstreamModelId}
+            />
+          </div>
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
+            <p className="font-black">{selectedPreset.label}</p>
+            <p className="ds-muted mt-2 leading-6">{selectedPreset.description}</p>
+            <p className="mt-3 text-xs font-semibold">
+              将创建：`{selectedPreset.profileDefaults.name}` / adapter `{selectedPreset.adapterKey}
+              `
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <DsButton
+              disabled={savingProfile}
+              onClick={() => void createProfileFromPreset()}
+              type="button"
+            >
+              {savingProfile ? '创建中...' : '一键生成默认 Profile'}
+            </DsButton>
+            <DsButton
+              disabled={savingProfile}
+              onClick={() => {
+                setSelectedProfileId(null);
+                setSelectedRevisionId(null);
+                setProfileDraft(emptyProfilePayload(model));
+                setRevisionDraft(null);
+              }}
+              type="button"
+              variant="secondary"
+            >
+              改为手动创建
+            </DsButton>
+          </div>
+        </section>
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
@@ -1236,6 +1480,9 @@ export function ExecutionProfileManager({
                 {profile.is_default ? <span>默认</span> : null}
                 {profile.is_enabled ? <span>启用</span> : <span>禁用</span>}
                 <span>{profile.revisions?.length ?? 0} rev</span>
+                {(profile.revisions ?? []).some((revision) => revision.status === 'draft') ? (
+                  <span>有 Draft</span>
+                ) : null}
               </span>
             </button>
           ))}
@@ -1258,8 +1505,22 @@ export function ExecutionProfileManager({
         <div className="grid gap-4">
           {profileDraft ? (
             <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
-              <h4 className="font-black">Profile</h4>
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-black">Profile</h4>
+                  <p className="ds-muted mt-1 text-sm">
+                    定义这条执行配置的默认 adapter、默认模型与参考图能力。
+                  </p>
+                </div>
+                <DsButton
+                  onClick={() => setShowExpertProfileFields((current) => !current)}
+                  type="button"
+                  variant="secondary"
+                >
+                  {showExpertProfileFields ? '收起专家字段' : '展开专家字段'}
+                </DsButton>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
                 <DsInput
                   label="名称"
                   onChange={(event) =>
@@ -1267,37 +1528,6 @@ export function ExecutionProfileManager({
                   }
                   value={profileDraft.name ?? ''}
                 />
-                <label className="grid gap-2 text-sm font-bold">
-                  <span>operation</span>
-                  <select
-                    className="ds-input"
-                    onChange={(event) =>
-                      setProfileDraft((current) => ({
-                        ...(current ?? {}),
-                        operation: event.target.value as ExecutionProfileOperation,
-                      }))
-                    }
-                    value={profileDraft.operation ?? 'text_to_image'}
-                  >
-                    {EXECUTION_OPERATIONS.map((operation) => (
-                      <option key={operation} value={operation}>
-                        {operation}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <DsInput
-                  label="adapter_key"
-                  onChange={(event) =>
-                    setProfileDraft((current) => ({
-                      ...(current ?? {}),
-                      adapter_key: event.target.value,
-                    }))
-                  }
-                  value={profileDraft.adapter_key ?? ''}
-                />
-              </div>
-              <div className="grid gap-3 md:grid-cols-4">
                 <DsInput
                   label="upstream_model_id"
                   onChange={(event) =>
@@ -1342,7 +1572,87 @@ export function ExecutionProfileManager({
                   />
                   默认
                 </label>
+                <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 text-sm font-black">
+                  <input
+                    checked={profileDraft.is_enabled !== false}
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        is_enabled: event.target.checked,
+                      }))
+                    }
+                    type="checkbox"
+                  />
+                  启用
+                </label>
               </div>
+              <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 md:grid-cols-3">
+                <InfoPill label="Adapter" value={profileDraft.adapter_key ?? '-'} />
+                <InfoPill
+                  label="Reference mode"
+                  value={profileDraft.reference_transfer_mode ?? '-'}
+                />
+                <InfoPill
+                  label="Quick params"
+                  value={String(
+                    (profileDraft.parameter_schema ?? []).filter(
+                      (field) => field.ui?.group === 'quick',
+                    ).length,
+                  )}
+                />
+              </div>
+              {showExpertProfileFields ? (
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="grid gap-2 text-sm font-bold">
+                    <span>operation</span>
+                    <select
+                      className="ds-input"
+                      onChange={(event) =>
+                        setProfileDraft((current) => ({
+                          ...(current ?? {}),
+                          operation: event.target.value as ExecutionProfileOperation,
+                        }))
+                      }
+                      value={profileDraft.operation ?? 'text_to_image'}
+                    >
+                      {EXECUTION_OPERATIONS.map((operation) => (
+                        <option key={operation} value={operation}>
+                          {operation}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <DsInput
+                    label="adapter_key"
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        adapter_key: event.target.value,
+                      }))
+                    }
+                    value={profileDraft.adapter_key ?? ''}
+                  />
+                  <label className="grid gap-2 text-sm font-bold">
+                    <span>reference_transfer_mode</span>
+                    <select
+                      className="ds-input"
+                      onChange={(event) =>
+                        setProfileDraft((current) => ({
+                          ...(current ?? {}),
+                          reference_transfer_mode: event.target.value as ReferenceTransferMode,
+                        }))
+                      }
+                      value={profileDraft.reference_transfer_mode ?? 'none'}
+                    >
+                      {TRANSFER_MODES.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <DsButton disabled={savingProfile} onClick={saveProfile} type="button">
                   保存 Profile
@@ -1428,30 +1738,48 @@ export function ExecutionProfileManager({
 
           {selectedProfile ? (
             <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
-              <h4 className="font-black">Revision JSON</h4>
-              <textarea
-                className="ds-input min-h-52 py-3 font-mono text-xs"
-                onChange={(event) => setRevisionJsonText(event.target.value)}
-                value={revisionJsonText}
-              />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-black">Revision JSON</h4>
+                  <p className="ds-muted mt-1 text-sm">
+                    专家模式下可直接导入或导出完整 revision JSON。
+                  </p>
+                </div>
                 <DsButton
-                  disabled={savingProfile || !selectedRevision}
-                  onClick={exportSelectedRevisionJson}
+                  onClick={() => setShowRevisionJson((current) => !current)}
                   type="button"
                   variant="secondary"
                 >
-                  导出当前 Revision
-                </DsButton>
-                <DsButton
-                  disabled={savingProfile || !revisionJsonText.trim()}
-                  onClick={importRevisionJson}
-                  type="button"
-                  variant="secondary"
-                >
-                  导入为 Draft
+                  {showRevisionJson ? '收起 JSON' : '展开 JSON'}
                 </DsButton>
               </div>
+              {showRevisionJson ? (
+                <>
+                  <textarea
+                    className="ds-input min-h-52 py-3 font-mono text-xs"
+                    onChange={(event) => setRevisionJsonText(event.target.value)}
+                    value={revisionJsonText}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <DsButton
+                      disabled={savingProfile || !selectedRevision}
+                      onClick={exportSelectedRevisionJson}
+                      type="button"
+                      variant="secondary"
+                    >
+                      导出当前 Revision
+                    </DsButton>
+                    <DsButton
+                      disabled={savingProfile || !revisionJsonText.trim()}
+                      onClick={importRevisionJson}
+                      type="button"
+                      variant="secondary"
+                    >
+                      导入为 Draft
+                    </DsButton>
+                  </div>
+                </>
+              ) : null}
             </div>
           ) : null}
 
@@ -1478,6 +1806,7 @@ export function ExecutionProfileManager({
             <RevisionEditor
               disabled={savingProfile}
               draft={revisionDraft}
+              mode={mode}
               onDiff={loadRevisionDiff}
               onAction={runRevisionAction}
               onChange={setRevisionDraft}
@@ -1623,6 +1952,7 @@ export function ModelSyncSnapshotPanel({
 function RevisionEditor({
   disabled,
   draft,
+  mode,
   onDiff,
   onAction,
   onChange,
@@ -1633,6 +1963,7 @@ function RevisionEditor({
 }: {
   disabled: boolean;
   draft: ExecutionProfileRevisionPayload;
+  mode: ExecutionProfileManagerMode;
   onDiff: () => Promise<void>;
   onAction: (kind: 'lint' | 'preview' | 'test' | 'activate') => Promise<void>;
   onChange: (draft: ExecutionProfileRevisionPayload) => void;
@@ -1641,6 +1972,14 @@ function RevisionEditor({
   revisionDiff: ExecutionProfileRevisionDiffResult | null;
   revision: AdminExecutionProfileRevision;
 }) {
+  const [showExpertDraftFields, setShowExpertDraftFields] = useState(mode === 'configure');
+
+  useEffect(() => {
+    if (mode === 'release') {
+      setShowExpertDraftFields(false);
+    }
+  }, [mode]);
+
   function patch(patchDraft: Partial<ExecutionProfileRevisionPayload>) {
     onChange({
       ...draft,
@@ -1651,9 +1990,16 @@ function RevisionEditor({
   return (
     <div className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h4 className="font-black">
-          Revision r{revision.revision_no} / {revision.status}
-        </h4>
+        <div>
+          <h4 className="font-black">
+            Revision r{revision.revision_no} / {revision.status}
+          </h4>
+          <p className="ds-muted mt-1 text-sm">
+            {mode === 'release'
+              ? '优先检查 lint、请求预览、diff、dry run 和发布阻塞项。'
+              : '默认维护快捷参数和默认参数，原始 JSON 收在专家字段里。'}
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <DsButton
             disabled={disabled || revision.status !== 'draft'}
@@ -1697,70 +2043,29 @@ function RevisionEditor({
           <DsButton disabled={disabled} onClick={() => void onAction('activate')} type="button">
             发布
           </DsButton>
+          <DsButton
+            onClick={() => setShowExpertDraftFields((current) => !current)}
+            type="button"
+            variant="secondary"
+          >
+            {showExpertDraftFields ? '收起专家字段' : '展开专家字段'}
+          </DsButton>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <label className="grid gap-2 text-sm font-bold">
-          <span>source_kind</span>
-          <select
-            className="ds-input"
-            disabled={revision.status !== 'draft'}
-            onChange={(event) =>
-              patch({ source_kind: event.target.value as ExecutionProfileSourceKind })
-            }
-            value={draft.source_kind ?? 'manual'}
-          >
-            {SOURCE_KINDS.map((kind) => (
-              <option key={kind} value={kind}>
-                {kind}
-              </option>
-            ))}
-          </select>
-        </label>
-        <DsInput
-          disabled={revision.status !== 'draft'}
-          label="adapter_key"
-          onChange={(event) => patch({ adapter_key: event.target.value })}
-          value={draft.adapter_key ?? ''}
+      <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 md:grid-cols-4">
+        <InfoPill label="Adapter" value={draft.adapter_key ?? '-'} />
+        <InfoPill label="Model" value={draft.upstream_model_id ?? '-'} />
+        <InfoPill
+          label="Quick params"
+          value={String(
+            (draft.parameter_schema ?? []).filter((field) => field.ui?.group === 'quick').length,
+          )}
         />
-        <DsInput
-          disabled={revision.status !== 'draft'}
-          label="upstream_model_id"
-          onChange={(event) => patch({ upstream_model_id: event.target.value })}
-          value={draft.upstream_model_id ?? ''}
-        />
-        <DsInput
-          disabled={revision.status !== 'draft'}
-          label="endpoint_path"
-          onChange={(event) => patch({ upstream_endpoint_path: event.target.value || null })}
-          value={draft.upstream_endpoint_path ?? ''}
-        />
+        <InfoPill label="Parser" value={draft.response_parser_key ?? '-'} />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <DsInput
-          disabled={revision.status !== 'draft'}
-          label="source_url"
-          onChange={(event) => patch({ source_url: event.target.value || null })}
-          value={draft.source_url ?? ''}
-        />
-        <DsInput
-          disabled={revision.status !== 'draft'}
-          label="source_checked_at"
-          onChange={(event) => patch({ source_checked_at: event.target.value || null })}
-          type="datetime-local"
-          value={formatDateTimeLocal(draft.source_checked_at)}
-        />
-        <DsInput
-          disabled={revision.status !== 'draft'}
-          label="response_parser_key"
-          onChange={(event) => patch({ response_parser_key: event.target.value })}
-          value={draft.response_parser_key ?? ''}
-        />
-      </div>
-
-      <SchemaBuilder
+      <StudioQuickParameterSettings
         onChange={(parameterSchema) => patch({ parameter_schema: parameterSchema })}
         schema={draft.parameter_schema ?? []}
       />
@@ -1772,56 +2077,36 @@ function RevisionEditor({
           onChange={(value) => patch({ default_params: value })}
           value={draft.default_params ?? {}}
         />
-        <JsonEditor
-          disabled={revision.status !== 'draft'}
-          label="request_mapping"
-          onChange={(value) => patch({ request_mapping: value })}
-          value={draft.request_mapping ?? {}}
-        />
-        <JsonEditor
-          disabled={revision.status !== 'draft'}
-          label="capabilities"
-          onChange={(value) => patch({ capabilities: value })}
-          value={draft.capabilities ?? {}}
-        />
-        <JsonEditor
-          disabled={revision.status !== 'draft'}
-          label="validation_rules"
-          onChange={(value) => patch({ validation_rules: value })}
-          value={draft.validation_rules ?? {}}
-        />
-      </div>
-
-      <label className="grid gap-2 text-sm font-bold">
-        <span>change_summary</span>
-        <textarea
-          className="ds-input min-h-20 py-3"
-          disabled={revision.status !== 'draft'}
-          onChange={(event) => patch({ change_summary: event.target.value || null })}
-          value={draft.change_summary ?? ''}
-        />
-      </label>
-
-      {preview ? (
-        <div className="grid gap-2">
-          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-3 text-xs font-semibold">
-            Runtime {preview.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
-            {preview.publishable ? 'publishable' : 'blocked'} · parser {preview.parser_key}
-          </div>
-          {preview.publish_blockers.length > 0 ? (
-            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface)] p-3 text-xs font-semibold text-[var(--ds-danger)]">
-              {preview.publish_blockers.map((blocker) => (
-                <p key={`${blocker.field}-${blocker.message}`}>
-                  {blocker.field}: {blocker.message}
-                </p>
-              ))}
+        {preview ? (
+          <div className="grid gap-2 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+            <div className="text-xs font-semibold">
+              Runtime {preview.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
+              {preview.publishable ? 'publishable' : 'blocked'} · parser {preview.parser_key}
             </div>
-          ) : null}
-          <pre className="max-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-xs">
-            {JSON.stringify(preview, null, 2)}
-          </pre>
-        </div>
-      ) : null}
+            {preview.publish_blockers.length > 0 ? (
+              <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] p-3 text-xs font-semibold text-[var(--ds-danger)]">
+                {preview.publish_blockers.map((blocker) => (
+                  <p key={`${blocker.field}-${blocker.message}`}>
+                    {blocker.field}: {blocker.message}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-semibold text-[var(--ds-success)]">当前没有发布阻塞项。</p>
+            )}
+            <pre className="max-h-64 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3 text-xs">
+              {JSON.stringify(preview, null, 2)}
+            </pre>
+          </div>
+        ) : (
+          <div className="rounded-[var(--ds-radius-sm)] border border-dashed border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
+            <p className="font-black">发布检查摘要</p>
+            <p className="ds-muted mt-2 leading-6">
+              先执行 `Lint`、`预览请求`、`Diff`、`Dry run`。请求预览结果会显示在这里。
+            </p>
+          </div>
+        )}
+      </div>
 
       {revisionDiff ? (
         <div className="grid gap-2">
@@ -1845,6 +2130,106 @@ function RevisionEditor({
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {showExpertDraftFields ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-4">
+            <label className="grid gap-2 text-sm font-bold">
+              <span>source_kind</span>
+              <select
+                className="ds-input"
+                disabled={revision.status !== 'draft'}
+                onChange={(event) =>
+                  patch({ source_kind: event.target.value as ExecutionProfileSourceKind })
+                }
+                value={draft.source_kind ?? 'manual'}
+              >
+                {SOURCE_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {kind}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <DsInput
+              disabled={revision.status !== 'draft'}
+              label="adapter_key"
+              onChange={(event) => patch({ adapter_key: event.target.value })}
+              value={draft.adapter_key ?? ''}
+            />
+            <DsInput
+              disabled={revision.status !== 'draft'}
+              label="upstream_model_id"
+              onChange={(event) => patch({ upstream_model_id: event.target.value })}
+              value={draft.upstream_model_id ?? ''}
+            />
+            <DsInput
+              disabled={revision.status !== 'draft'}
+              label="endpoint_path"
+              onChange={(event) => patch({ upstream_endpoint_path: event.target.value || null })}
+              value={draft.upstream_endpoint_path ?? ''}
+            />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <DsInput
+              disabled={revision.status !== 'draft'}
+              label="source_url"
+              onChange={(event) => patch({ source_url: event.target.value || null })}
+              value={draft.source_url ?? ''}
+            />
+            <DsInput
+              disabled={revision.status !== 'draft'}
+              label="source_checked_at"
+              onChange={(event) => patch({ source_checked_at: event.target.value || null })}
+              type="datetime-local"
+              value={formatDateTimeLocal(draft.source_checked_at)}
+            />
+            <DsInput
+              disabled={revision.status !== 'draft'}
+              label="response_parser_key"
+              onChange={(event) => patch({ response_parser_key: event.target.value })}
+              value={draft.response_parser_key ?? ''}
+            />
+          </div>
+
+          <SchemaBuilder
+            onChange={(parameterSchema) => patch({ parameter_schema: parameterSchema })}
+            schema={draft.parameter_schema ?? []}
+          />
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <JsonEditor
+              disabled={revision.status !== 'draft'}
+              label="request_mapping"
+              onChange={(value) => patch({ request_mapping: value })}
+              value={draft.request_mapping ?? {}}
+            />
+            <JsonEditor
+              disabled={revision.status !== 'draft'}
+              label="capabilities"
+              onChange={(value) => patch({ capabilities: value })}
+              value={draft.capabilities ?? {}}
+            />
+            <JsonEditor
+              disabled={revision.status !== 'draft'}
+              label="validation_rules"
+              onChange={(value) => patch({ validation_rules: value })}
+              value={draft.validation_rules ?? {}}
+            />
+          </div>
+
+          <label className="grid gap-2 text-sm font-bold">
+            <span>change_summary</span>
+            <textarea
+              className="ds-input min-h-20 py-3"
+              disabled={revision.status !== 'draft'}
+              onChange={(event) => patch({ change_summary: event.target.value || null })}
+              value={draft.change_summary ?? ''}
+            />
+          </label>
+        </>
       ) : null}
     </div>
   );
@@ -1878,6 +2263,15 @@ function JsonEditor({
         value={text}
       />
     </label>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3">
+      <p className="ds-muted text-xs">{label}</p>
+      <p className="mt-1 break-all font-black">{value}</p>
+    </div>
   );
 }
 
@@ -2093,6 +2487,40 @@ function parseSchemaOptionLines(rawValue: string): ParameterSchemaOption[] {
         value: value.trim(),
       };
     });
+}
+
+function createProfileFromTemplatePreset(
+  model: AdminAiModel,
+  preset: (typeof EXECUTION_TEMPLATE_PRESETS)[number],
+): ExecutionProfilePayload {
+  const responseParserKey =
+    preset.id === 'openai-responses-image-tool'
+      ? 'openai_responses_image_generation_call'
+      : preset.id === 'gemini-interactions-image'
+        ? 'gemini_inline_data'
+        : 'openai_image_data';
+
+  return {
+    name: preset.profileDefaults.name,
+    operation: preset.profileDefaults.operation,
+    adapter_key: preset.profileDefaults.adapter_key,
+    adapter_version: '1',
+    transport_key: 'new_api_bearer',
+    upstream_model_id: model.model_id,
+    upstream_endpoint_path: preset.profileDefaults.upstream_endpoint_path,
+    reference_transfer_mode: preset.profileDefaults.reference_transfer_mode,
+    supports_reference_image: preset.profileDefaults.supports_reference_image,
+    max_reference_images: preset.profileDefaults.max_reference_images,
+    parameter_schema: [],
+    default_params: {},
+    request_mapping: {},
+    response_parser_key: responseParserKey,
+    capabilities: {},
+    validation_rules: {},
+    is_default: true,
+    is_enabled: true,
+    sort_order: 0,
+  };
 }
 
 function emptyProfilePayload(model: AdminAiModel): ExecutionProfilePayload {

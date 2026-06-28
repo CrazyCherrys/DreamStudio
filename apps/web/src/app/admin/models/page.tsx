@@ -1,13 +1,14 @@
 'use client';
 
-import { Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { Pencil, Plus, RefreshCw, Star, Trash2, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { AdminConfirmDialog, AdminDialog } from '@/components/admin-dialog';
 import { useAuth } from '@/components/auth-provider';
 import { AdminLayout } from '@/components/layouts';
 import { ExecutionProfileManager, ModelForm } from '@/components/model-catalog/model-components';
 import { RouteGuard } from '@/components/route-guard';
-import { DsButton } from '@/components/ui';
+import { DsButton, DsInput } from '@/components/ui';
 import { ApiClientError } from '@/lib/auth';
 import {
   createAdminModel,
@@ -19,33 +20,80 @@ import {
   updateAdminModel,
   type AdminAiModel,
   type AiModelPayload,
+  type ModelEndpointType,
+  type ModelModality,
 } from '@/lib/model-catalog';
+
+type ModelEditorStep = 'basic' | 'execution' | 'release';
+
+const ENDPOINT_FILTERS: Array<{ label: string; value: ModelEndpointType | '' }> = [
+  { label: '全部端点', value: '' },
+  { label: 'OpenAI Image', value: 'openai_image_generations' },
+  { label: 'OpenAI Edit', value: 'openai_image_edits' },
+  { label: 'OpenAI Responses', value: 'openai_responses_image' },
+  { label: 'Gemini Interactions', value: 'gemini_interactions_image' },
+  { label: 'Gemini Legacy', value: 'gemini_generate_content' },
+];
+
+const MODALITY_FILTERS: Array<{ label: string; value: ModelModality | '' }> = [
+  { label: '全部类型', value: '' },
+  { label: '图片', value: 'image' },
+  { label: '聊天', value: 'chat' },
+  { label: '视频', value: 'video' },
+];
 
 function AdminModelsContent() {
   const { csrfToken } = useAuth();
   const [models, setModels] = useState<AdminAiModel[]>([]);
   const [editingModel, setEditingModel] = useState<AdminAiModel | null>(null);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const [modelDialogStep, setModelDialogStep] = useState<ModelEditorStep>('basic');
   const [deleteTarget, setDeleteTarget] = useState<AdminAiModel | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [filters, setFilters] = useState<{
+    q: string;
+    modality: ModelModality | '';
+    endpoint_type: ModelEndpointType | '';
+    enabled: '' | 'true' | 'false';
+    recommended: '' | 'true' | 'false';
+    missing_profile: '' | 'true';
+  }>({
+    q: '',
+    modality: 'image',
+    endpoint_type: '',
+    enabled: '',
+    recommended: '',
+    missing_profile: '',
+  });
 
   const enabledModelCount = useMemo(
     () => models.filter((model) => model.is_enabled).length,
     [models],
   );
   const missingProfileCount = useMemo(
-    () => models.filter((model) => !model.default_execution_profile).length,
+    () => models.filter((model) => !model.management_summary.has_default_active_profile).length,
+    [models],
+  );
+  const draftRevisionCount = useMemo(
+    () => models.reduce((total, model) => total + model.management_summary.draft_revision_count, 0),
     [models],
   );
 
-  async function loadData() {
+  async function loadData(nextFilters = filters) {
     setLoading(true);
     setError(null);
     try {
-      const nextModels = await fetchAdminModels();
+      const nextModels = await fetchAdminModels({
+        ...(nextFilters.q.trim() ? { q: nextFilters.q.trim() } : {}),
+        ...(nextFilters.modality ? { modality: nextFilters.modality } : {}),
+        ...(nextFilters.endpoint_type ? { endpoint_type: nextFilters.endpoint_type } : {}),
+        ...(nextFilters.enabled ? { enabled: nextFilters.enabled === 'true' } : {}),
+        ...(nextFilters.recommended ? { recommended: nextFilters.recommended === 'true' } : {}),
+        ...(nextFilters.missing_profile ? { missing_profile: true } : {}),
+      });
       setModels(nextModels.items);
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '读取模型目录失败');
@@ -58,8 +106,25 @@ function AdminModelsContent() {
     void loadData();
   }, []);
 
+  function patchFilters(
+    patch: Partial<{
+      q: string;
+      modality: ModelModality | '';
+      endpoint_type: ModelEndpointType | '';
+      enabled: '' | 'true' | 'false';
+      recommended: '' | 'true' | 'false';
+      missing_profile: '' | 'true';
+    }>,
+  ) {
+    setFilters((current) => ({
+      ...current,
+      ...patch,
+    }));
+  }
+
   function openNewModelDialog() {
     setEditingModel(null);
+    setModelDialogStep('basic');
     setModelDialogOpen(true);
     setMessage(null);
     setError(null);
@@ -67,6 +132,15 @@ function AdminModelsContent() {
 
   function openEditModelDialog(model: AdminAiModel) {
     setEditingModel(model);
+    setModelDialogStep('basic');
+    setModelDialogOpen(true);
+    setMessage(null);
+    setError(null);
+  }
+
+  function openConfigureModelDialog(model: AdminAiModel) {
+    setEditingModel(model);
+    setModelDialogStep('execution');
     setModelDialogOpen(true);
     setMessage(null);
     setError(null);
@@ -87,28 +161,54 @@ function AdminModelsContent() {
     setError(null);
   }
 
-  async function saveModel(payload: AiModelPayload) {
+  async function saveModel(payload: AiModelPayload): Promise<AdminAiModel | null> {
     if (!csrfToken) {
       setError('登录状态已失效，请重新登录');
-      return;
+      return null;
     }
 
     setSubmitting(true);
     setMessage(null);
     setError(null);
     try {
+      let saved: AdminAiModel;
       if (editingModel) {
-        await updateAdminModel(editingModel.id, payload, csrfToken);
+        const result = await updateAdminModel(editingModel.id, payload, csrfToken);
+        saved = result.item;
         setMessage('模型已保存。');
       } else {
-        await createAdminModel(payload, csrfToken);
-        setMessage('模型已创建。');
+        const result = await createAdminModel(payload, csrfToken);
+        saved = result.item;
+        setMessage('模型已创建，请继续配置执行配置。');
       }
-      setModelDialogOpen(false);
-      setEditingModel(null);
+      setEditingModel(saved);
       await loadData();
+      return saved;
     } catch (requestError) {
       setError(requestError instanceof ApiClientError ? requestError.message : '保存模型失败');
+      return null;
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function patchModel(model: AdminAiModel, patch: Partial<AiModelPayload>, success: string) {
+    if (!csrfToken) {
+      setError('登录状态已失效，请重新登录');
+      return;
+    }
+    setSubmitting(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await updateAdminModel(model.id, patch, csrfToken);
+      setMessage(success);
+      setModels((current) => current.map((item) => (item.id === model.id ? result.item : item)));
+      if (editingModel?.id === model.id) {
+        setEditingModel(result.item);
+      }
+    } catch (requestError) {
+      setError(requestError instanceof ApiClientError ? requestError.message : '更新模型失败');
     } finally {
       setSubmitting(false);
     }
@@ -144,11 +244,17 @@ function AdminModelsContent() {
             <span className="ds-badge">Catalog</span>
             <h2 className="mt-4 text-2xl font-black">模型目录</h2>
             <p className="ds-muted mt-2 max-w-3xl text-sm leading-6">
-              管理已添加到 DreamStudio 的模型、参数 Schema 和执行配置。
+              先用列表管理状态，再在弹窗里分步完成基础信息、执行配置和发布检查。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <DsButton className="gap-2" onClick={loadData} type="button" variant="secondary">
+            <DsButton
+              className="gap-2"
+              disabled={loading}
+              onClick={() => void loadData()}
+              type="button"
+              variant="secondary"
+            >
               <RefreshCw aria-hidden="true" size={16} />
               刷新
             </DsButton>
@@ -159,11 +265,98 @@ function AdminModelsContent() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 text-sm font-black md:grid-cols-3">
+        <div className="mt-5 grid gap-3 text-sm font-black md:grid-cols-4">
           <StatusSummary label="已添加模型" value={models.length} />
           <StatusSummary label="启用模型" value={enabledModelCount} />
           <StatusSummary label="缺默认 Profile" value={missingProfileCount} tone="warning" />
+          <StatusSummary label="待发布 Draft" value={draftRevisionCount} tone="warning" />
         </div>
+
+        <form
+          className="mt-5 grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] p-4 md:grid-cols-[minmax(0,1.4fr)_180px_220px_160px_160px_auto_auto]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void loadData();
+          }}
+        >
+          <DsInput
+            label="搜索"
+            onChange={(event) => patchFilters({ q: event.target.value })}
+            placeholder="模型 ID / 展示名 / 厂商"
+            value={filters.q}
+          />
+          <label className="grid gap-2 text-sm font-bold">
+            <span>类型</span>
+            <select
+              className="ds-input"
+              onChange={(event) =>
+                patchFilters({ modality: event.target.value as ModelModality | '' })
+              }
+              value={filters.modality}
+            >
+              {MODALITY_FILTERS.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-bold">
+            <span>端点标签</span>
+            <select
+              className="ds-input"
+              onChange={(event) =>
+                patchFilters({ endpoint_type: event.target.value as ModelEndpointType | '' })
+              }
+              value={filters.endpoint_type}
+            >
+              {ENDPOINT_FILTERS.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-bold">
+            <span>启用状态</span>
+            <select
+              className="ds-input"
+              onChange={(event) =>
+                patchFilters({ enabled: event.target.value as '' | 'true' | 'false' })
+              }
+              value={filters.enabled}
+            >
+              <option value="">全部</option>
+              <option value="true">仅启用</option>
+              <option value="false">仅禁用</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-bold">
+            <span>推荐状态</span>
+            <select
+              className="ds-input"
+              onChange={(event) =>
+                patchFilters({ recommended: event.target.value as '' | 'true' | 'false' })
+              }
+              value={filters.recommended}
+            >
+              <option value="">全部</option>
+              <option value="true">仅推荐</option>
+              <option value="false">仅非推荐</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-black">
+            <input
+              checked={filters.missing_profile === 'true'}
+              onChange={(event) =>
+                patchFilters({ missing_profile: event.target.checked ? 'true' : '' })
+              }
+              type="checkbox"
+            />
+            只看缺 Profile
+          </label>
+          <DsButton type="submit">查询</DsButton>
+        </form>
 
         {message ? (
           <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
@@ -180,16 +373,35 @@ function AdminModelsContent() {
           {loading ? <p className="ds-muted font-semibold">正在读取模型目录...</p> : null}
           {!loading && models.length === 0 ? (
             <div className="rounded-[var(--ds-radius-sm)] border border-dashed border-[var(--ds-border-strong)] bg-[var(--ds-surface-muted)] p-6">
-              <h3 className="text-lg font-black">暂无模型</h3>
+              <h3 className="text-lg font-black">暂无匹配模型</h3>
               <p className="ds-muted mt-2 text-sm leading-6">
-                添加第一个模型后，Studio 才能展示对应的模型和快捷参数。
+                可以直接创建模型，或者调整筛选条件查看已存在记录。
               </p>
-              <DsButton className="mt-4 gap-2" onClick={openNewModelDialog} type="button">
-                <Plus aria-hidden="true" size={16} />
-                新增模型
-              </DsButton>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <DsButton className="gap-2" onClick={openNewModelDialog} type="button">
+                  <Plus aria-hidden="true" size={16} />
+                  新增模型
+                </DsButton>
+                <DsButton
+                  onClick={() =>
+                    setFilters({
+                      q: '',
+                      modality: 'image',
+                      endpoint_type: '',
+                      enabled: '',
+                      recommended: '',
+                      missing_profile: '',
+                    })
+                  }
+                  type="button"
+                  variant="secondary"
+                >
+                  重置筛选
+                </DsButton>
+              </div>
             </div>
           ) : null}
+
           {models.map((model) => (
             <article
               className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 xl:grid-cols-[minmax(0,1fr)_auto]"
@@ -220,63 +432,65 @@ function AdminModelsContent() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs font-black">
-                    <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-2 py-1">
+                    <StatusChip tone={model.is_enabled ? 'neutral' : 'warning'}>
                       {model.is_enabled ? '启用' : '禁用'}
-                    </span>
-                    {model.is_recommended ? (
-                      <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-2 py-1 text-[var(--ds-success)]">
-                        推荐
-                      </span>
-                    ) : null}
-                    <span
-                      className={`rounded-[var(--ds-radius-sm)] border bg-[var(--ds-surface-raised)] px-2 py-1 ${
-                        model.default_execution_profile
-                          ? 'border-[var(--ds-success)]/30 text-[var(--ds-success)]'
-                          : 'border-[var(--ds-danger)]/30 text-[var(--ds-danger)]'
-                      }`}
+                    </StatusChip>
+                    {model.is_recommended ? <StatusChip tone="success">推荐</StatusChip> : null}
+                    <StatusChip
+                      tone={
+                        model.management_summary.has_default_active_profile ? 'success' : 'danger'
+                      }
                     >
-                      {model.default_execution_profile ? 'Profile 可用' : '缺默认 Profile'}
-                    </span>
+                      {model.management_summary.has_default_active_profile
+                        ? 'Profile 可用'
+                        : '缺默认 Profile'}
+                    </StatusChip>
+                    {model.management_summary.draft_revision_count > 0 ? (
+                      <StatusChip tone="warning">
+                        {model.management_summary.draft_revision_count} 个 Draft
+                      </StatusChip>
+                    ) : null}
                   </div>
                 </div>
-                <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-3">
-                  <div>
-                    <dt className="ds-muted font-semibold">类型</dt>
-                    <dd className="font-black">{modalityLabel(model.modality)}</dd>
-                  </div>
-                  <div>
-                    <dt className="ds-muted font-semibold">端点</dt>
-                    <dd className="font-black">
-                      {model.endpoint_types.map(endpointTypeLabel).join(' / ')}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="ds-muted font-semibold">参考图</dt>
-                    <dd className="font-black">
-                      {transferModeLabel(model.reference_transfer_mode)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="ds-muted font-semibold">Schema 字段</dt>
-                    <dd className="font-black">{model.parameter_schema.length}</dd>
-                  </div>
-                  <div>
-                    <dt className="ds-muted font-semibold">默认执行 Profile</dt>
-                    <dd className="font-black">
-                      {model.default_execution_profile
+                <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-4">
+                  <Info label="类型" value={modalityLabel(model.modality)} />
+                  <Info
+                    label="端点标签"
+                    value={model.endpoint_types.map(endpointTypeLabel).join(' / ') || '无'}
+                  />
+                  <Info label="参考图" value={transferModeLabel(model.reference_transfer_mode)} />
+                  <Info label="Profile 数" value={String(model.management_summary.profile_count)} />
+                  <Info
+                    label="默认执行 Profile"
+                    value={
+                      model.default_execution_profile
                         ? `${model.default_execution_profile.adapter_key} / ${model.default_execution_profile.operation}`
-                        : '未配置 active revision'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="ds-muted font-semibold">Profile Schema 字段</dt>
-                    <dd className="font-black">
-                      {model.default_execution_profile?.parameter_schema.length ?? 0}
-                    </dd>
-                  </div>
+                        : '未配置 active revision'
+                    }
+                  />
+                  <Info
+                    label="快捷参数来源"
+                    value={
+                      model.default_execution_profile
+                        ? `${model.default_execution_profile.parameter_schema.length} 个 profile 字段`
+                        : `${model.parameter_schema.length} 个模型回退字段`
+                    }
+                  />
+                  <Info
+                    label="待处理 Draft"
+                    value={
+                      model.management_summary.draft_revision_count > 0
+                        ? `${model.management_summary.draft_revision_count} 个待发布`
+                        : '无'
+                    }
+                  />
+                  <Info
+                    label="活跃 Revision"
+                    value={String(model.management_summary.active_revision_count)}
+                  />
                 </dl>
               </div>
-              <div className="flex flex-wrap gap-2 xl:grid xl:min-w-28 xl:content-start">
+              <div className="flex flex-wrap gap-2 xl:grid xl:min-w-40 xl:content-start">
                 <DsButton
                   className="gap-2"
                   onClick={() => openEditModelDialog(model)}
@@ -285,6 +499,46 @@ function AdminModelsContent() {
                 >
                   <Pencil aria-hidden="true" size={16} />
                   编辑
+                </DsButton>
+                <DsButton
+                  className="gap-2"
+                  onClick={() => openConfigureModelDialog(model)}
+                  type="button"
+                  variant="secondary"
+                >
+                  <Wrench aria-hidden="true" size={16} />
+                  {model.management_summary.has_default_active_profile ? '继续配置' : '补执行配置'}
+                </DsButton>
+                <DsButton
+                  className="gap-2"
+                  disabled={submitting}
+                  onClick={() =>
+                    void patchModel(
+                      model,
+                      { is_enabled: !model.is_enabled },
+                      model.is_enabled ? '模型已禁用。' : '模型已启用。',
+                    )
+                  }
+                  type="button"
+                  variant="secondary"
+                >
+                  {model.is_enabled ? '禁用' : '启用'}
+                </DsButton>
+                <DsButton
+                  className="gap-2"
+                  disabled={submitting}
+                  onClick={() =>
+                    void patchModel(
+                      model,
+                      { is_recommended: !model.is_recommended },
+                      model.is_recommended ? '已取消推荐。' : '已设为推荐。',
+                    )
+                  }
+                  type="button"
+                  variant="secondary"
+                >
+                  <Star aria-hidden="true" size={16} />
+                  {model.is_recommended ? '取消推荐' : '设为推荐'}
                 </DsButton>
                 <DsButton
                   className="gap-2"
@@ -305,8 +559,18 @@ function AdminModelsContent() {
         <ModelEditorDialog
           csrfToken={csrfToken}
           error={error}
+          initialStep={modelDialogStep}
           model={editingModel}
-          onChanged={loadData}
+          onChanged={async () => {
+            await loadData();
+            if (editingModel) {
+              const refreshed = await fetchAdminModels({ q: editingModel.model_id });
+              const matched = refreshed.items.find((item) => item.id === editingModel.id) ?? null;
+              if (matched) {
+                setEditingModel(matched);
+              }
+            }
+          }}
           onClose={closeModelDialog}
           onSubmit={saveModel}
           submitting={submitting}
@@ -314,17 +578,20 @@ function AdminModelsContent() {
       ) : null}
 
       {deleteTarget ? (
-        <DeleteModelDialog
+        <AdminConfirmDialog
+          confirmLabel={submitting ? '删除中...' : '确认删除'}
+          description={`将软删除「${deleteTarget.display_name}」，不会直接清理历史任务。删除后普通用户不会再看到该模型。`}
+          disabled={submitting}
           error={error}
-          model={deleteTarget}
           onCancel={() => {
             if (!submitting) {
               setDeleteTarget(null);
               setError(null);
             }
           }}
-          onConfirm={() => removeModel(deleteTarget)}
-          submitting={submitting}
+          onConfirm={() => void removeModel(deleteTarget)}
+          title="软删除模型？"
+          variant="danger"
         />
       ) : null}
     </>
@@ -354,10 +621,45 @@ function StatusSummary({
   );
 }
 
+function StatusChip({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: 'neutral' | 'success' | 'warning' | 'danger';
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'border-[var(--ds-success)]/30 text-[var(--ds-success)]'
+      : tone === 'warning'
+        ? 'border-[var(--ds-warning)]/30 text-[var(--ds-warning)]'
+        : tone === 'danger'
+          ? 'border-[var(--ds-danger)]/30 text-[var(--ds-danger)]'
+          : 'border-[var(--ds-border)]';
+
+  return (
+    <span
+      className={`rounded-[var(--ds-radius-sm)] border bg-[var(--ds-surface-raised)] px-2 py-1 ${toneClass}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="ds-muted font-semibold">{label}</dt>
+      <dd className="font-black">{value}</dd>
+    </div>
+  );
+}
+
 function ModelEditorDialog({
   csrfToken,
   error,
   model,
+  initialStep = 'basic',
   onChanged,
   onClose,
   onSubmit,
@@ -365,148 +667,87 @@ function ModelEditorDialog({
 }: {
   csrfToken: string | null;
   error: string | null;
+  initialStep?: ModelEditorStep;
   model: AdminAiModel | null;
   onChanged: () => Promise<void>;
   onClose: () => void;
-  onSubmit: (payload: AiModelPayload) => Promise<void>;
+  onSubmit: (payload: AiModelPayload) => Promise<AdminAiModel | null>;
   submitting: boolean;
 }) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !submitting) {
-        onClose();
-      }
-    }
+  const [activeStep, setActiveStep] = useState<ModelEditorStep>(initialStep);
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, submitting]);
+  useEffect(() => {
+    setActiveStep(model ? initialStep : 'basic');
+  }, [initialStep, model?.id]);
 
   return (
-    <div
-      aria-labelledby="model-editor-title"
-      aria-modal="true"
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-6 backdrop-blur-sm"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !submitting) {
-          onClose();
-        }
-      }}
-      role="dialog"
-    >
-      <div className="ds-card mx-auto flex max-h-[calc(100vh-48px)] w-full max-w-5xl flex-col overflow-hidden">
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--ds-border)] p-5">
-          <div>
-            <span className="ds-badge">Models</span>
-            <h2 className="mt-3 text-2xl font-black" id="model-editor-title">
-              {model ? '编辑模型' : '新增模型'}
-            </h2>
-            <p className="ds-muted mt-2 text-sm leading-6">
-              {model
-                ? '维护模型基础信息、Studio 快捷参数、参数 Schema 和执行配置。'
-                : '添加模型后，Studio 才能向用户展示并使用对应参数。'}
-            </p>
-          </div>
-          <button
-            aria-label="关闭模型编辑弹窗"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] text-[var(--ds-text)] transition hover:border-[var(--ds-border-strong)] hover:bg-[var(--ds-surface)]"
-            disabled={submitting}
-            onClick={onClose}
-            type="button"
-          >
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
-        <div className="min-h-0 overflow-y-auto p-5">
-          {error ? (
-            <p className="mb-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
-              {error}
-            </p>
-          ) : null}
-          <ModelForm
-            csrfToken={csrfToken}
-            initialModel={model}
-            key={model?.id ?? 'new-model'}
-            onSubmit={onSubmit}
-            submitting={submitting}
-          />
-          {model ? (
-            <div className="mt-6">
-              <ExecutionProfileManager csrfToken={csrfToken} model={model} onChanged={onChanged} />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DeleteModelDialog({
-  error,
-  model,
-  onCancel,
-  onConfirm,
-  submitting,
-}: {
-  error: string | null;
-  model: AdminAiModel;
-  onCancel: () => void;
-  onConfirm: () => void;
-  submitting: boolean;
-}) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !submitting) {
-        onCancel();
+    <AdminDialog
+      badge="Models"
+      disabled={submitting}
+      maxWidthClass="max-w-6xl"
+      onClose={onClose}
+      title={model ? `编辑模型：${model.display_name}` : '新增模型'}
+      description={
+        model
+          ? '先确认模型基础信息，再在执行配置里建立默认 Profile 和 Draft，最后在发布检查里完成上线。'
+          : '先创建模型基础信息，保存成功后会继续留在弹窗中配置执行配置。'
       }
-    }
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel, submitting]);
-
-  return (
-    <div
-      aria-labelledby="delete-model-title"
-      aria-modal="true"
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-6 backdrop-blur-sm"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !submitting) {
-          onCancel();
-        }
-      }}
-      role="dialog"
     >
-      <div className="ds-card mx-auto mt-16 max-w-lg p-6">
-        <span className="ds-badge">Delete</span>
-        <h2 className="mt-4 text-2xl font-black" id="delete-model-title">
-          软删除模型？
-        </h2>
-        <p className="ds-muted mt-3 text-sm leading-6">
-          将软删除「{model.display_name}」，不会直接清理历史任务。删除后普通用户不会再看到该模型。
+      {error ? (
+        <p className="mb-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+          {error}
         </p>
-        {error ? (
-          <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
-            {error}
-          </p>
-        ) : null}
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <DsButton disabled={submitting} onClick={onCancel} type="button" variant="secondary">
-            取消
-          </DsButton>
-          <DsButton
-            className="gap-2"
-            disabled={submitting}
-            onClick={onConfirm}
-            type="button"
-            variant="danger"
-          >
-            <Trash2 aria-hidden="true" size={16} />
-            {submitting ? '删除中...' : '确认删除'}
-          </DsButton>
-        </div>
+      ) : null}
+
+      <div className="mb-5 flex flex-wrap gap-2">
+        {[
+          { key: 'basic', label: '1. 基础信息' },
+          { key: 'execution', label: '2. 执行配置' },
+          { key: 'release', label: '3. 发布检查' },
+        ].map((step) => {
+          const disabled = step.key !== 'basic' && !model;
+          const active = activeStep === step.key;
+          return (
+            <button
+              className={`rounded-[var(--ds-radius-sm)] border px-4 py-2 text-sm font-black ${
+                active
+                  ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
+                  : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
+              } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+              disabled={disabled}
+              key={step.key}
+              onClick={() => setActiveStep(step.key as ModelEditorStep)}
+              type="button"
+            >
+              {step.label}
+            </button>
+          );
+        })}
       </div>
-    </div>
+
+      {activeStep === 'basic' ? (
+        <ModelForm
+          csrfToken={csrfToken}
+          initialModel={model}
+          onSubmit={async (payload) => {
+            const saved = await onSubmit(payload);
+            if (saved) {
+              setActiveStep('execution');
+            }
+          }}
+          submitting={submitting}
+        />
+      ) : null}
+
+      {model && activeStep !== 'basic' ? (
+        <ExecutionProfileManager
+          csrfToken={csrfToken}
+          mode={activeStep === 'release' ? 'release' : 'configure'}
+          model={model}
+          onChanged={onChanged}
+        />
+      ) : null}
+    </AdminDialog>
   );
 }
 
