@@ -41,3 +41,7 @@ export interface PasswordBody {
   current_password?: unknown;
   new_password?: unknown;
 }
+
+export interface ProfileBody {
+  display_name?: unknown;
+}

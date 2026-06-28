@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } fro
 import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service';
-import type { AuthBody, AuthenticatedRequest, PasswordBody } from './auth.types';
+import type { AuthBody, AuthenticatedRequest, PasswordBody, ProfileBody } from './auth.types';
 import { CsrfGuard } from './csrf.guard';
 import { SessionAuthGuard } from './session-auth.guard';
 
@@ -53,6 +53,12 @@ export class AuthController {
 @Controller('me')
 export class AccountController {
   constructor(private readonly authService: AuthService) {}
+
+  @Patch('profile')
+  @UseGuards(SessionAuthGuard, CsrfGuard)
+  updateProfile(@Body() body: ProfileBody, @Req() request: AuthenticatedRequest) {
+    return this.authService.updateProfile(body, request.auth!);
+  }
 
   @Patch('password')
   @UseGuards(SessionAuthGuard, CsrfGuard)
