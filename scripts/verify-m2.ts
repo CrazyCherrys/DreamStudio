@@ -8,7 +8,7 @@ const MOCK_NEW_API_PORT = Number.parseInt(
   10,
 );
 const MOCK_NEW_API_BASE_URL =
-  process.env.DREAMSTUDIO_VERIFY_NEW_API_BASE_URL ?? `http://127.0.0.1:${MOCK_NEW_API_PORT}`;
+  process.env.DREAMSTUDIO_VERIFY_NEW_API_BASE_URL ?? `http://172.20.0.1:${MOCK_NEW_API_PORT}`;
 const USERNAME = `m2_user_${Date.now()}`;
 const PASSWORD = 'DreamStudioM2!';
 const API_KEY = process.env.DREAMSTUDIO_VERIFY_API_KEY ?? `sk-m2-valid-${Date.now()}`;
@@ -61,7 +61,7 @@ async function main() {
       resolve();
       return;
     }
-    server.listen(MOCK_NEW_API_PORT, '127.0.0.1', resolve);
+    server.listen(MOCK_NEW_API_PORT, '0.0.0.0', resolve);
   });
 
   try {
@@ -73,7 +73,13 @@ async function main() {
       default_new_api_base_url: MOCK_NEW_API_BASE_URL,
       allow_user_custom_new_api_base_url: true,
       registration_enabled: true,
+      reference_image_max_mb: 10,
+      result_image_max_mb: 25,
     });
+
+    const initialSettings = await get<Record<string, unknown>>('/api/v1/admin/system-settings', admin.jar);
+    assert(initialSettings.reference_image_max_mb === 10, 'default reference image max size is returned');
+    assert(initialSettings.result_image_max_mb === 25, 'default result image max size is returned');
 
     const invalid = await post<{ ok: boolean; status: string; error: string | null }>(
       '/api/v1/me/new-api-config/test',
@@ -111,7 +117,13 @@ async function main() {
     await patchSettings(admin.jar, {
       default_new_api_base_url: MOCK_NEW_API_BASE_URL,
       allow_user_custom_new_api_base_url: false,
+      reference_image_max_mb: 12,
+      result_image_max_mb: 30,
     });
+
+    const updatedSettings = await get<Record<string, unknown>>('/api/v1/admin/system-settings', admin.jar);
+    assert(updatedSettings.reference_image_max_mb === 12, 'updated reference image max size persists');
+    assert(updatedSettings.result_image_max_mb === 30, 'updated result image max size persists');
 
     const adminSaved = await put<{ status: string }>(
       `/api/v1/admin/users/${user.payload.user.id}/new-api-config`,
@@ -158,6 +170,7 @@ async function main() {
           'query_no_plaintext',
           'wrong_key_invalid',
           'admin_update_settings',
+          'system_settings_image_size_limits',
           'admin_set_delete_user_key',
           'audit_logs_redacted',
           'super_admin_auth',

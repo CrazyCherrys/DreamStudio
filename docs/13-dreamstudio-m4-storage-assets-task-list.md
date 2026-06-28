@@ -12,6 +12,7 @@ M4 实现：
 
 - 本地文件系统和 S3 兼容对象存储配置。
 - 参考图上传与图片 MIME、大小、宽高、checksum 校验。
+- 参考图大小上限读取 `system_settings.reference_image_max_mb`，默认 10MB。
 - 用户资产库，支持查看、下载、删除和批量删除。
 - 管理员存储设置页，支持 local/s3 切换、敏感字段掩码、存储测试。
 - `assets` 与 `cleanup_runs` 数据表。
@@ -175,6 +176,7 @@ S3 兼容存储：
 - 管理员可以进入 `/admin/storage-settings`。
 - 普通用户可以进入 `/studio/assets`。
 - 登录用户可以上传参考图。
+- 参考图上传大小错误文案随 `reference_image_max_mb` 动态变化。
 - 上传资产写入 `assets`，记录宽高、大小、MIME、checksum 和系统生成 object key。
 - 下载接口返回文件流。
 - 用户不能访问其他用户资产。

@@ -19,6 +19,7 @@
 - `endpoint_types` 只用于目录展示和筛选提示，不决定实际协议。
 - 真正决定 Studio 调用协议的是 `default_execution_profile.adapter_key`。
 - 图片模型如果没有默认 active profile，普通用户不会在 `/studio` 看见它。
+- 参考图上传大小和结果图保存大小不在模型级配置里控制，统一由 `/admin/system-settings` 的全局图片大小上限控制。
 
 ## 2. 后台页面怎么进入
 

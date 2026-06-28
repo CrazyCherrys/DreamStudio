@@ -322,6 +322,8 @@ image: ghcr.io/crazycherrys/dreamstudio:latest
 - `image_task_retry_backoff_seconds`
 - `per_user_running_task_limit`
 - `global_running_task_limit`
+- `reference_image_max_mb`
+- `result_image_max_mb`
 - `request_log_retention_hours`
 - `audit_log_retention_hours`
 
@@ -569,6 +571,8 @@ S3 配置通过管理员后台写入 `storage_settings`。
 
 配置位置：
 
+- `system_settings.reference_image_max_mb`
+- `system_settings.result_image_max_mb`
 - `system_settings.request_log_retention_hours`
 - `system_settings.audit_log_retention_hours`
 

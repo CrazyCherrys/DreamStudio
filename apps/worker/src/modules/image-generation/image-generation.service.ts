@@ -9,6 +9,7 @@ import {
 
 import { prisma } from '@dreamstudio/db';
 import type { ImageGenerationJobPayload } from '@dreamstudio/queue';
+import { megabytesToBytes } from '@dreamstudio/config';
 import { DreamStudioSecretCodec, readAssetBuffer, uploadImageObject } from '@dreamstudio/storage';
 
 import {
@@ -17,6 +18,7 @@ import {
   type NewApiImageReference,
 } from './new-api-image.client';
 import { getImageGenerationAdapter, normalizeImageAdapterError } from './image-adapter.registry';
+import { WorkerSystemSettingsService } from '../system-settings.service';
 
 const REQUEST_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const IMAGE_DOWNLOAD_TIMEOUT_MS = 30000;
@@ -38,7 +40,10 @@ interface WorkerFailure {
 export class ImageGenerationService {
   private readonly client = new NewApiImageClient();
 
-  constructor(private readonly secretCodec: DreamStudioSecretCodec) {}
+  constructor(
+    private readonly secretCodec: DreamStudioSecretCodec,
+    private readonly systemSettingsService: WorkerSystemSettingsService,
+  ) {}
 
   async runImageGenerationJob(jobId: string | undefined, payload: ImageGenerationJobPayload) {
     const task = await this.claimPendingTask(payload.task_id);
@@ -256,6 +261,9 @@ export class ImageGenerationService {
     task: ImageTask,
     images: Array<{ url?: string; b64_json?: string }>,
   ) {
+    const maxBytes = megabytesToBytes(
+      await this.systemSettingsService.getNumber('result_image_max_mb', 25),
+    );
     for (const [index, image] of images.entries()) {
       const buffer = image.b64_json
         ? Buffer.from(image.b64_json, 'base64')
@@ -264,6 +272,7 @@ export class ImageGenerationService {
         buffer,
         codec: this.secretCodec,
         kind: 'result_image',
+        maxBytes,
         originalFilename: `image-task-${task.id}-${index + 1}.png`,
         userId: task.userId,
       });

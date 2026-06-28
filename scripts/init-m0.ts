@@ -16,7 +16,7 @@ import {
   type AiModelExecutionProfile,
 } from '@prisma/client';
 
-import { getOptionalEnv } from '@dreamstudio/config';
+import { DEFAULT_SYSTEM_SETTINGS, SYSTEM_SETTING_DEFINITIONS, getOptionalEnv } from '@dreamstudio/config';
 
 const prisma = new PrismaClient();
 const scrypt = promisify(scryptCallback);
@@ -42,58 +42,11 @@ const DEFAULT_GEMINI_SOURCE_URL = 'https://ai.google.dev/gemini-api/docs/image-g
 const DEFAULT_IMAGE_SOURCE_CHECKED_AT = new Date('2026-06-21T00:00:00.000Z');
 const DEFAULT_GEMINI_SOURCE_CHECKED_AT = new Date('2026-06-22T00:00:00.000Z');
 
-const defaultSettings = [
-  {
-    key: 'default_new_api_base_url',
-    value: '',
-    description: 'Default new-api base URL. Configure in admin before M2 usage.',
-  },
-  {
-    key: 'allow_user_custom_new_api_base_url',
-    value: true,
-    description: 'Whether users may override the default new-api base URL.',
-  },
-  {
-    key: 'registration_enabled',
-    value: true,
-    description: 'Whether username/password registration is open.',
-  },
-  {
-    key: 'image_task_timeout_seconds',
-    value: 600,
-    description: 'Default image task timeout in seconds.',
-  },
-  {
-    key: 'image_task_max_attempts',
-    value: 3,
-    description: 'Default maximum attempts for image generation tasks.',
-  },
-  {
-    key: 'image_task_retry_backoff_seconds',
-    value: 5,
-    description: 'Default retry backoff in seconds.',
-  },
-  {
-    key: 'per_user_running_task_limit',
-    value: 2,
-    description: 'Default per-user running image task limit.',
-  },
-  {
-    key: 'global_running_task_limit',
-    value: 10,
-    description: 'Default global running image task limit.',
-  },
-  {
-    key: 'request_log_retention_hours',
-    value: 4320,
-    description: 'Default request log retention, 180 days.',
-  },
-  {
-    key: 'audit_log_retention_hours',
-    value: 8760,
-    description: 'Default audit log retention, 365 days.',
-  },
-] as const;
+const defaultSettings = SYSTEM_SETTING_DEFINITIONS.map((definition) => ({
+  key: definition.key,
+  value: DEFAULT_SYSTEM_SETTINGS[definition.key],
+  description: definition.description,
+})) as const;
 
 const defaultImageParameterSchema = [
   {

@@ -67,6 +67,8 @@ M2 需要补齐或确认以下数据结构：
 - `image_task_retry_backoff_seconds`
 - `per_user_running_task_limit`
 - `global_running_task_limit`
+- `reference_image_max_mb`
+- `result_image_max_mb`
 - `request_log_retention_hours`
 - `audit_log_retention_hours`
 
@@ -327,6 +329,7 @@ M2 完成时至少验证：
 - 超级管理员可以打开 `/admin/system-settings`。
 - 超级管理员可以更新默认 `new-api` Base URL。
 - 超级管理员可以关闭或开启用户自定义 Base URL。
+- 超级管理员可以更新参考图和结果图大小上限。
 - 超级管理员可以代用户配置 API Key。
 - 超级管理员可以清空用户 API Key。
 - 超级管理员查询用户配置时只能看到掩码。

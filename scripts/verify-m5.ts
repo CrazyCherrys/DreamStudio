@@ -8,6 +8,7 @@ import sharp from 'sharp';
 
 import { DreamStudioSecretCodec } from '@dreamstudio/storage';
 import { ImageGenerationService } from '../apps/worker/src/modules/image-generation/image-generation.service';
+import { WorkerSystemSettingsService } from '../apps/worker/src/modules/system-settings.service';
 
 const API_BASE_URL = process.env.DREAMSTUDIO_VERIFY_API_URL ?? 'http://127.0.0.1:3001';
 const VERIFY_ORIGIN = process.env.APP_BASE_URL ?? 'http://localhost:3000';
@@ -50,12 +51,6 @@ interface AuthPayload {
     role: 'user' | 'super_admin';
   };
   csrf_token: string;
-}
-
-interface CategoryPayload {
-  item: {
-    id: string;
-  };
 }
 
 interface ModelPayload {
@@ -130,6 +125,8 @@ async function main() {
       default_new_api_base_url: MOCK_NEW_API_BASE_URL,
       allow_user_custom_new_api_base_url: true,
       registration_enabled: true,
+      reference_image_max_mb: 10,
+      result_image_max_mb: 25,
     });
 
     await put('/api/v1/me/new-api-config', userA.jar, {
@@ -143,58 +140,16 @@ async function main() {
       test_before_save: true,
     });
 
-    const category = await post<CategoryPayload>('/api/v1/admin/model-categories', admin.jar, {
-      name: 'M5 图片',
-      slug: `m5-images-${Date.now()}`,
-      sort_order: 50,
-      is_enabled: true,
-    });
-    const generationModel = await post<ModelPayload>('/api/v1/admin/models', admin.jar, {
-      category_id: category.item.id,
-      model_id: `m5-gpt-image-${Date.now()}`,
-      display_name: 'M5 GPT Image',
-      provider_name: 'OpenAI',
-      endpoint_type: 'openai_image_generations',
-      reference_transfer_mode: 'none',
-      supports_reference_image: false,
-      is_enabled: true,
-      is_recommended: true,
-      sort_order: 50,
-      default_params: {
-        size: '1024x1024',
-        n: 1,
-      },
-      parameter_schema: [
-        {
-          key: 'size',
-          label: '尺寸',
-          type: 'select',
-          required: true,
-          default: '1024x1024',
-          options: [{ label: '1024 x 1024', value: '1024x1024' }],
-        },
-        {
-          key: 'n',
-          label: '数量',
-          type: 'integer',
-          required: true,
-          default: 1,
-          min: 1,
-          max: 1,
-        },
-        {
-          key: 'response_format',
-          label: '响应格式',
-          type: 'select',
-          required: true,
-          default: 'b64_json',
-          options: [
-            { label: 'b64', value: 'b64_json' },
-            { label: 'url', value: 'url' },
-            { label: 'fail', value: 'fail' },
-          ],
-        },
-      ],
+    const generationModel = await get<ModelPayload>('/api/v1/models', userA.jar).then((payload) => {
+      const item = Array.isArray((payload as unknown as { items?: Array<{ id: string; model_id: string }> }).items)
+        ? (payload as unknown as { items: Array<{ id: string; model_id: string }> }).items.find(
+            (candidate) => candidate.model_id === 'gpt-image-2',
+          )
+        : null;
+      if (!item) {
+        throw new Error('Verification failed: gpt-image-2 public model is unavailable');
+      }
+      return { item };
     });
 
     const reference = await uploadReferenceImage(userA.jar, png);
@@ -203,7 +158,10 @@ async function main() {
     const b64Task = await createTask(userA.jar, generationModel.item.id, 'm5 b64 prompt', {
       size: '1024x1024',
       n: 1,
-      response_format: 'b64_json',
+      quality: 'auto',
+      output_format: 'png',
+      background: 'auto',
+      moderation: 'auto',
     });
     const duplicate = await createTask(
       userA.jar,
@@ -212,7 +170,10 @@ async function main() {
       {
         size: '1024x1024',
         n: 1,
-        response_format: 'b64_json',
+        quality: 'auto',
+        output_format: 'png',
+        background: 'auto',
+        moderation: 'auto',
       },
       b64Task.item.client_request_id!,
     );
@@ -224,11 +185,40 @@ async function main() {
     const urlTask = await createTask(userA.jar, generationModel.item.id, 'm5 url prompt', {
       size: '1024x1024',
       n: 1,
-      response_format: 'url',
+      quality: 'auto',
+      output_format: 'png',
+      background: 'auto',
+      moderation: 'auto',
     });
     const completedUrl = await runTaskToCompletion(urlTask.item.id);
     assert(completedUrl.item.status === 'succeeded', 'mock url task succeeds');
     assert(completedUrl.item.result_assets.length >= 1, 'mock url task creates result asset');
+
+    await patch('/api/v1/admin/system-settings', admin.jar, {
+      result_image_max_mb: 1,
+    });
+    const oversizedResultTask = await createTask(
+      userA.jar,
+      generationModel.item.id,
+      'm5 oversized result prompt',
+      {
+        size: '1024x1024',
+        n: 1,
+        quality: 'auto',
+        output_format: 'png',
+        background: 'auto',
+        moderation: 'auto',
+      },
+    );
+    const completedOversized = await runTaskToCompletion(oversizedResultTask.item.id);
+    assert(completedOversized.item.status === 'failed', 'oversized result task fails');
+    assert(
+      completedOversized.item.error_message?.includes('图片不能超过 1MB'),
+      'oversized result task reports configured limit',
+    );
+    await patch('/api/v1/admin/system-settings', admin.jar, {
+      result_image_max_mb: 25,
+    });
 
     const resultAssets = await get<{ items: Array<{ id: string; source_task_id: string | null }> }>(
       '/api/v1/assets?kind=result_image',
@@ -243,7 +233,10 @@ async function main() {
     const failedTask = await createTask(userA.jar, generationModel.item.id, 'm5 failure prompt', {
       size: '1024x1024',
       n: 1,
-      response_format: 'fail',
+      quality: 'auto',
+      output_format: 'png',
+      background: 'auto',
+      moderation: 'auto',
     });
     const completedFailed = await runTaskToCompletion(failedTask.item.id);
     assert(completedFailed.item.status === 'failed', 'upstream failure marks task failed');
@@ -252,7 +245,10 @@ async function main() {
     const canceledTask = await createTask(userA.jar, generationModel.item.id, 'm5 cancel prompt', {
       size: '1024x1024',
       n: 1,
-      response_format: 'b64_json',
+      quality: 'auto',
+      output_format: 'png',
+      background: 'auto',
+      moderation: 'auto',
     });
     const canceled = await post<TaskPayload>(
       `/api/v1/image-tasks/${canceledTask.item.id}/cancel`,
@@ -296,6 +292,7 @@ async function main() {
           'idempotent_client_request_id',
           'mock_b64_success_result_asset',
           'mock_url_success_result_asset',
+          'result_image_max_mb',
           'assets_result_image_listing',
           'upstream_failure_failed_task',
           'pending_cancel',
@@ -333,13 +330,34 @@ async function handleMockNewApi(
     response.end(urlImageBuffer);
     return;
   }
+  if (request.url === '/mock-image-large.png') {
+    response.writeHead(200, { 'content-type': 'image/png' });
+    response.end(
+      await sharp({
+        create: {
+          width: 2600,
+          height: 2600,
+          channels: 4,
+          noise: {
+            type: 'gaussian',
+            mean: 128,
+            sigma: 60,
+          },
+        },
+      })
+        .png()
+        .toBuffer(),
+    );
+    return;
+  }
   if (
     request.url === '/v1/images/generations' &&
     request.method === 'POST' &&
     request.headers.authorization === `Bearer ${API_KEY}`
   ) {
     const body = JSON.parse(await readRequestBody(request));
-    if (body.response_format === 'fail') {
+    const prompt = typeof body.prompt === 'string' ? body.prompt : '';
+    if (prompt.includes('failure')) {
       response.writeHead(400, { 'content-type': 'application/json' });
       response.end(JSON.stringify({ error: { message: 'mock invalid image parameters' } }));
       return;
@@ -348,9 +366,10 @@ async function handleMockNewApi(
     response.end(
       JSON.stringify({
         created: Math.floor(Date.now() / 1000),
-        data:
-          body.response_format === 'url'
-            ? [{ url: `${MOCK_NEW_API_BASE_URL}/mock-image.png` }]
+        data: prompt.includes('url')
+          ? [{ url: `${MOCK_NEW_API_BASE_URL}/mock-image.png` }]
+          : prompt.includes('oversized')
+            ? [{ url: `${MOCK_NEW_API_BASE_URL}/mock-image-large.png` }]
             : [{ b64_json: tinyPngBase64 }],
       }),
     );
@@ -362,7 +381,10 @@ async function handleMockNewApi(
 }
 
 async function runTaskToCompletion(taskId: string) {
-  const service = new ImageGenerationService(new DreamStudioSecretCodec());
+  const service = new ImageGenerationService(
+    new DreamStudioSecretCodec(),
+    new WorkerSystemSettingsService(),
+  );
   await service.runImageGenerationJob(`verify-m5-${taskId}`, {
     job_version: 1,
     task_id: taskId,

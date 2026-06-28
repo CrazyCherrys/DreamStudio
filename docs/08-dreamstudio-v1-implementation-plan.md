@@ -296,6 +296,8 @@ API：
 - `image_task_retry_backoff_seconds`
 - `per_user_running_task_limit`
 - `global_running_task_limit`
+- `reference_image_max_mb`
+- `result_image_max_mb`
 - `request_log_retention_hours`
 - `audit_log_retention_hours`
 

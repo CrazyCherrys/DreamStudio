@@ -18,8 +18,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import multer from 'multer';
 
-import { DEFAULT_MAX_IMAGE_BYTES } from '@dreamstudio/storage';
-
 import { CsrfGuard } from '../auth/csrf.guard';
 import { SessionAuthGuard } from '../auth/session-auth.guard';
 import { SuperAdminGuard } from '../auth/super-admin.guard';
@@ -40,7 +38,6 @@ export class AssetsController {
     FileInterceptor('file', {
       storage: multer.memoryStorage(),
       limits: {
-        fileSize: DEFAULT_MAX_IMAGE_BYTES,
         files: 1,
       },
     }),

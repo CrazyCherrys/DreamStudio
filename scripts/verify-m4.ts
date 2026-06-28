@@ -65,6 +65,11 @@ interface StorageSettingsPayload {
   masked_s3_secret_key: string | null;
 }
 
+interface SystemSettingsPayload {
+  reference_image_max_mb: number;
+  result_image_max_mb: number;
+}
+
 async function main() {
   await mkdir(LOCAL_STORAGE_ROOT, { recursive: true });
   const admin = await login(ADMIN_USERNAME, ADMIN_PASSWORD);
@@ -93,6 +98,12 @@ async function main() {
   );
   assert(testResult.ok, 'admin storage test succeeds');
 
+  const systemSettings = await patch<SystemSettingsPayload>('/api/v1/admin/system-settings', admin.jar, {
+    reference_image_max_mb: 1,
+    result_image_max_mb: 25,
+  });
+  assert(systemSettings.reference_image_max_mb === 1, 'admin can change reference image max size');
+
   const png = await sharp({
     create: {
       width: 8,
@@ -113,6 +124,27 @@ async function main() {
   assert(
     !JSON.stringify(uploaded).includes(localInputPath),
     'asset response does not expose local path',
+  );
+
+  const oversizedPng = await sharp({
+    create: {
+      width: 2200,
+      height: 2200,
+      channels: 4,
+      noise: {
+        type: 'gaussian',
+        mean: 128,
+        sigma: 60,
+      },
+    },
+  })
+    .png()
+    .toBuffer();
+  assert(oversizedPng.byteLength > 1024 * 1024, 'oversized reference image fixture exceeds 1MB');
+  await expectFailure(
+    uploadReferenceImage(userA.jar, oversizedPng),
+    'reference image max size is enforced from system settings',
+    '图片不能超过 1MB',
   );
 
   const dbAsset = await prisma.asset.findUniqueOrThrow({
@@ -226,6 +258,7 @@ async function main() {
         'local_storage_settings',
         'storage_test',
         'reference_upload',
+        'reference_image_max_mb',
         'asset_db_metadata',
         'download',
         'cross_user_404',
@@ -364,6 +397,14 @@ async function put<T>(path: string, jar: CookieJar, body: Record<string, unknown
   }).then((response) => response.payload);
 }
 
+async function patch<T>(path: string, jar: CookieJar, body: Record<string, unknown>) {
+  return request<T>(path, {
+    method: 'PATCH',
+    jar,
+    body,
+  }).then((response) => response.payload);
+}
+
 async function del<T = Record<string, unknown>>(path: string, jar: CookieJar) {
   return request<T>(path, {
     method: 'DELETE',
@@ -371,10 +412,13 @@ async function del<T = Record<string, unknown>>(path: string, jar: CookieJar) {
   }).then((response) => response.payload);
 }
 
-async function expectFailure(promise: Promise<unknown>, message: string) {
+async function expectFailure(promise: Promise<unknown>, message: string, includes?: string) {
   try {
     await promise;
-  } catch {
+  } catch (error) {
+    if (includes && (!(error instanceof Error) || !error.message.includes(includes))) {
+      throw new Error(`Verification failed: ${message}; got ${String(error)}`);
+    }
     return;
   }
   throw new Error(`Verification failed: ${message}`);
@@ -422,10 +466,22 @@ async function request<T>(
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
 
   if (!response.ok || !payload?.success || payload.data === undefined) {
+    const details = Array.isArray(payload?.error?.details)
+      ? payload.error.details
+          .map((detail) =>
+            detail &&
+            typeof detail === 'object' &&
+            'message' in detail &&
+            typeof (detail as { message?: unknown }).message === 'string'
+              ? (detail as { message: string }).message
+              : null,
+          )
+          .filter((message): message is string => Boolean(message))
+      : [];
     throw new Error(
       `${method} ${path} failed: ${response.status} ${payload?.error?.code ?? ''} ${
         payload?.error?.message ?? ''
-      }`,
+      }${details.length > 0 ? ` (${details.join('; ')})` : ''}`,
     );
   }
 

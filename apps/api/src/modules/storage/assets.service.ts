@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import { AssetKind, type Asset } from '@prisma/client';
 
+import { megabytesToBytes } from '@dreamstudio/config';
 import { prisma } from '@dreamstudio/db';
 import {
   assetDownloadPath,
@@ -15,6 +16,7 @@ import {
 import { apiError, validationFailed } from '../auth/auth.errors';
 import type { SessionContext } from '../auth/auth.types';
 import { EncryptionService } from '../new-api-config/encryption.service';
+import { SystemSettingsService } from '../new-api-config/system-settings.service';
 import type { AssetListQuery, BatchDeleteAssetsBody } from './storage.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -23,7 +25,10 @@ const UUID_EXTRACT_PATTERN =
 
 @Injectable()
 export class AssetsService {
-  constructor(private readonly encryptionService: EncryptionService) {}
+  constructor(
+    private readonly encryptionService: EncryptionService,
+    private readonly systemSettingsService: SystemSettingsService,
+  ) {}
 
   async uploadReferenceImage(file: Express.Multer.File | undefined, session: SessionContext) {
     if (!file) {
@@ -31,10 +36,14 @@ export class AssetsService {
     }
 
     try {
+      const maxBytes = megabytesToBytes(
+        await this.systemSettingsService.getNumber('reference_image_max_mb', 10),
+      );
       const stored = await uploadImageObject({
         buffer: file.buffer,
         codec: this.encryptionService,
         kind: 'reference_image',
+        maxBytes,
         originalFilename: file.originalname,
         userId: session.userId,
       });

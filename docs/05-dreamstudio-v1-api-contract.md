@@ -670,7 +670,7 @@ Content-Type: multipart/form-data
 规则：
 
 - 默认支持 `image/png`、`image/jpeg`、`image/webp`。
-- 默认单文件最大 25MB，最终限制可由系统设置或模型 Schema 收紧。
+- 参考图大小上限由 `system_settings.reference_image_max_mb` 控制，默认 10MB。
 - 上传后立即保存到当前存储。
 - 参考图默认按配置过期清理。
 - 上传接口只创建参考图资产，不创建生图任务。
@@ -1253,6 +1253,8 @@ GET /api/v1/admin/system-settings
 - `global_running_task_limit`
 - `request_log_retention_hours`
 - `audit_log_retention_hours`
+- `reference_image_max_mb`
+- `result_image_max_mb`
 
 ### 11.2 更新系统设置
 
@@ -1267,7 +1269,9 @@ PATCH /api/v1/admin/system-settings
   "default_new_api_base_url": "https://new-api.example.com",
   "allow_user_custom_new_api_base_url": false,
   "image_task_timeout_seconds": 600,
-  "image_task_max_attempts": 3
+  "image_task_max_attempts": 3,
+  "reference_image_max_mb": 10,
+  "result_image_max_mb": 25
 }
 ```
 
@@ -1276,6 +1280,7 @@ PATCH /api/v1/admin/system-settings
 - 更新默认 `new-api` 地址必须写审计日志。
 - 更新是否允许用户自定义服务地址必须写审计日志。
 - 更新任务超时和重试配置必须写审计日志。
+- 更新参考图和结果图大小上限必须写审计日志。
 
 ---
 

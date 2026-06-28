@@ -2,6 +2,7 @@
 
 import { apiRequest } from '@/lib/auth';
 import type { NewApiConfigStatus } from '@/lib/auth';
+import type { SystemSettings as SharedSystemSettings } from '@dreamstudio/config';
 
 export interface PublicNewApiConfig {
   configured: boolean;
@@ -23,18 +24,7 @@ export interface ConnectionTestResult {
   error: string | null;
 }
 
-export interface SystemSettings {
-  default_new_api_base_url: string;
-  allow_user_custom_new_api_base_url: boolean;
-  registration_enabled: boolean;
-  image_task_timeout_seconds: number;
-  image_task_max_attempts: number;
-  image_task_retry_backoff_seconds: number;
-  per_user_running_task_limit: number;
-  global_running_task_limit: number;
-  request_log_retention_hours: number;
-  audit_log_retention_hours: number;
-}
+export type SystemSettings = SharedSystemSettings;
 
 export interface AdminUserListItem {
   id: string;

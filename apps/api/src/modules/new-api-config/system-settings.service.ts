@@ -1,102 +1,17 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
+import {
+  DEFAULT_SYSTEM_SETTINGS,
+  SYSTEM_SETTING_DEFINITIONS,
+  SYSTEM_SETTING_DEFINITIONS_BY_KEY,
+  type SystemSettingDefinition,
+  type SystemSettings,
+} from '@dreamstudio/config';
 import { prisma } from '@dreamstudio/db';
 
 import { apiError, validationFailed } from '../auth/auth.errors';
 import type { SystemSettingsBody } from './new-api-config.types';
-
-type SettingKind = 'url' | 'boolean' | 'integer';
-
-interface SettingDefinition {
-  key: keyof SystemSettingsBody;
-  kind: SettingKind;
-  defaultValue: string | boolean | number;
-  description: string;
-  min?: number;
-  max?: number;
-}
-
-export const SYSTEM_SETTING_DEFINITIONS: readonly SettingDefinition[] = [
-  {
-    key: 'default_new_api_base_url',
-    kind: 'url',
-    defaultValue: '',
-    description: 'Default new-api base URL. Configure in admin before M2 usage.',
-  },
-  {
-    key: 'allow_user_custom_new_api_base_url',
-    kind: 'boolean',
-    defaultValue: true,
-    description: 'Whether users may override the default new-api base URL.',
-  },
-  {
-    key: 'registration_enabled',
-    kind: 'boolean',
-    defaultValue: true,
-    description: 'Whether username/password registration is open.',
-  },
-  {
-    key: 'image_task_timeout_seconds',
-    kind: 'integer',
-    defaultValue: 600,
-    min: 30,
-    max: 7200,
-    description: 'Default image task timeout in seconds.',
-  },
-  {
-    key: 'image_task_max_attempts',
-    kind: 'integer',
-    defaultValue: 3,
-    min: 1,
-    max: 10,
-    description: 'Default maximum attempts for image generation tasks.',
-  },
-  {
-    key: 'image_task_retry_backoff_seconds',
-    kind: 'integer',
-    defaultValue: 5,
-    min: 1,
-    max: 3600,
-    description: 'Default retry backoff in seconds.',
-  },
-  {
-    key: 'per_user_running_task_limit',
-    kind: 'integer',
-    defaultValue: 2,
-    min: 1,
-    max: 100,
-    description: 'Default per-user running image task limit.',
-  },
-  {
-    key: 'global_running_task_limit',
-    kind: 'integer',
-    defaultValue: 10,
-    min: 1,
-    max: 1000,
-    description: 'Default global running image task limit.',
-  },
-  {
-    key: 'request_log_retention_hours',
-    kind: 'integer',
-    defaultValue: 4320,
-    min: 1,
-    max: 87600,
-    description: 'Default request log retention, 180 days.',
-  },
-  {
-    key: 'audit_log_retention_hours',
-    kind: 'integer',
-    defaultValue: 8760,
-    min: 1,
-    max: 87600,
-    description: 'Default audit log retention, 365 days.',
-  },
-] as const;
-
-const DEFINITIONS_BY_KEY = new Map(
-  SYSTEM_SETTING_DEFINITIONS.map((setting) => [setting.key, setting]),
-);
 
 @Injectable()
 export class SystemSettingsService {
@@ -134,20 +49,20 @@ export class SystemSettingsService {
         definition.key,
         this.normalizeStoredValue(definition, values.get(definition.key)),
       ]),
-    ) as Record<keyof SystemSettingsBody, string | boolean | number>;
+    ) as unknown as SystemSettings;
   }
 
-  async getBoolean(key: keyof SystemSettingsBody, fallback: boolean): Promise<boolean> {
+  async getBoolean(key: keyof SystemSettings, fallback: boolean): Promise<boolean> {
     const value = await this.getSettingValue(key);
     return typeof value === 'boolean' ? value : fallback;
   }
 
-  async getNumber(key: keyof SystemSettingsBody, fallback: number): Promise<number> {
+  async getNumber(key: keyof SystemSettings, fallback: number): Promise<number> {
     const value = await this.getSettingValue(key);
     return typeof value === 'number' ? value : fallback;
   }
 
-  async getString(key: keyof SystemSettingsBody, fallback = ''): Promise<string> {
+  async getString(key: keyof SystemSettings, fallback = ''): Promise<string> {
     const value = await this.getSettingValue(key);
     return typeof value === 'string' ? value : fallback;
   }
@@ -157,7 +72,7 @@ export class SystemSettingsService {
     await this.ensureDefaults();
 
     for (const [key, value] of Object.entries(parsed)) {
-      const definition = DEFINITIONS_BY_KEY.get(key as keyof SystemSettingsBody);
+      const definition = SYSTEM_SETTING_DEFINITIONS_BY_KEY.get(key as keyof SystemSettings);
       await prisma.systemSetting.upsert({
         where: {
           key,
@@ -196,8 +111,8 @@ export class SystemSettingsService {
     }
   }
 
-  private async getSettingValue(key: keyof SystemSettingsBody) {
-    const definition = DEFINITIONS_BY_KEY.get(key);
+  private async getSettingValue(key: keyof SystemSettings) {
+    const definition = SYSTEM_SETTING_DEFINITIONS_BY_KEY.get(key);
     if (!definition) {
       throw apiError(HttpStatus.INTERNAL_SERVER_ERROR, 'internal_error', `Unknown setting: ${key}`);
     }
@@ -213,12 +128,12 @@ export class SystemSettingsService {
 
   private validatePatch(
     body: SystemSettingsBody,
-  ): Partial<Record<keyof SystemSettingsBody, unknown>> {
-    const parsed: Partial<Record<keyof SystemSettingsBody, unknown>> = {};
+  ): Partial<Record<keyof SystemSettings, unknown>> {
+    const parsed: Partial<Record<keyof SystemSettings, unknown>> = {};
     const details: Array<{ field: string; message: string }> = [];
 
     for (const [key, rawValue] of Object.entries(body)) {
-      const definition = DEFINITIONS_BY_KEY.get(key as keyof SystemSettingsBody);
+      const definition = SYSTEM_SETTING_DEFINITIONS_BY_KEY.get(key as keyof SystemSettings);
       if (!definition) {
         details.push({ field: key, message: '不允许更新该设置' });
         continue;
@@ -245,7 +160,7 @@ export class SystemSettingsService {
     return parsed;
   }
 
-  private parseValue(definition: SettingDefinition, rawValue: unknown) {
+  private parseValue(definition: SystemSettingDefinition, rawValue: unknown) {
     if (definition.kind === 'url') {
       if (rawValue === null || rawValue === undefined || rawValue === '') {
         return '';
@@ -277,15 +192,19 @@ export class SystemSettingsService {
     return parsed;
   }
 
-  private normalizeStoredValue(definition: SettingDefinition, value: unknown) {
+  private normalizeStoredValue(definition: SystemSettingDefinition, value: unknown) {
     if (definition.kind === 'boolean') {
-      return typeof value === 'boolean' ? value : definition.defaultValue;
+      return typeof value === 'boolean'
+        ? value
+        : (DEFAULT_SYSTEM_SETTINGS[definition.key] as boolean);
     }
 
     if (definition.kind === 'integer') {
-      return typeof value === 'number' && Number.isInteger(value) ? value : definition.defaultValue;
+      return typeof value === 'number' && Number.isInteger(value)
+        ? value
+        : (DEFAULT_SYSTEM_SETTINGS[definition.key] as number);
     }
 
-    return typeof value === 'string' ? value : definition.defaultValue;
+    return typeof value === 'string' ? value : (DEFAULT_SYSTEM_SETTINGS[definition.key] as string);
   }
 }

@@ -315,23 +315,6 @@ function buildTask(input: {
   } as never;
 }
 
-function readPath(source: Record<string, unknown>, path: Array<string | number>): unknown {
-  return path.reduce<unknown>((current, key) => {
-    if (Array.isArray(current) && typeof key === 'number') {
-      return current[key];
-    }
-    if (
-      current &&
-      typeof current === 'object' &&
-      !Array.isArray(current) &&
-      typeof key === 'string'
-    ) {
-      return (current as Record<string, unknown>)[key];
-    }
-    return undefined;
-  }, source);
-}
-
 async function readBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {

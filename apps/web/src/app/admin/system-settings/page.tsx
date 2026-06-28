@@ -17,6 +17,8 @@ const NUMBER_FIELDS: Array<{ key: keyof SystemSettings; label: string; min: numb
     { key: 'image_task_retry_backoff_seconds', label: '重试退避秒数', min: 1, max: 3600 },
     { key: 'per_user_running_task_limit', label: '单用户并发任务', min: 1, max: 100 },
     { key: 'global_running_task_limit', label: '全局并发任务', min: 1, max: 1000 },
+    { key: 'reference_image_max_mb', label: '参考图最大大小(MB)', min: 1, max: 100 },
+    { key: 'result_image_max_mb', label: '结果图最大大小(MB)', min: 1, max: 100 },
     { key: 'request_log_retention_hours', label: '请求日志保留小时', min: 1, max: 87600 },
     { key: 'audit_log_retention_hours', label: '审计日志保留小时', min: 1, max: 87600 },
   ];

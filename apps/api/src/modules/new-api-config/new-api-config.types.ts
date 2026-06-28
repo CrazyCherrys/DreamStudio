@@ -1,4 +1,5 @@
 import type { NewApiConfigStatus } from '@prisma/client';
+import type { SystemSettings } from '@dreamstudio/config';
 
 export interface NewApiConfigBody {
   api_key?: unknown;
@@ -11,18 +12,7 @@ export interface NewApiConfigTestBody {
   new_api_base_url?: unknown;
 }
 
-export interface SystemSettingsBody {
-  default_new_api_base_url?: unknown;
-  allow_user_custom_new_api_base_url?: unknown;
-  registration_enabled?: unknown;
-  image_task_timeout_seconds?: unknown;
-  image_task_max_attempts?: unknown;
-  image_task_retry_backoff_seconds?: unknown;
-  per_user_running_task_limit?: unknown;
-  global_running_task_limit?: unknown;
-  request_log_retention_hours?: unknown;
-  audit_log_retention_hours?: unknown;
-}
+export type SystemSettingsBody = Partial<Record<keyof SystemSettings, unknown>>;
 
 export interface PublicNewApiConfig {
   configured: boolean;

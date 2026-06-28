@@ -124,6 +124,11 @@ M5 不实现：
 14. 更新任务为 `succeeded`。
 15. 失败时更新为 `failed` 或 `timeout`，并保存可读错误摘要。
 
+结果图大小限制：
+
+- Worker 保存结果图时读取 `system_settings.result_image_max_mb`，默认 25MB。
+- 当结果图超限时，任务错误文案应返回当前配置值，例如“图片不能超过 25MB”。
+
 第一验收路径：
 
 - `openai_image_generations`
