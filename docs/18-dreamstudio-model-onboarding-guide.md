@@ -80,8 +80,8 @@ OpenAI-compatible 不等于 OpenAI full-compatible。
 
 - Prompt -> `contents[0].parts[0].text`
 - 参考图 -> `contents[0].parts[] inlineData`
-- `aspect_ratio` -> `generationConfig.responseFormat.image.aspectRatio`
-- `image_size` -> `generationConfig.responseFormat.image.imageSize`
+- `aspect_ratio` -> `generationConfig.imageConfig.aspectRatio`
+- `image_size` -> `generationConfig.imageConfig.imageSize`
 - 常量 `generationConfig.responseModalities=["IMAGE"]`
 
 边界：

@@ -390,12 +390,12 @@ const defaultGeminiRequestMapping = {
     { source: 'prompt', target: 'contents[0].parts[0].text' },
     {
       source: 'params.aspect_ratio',
-      target: 'generationConfig.responseFormat.image.aspectRatio',
+      target: 'generationConfig.imageConfig.aspectRatio',
       omit_if_null: true,
     },
     {
       source: 'params.image_size',
-      target: 'generationConfig.responseFormat.image.imageSize',
+      target: 'generationConfig.imageConfig.imageSize',
       omit_if_null: true,
     },
   ],
@@ -415,7 +415,7 @@ const defaultGeminiValidationRules = {
   version: 1,
   notes: [
     'Gemini generateContent stays disabled until the configured gateway supports /v1beta/models/{model}:generateContent.',
-    'Aspect ratio and image size map to Gemini generationConfig.responseFormat.image fields.',
+    'Aspect ratio and image size map to Gemini generationConfig.imageConfig fields.',
   ],
 } satisfies Prisma.InputJsonObject;
 
@@ -769,7 +769,7 @@ async function upsertDefaultGeminiExecutionProfileRevision(profile: AiModelExecu
       sourceUrl: DEFAULT_GEMINI_SOURCE_URL,
       sourceCheckedAt: DEFAULT_GEMINI_SOURCE_CHECKED_AT,
       sourceSummary:
-        'Gemini official image generation guide snapshot: DreamStudio currently uses generateContent with contents parts, responseModalities, and responseFormat image controls.',
+        'Gemini official image generation guide snapshot: DreamStudio currently uses generateContent with contents parts, responseModalities, and imageConfig controls.',
       adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
       adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
       transportKey: 'new_api_bearer',
@@ -796,7 +796,7 @@ async function upsertDefaultGeminiExecutionProfileRevision(profile: AiModelExecu
       sourceUrl: DEFAULT_GEMINI_SOURCE_URL,
       sourceCheckedAt: DEFAULT_GEMINI_SOURCE_CHECKED_AT,
       sourceSummary:
-        'Gemini official image generation guide snapshot: DreamStudio currently uses generateContent with contents parts, responseModalities, and responseFormat image controls.',
+        'Gemini official image generation guide snapshot: DreamStudio currently uses generateContent with contents parts, responseModalities, and imageConfig controls.',
       adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
       adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
       transportKey: 'new_api_bearer',

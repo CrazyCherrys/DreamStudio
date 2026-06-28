@@ -163,11 +163,11 @@ async function main() {
       'Gemini response modalities mapping failed',
     );
     assert(
-      readPath(body, ['generationConfig', 'responseFormat', 'image', 'aspectRatio']) === '16:9',
+      readPath(body, ['generationConfig', 'imageConfig', 'aspectRatio']) === '16:9',
       'Gemini aspect ratio mapping failed',
     );
     assert(
-      readPath(body, ['generationConfig', 'responseFormat', 'image', 'imageSize']) === '2K',
+      readPath(body, ['generationConfig', 'imageConfig', 'imageSize']) === '2K',
       'Gemini image size mapping failed',
     );
     assert(

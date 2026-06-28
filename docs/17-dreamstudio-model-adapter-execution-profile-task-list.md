@@ -1012,8 +1012,8 @@ npm run typecheck -w @dreamstudio/web
 - 支持 prompt 文本。
 - 支持参考图映射。
 - 支持 `generationConfig.responseModalities`。
-- 支持 `generationConfig.responseFormat.image.aspectRatio`。
-- 支持 `generationConfig.responseFormat.image.imageSize`。
+- 支持 `generationConfig.imageConfig.aspectRatio`。
+- 支持 `generationConfig.imageConfig.imageSize`。
 - 解析 Gemini 响应中的 `inlineData`。
 - 如果 new-api 不支持 Gemini 原生路径，用户侧禁用 Gemini profile。
 - 不在本阶段新增 direct Gemini key 管理。
@@ -1064,12 +1064,12 @@ npm run build
 已完成：
 
 - 新增 Worker `gemini_generate_content` adapter，目标路径限制为 `/v1beta/models/{model}:generateContent`，并按任务快照中的 `upstream_endpoint_path` 调用 new-api。
-- Gemini adapter 复用共享 request mapping compiler，构造 `contents[0].parts[0].text`、`generationConfig.responseModalities`、`generationConfig.responseFormat.image.aspectRatio` 和 `generationConfig.responseFormat.image.imageSize`。
+- Gemini adapter 复用共享 request mapping compiler，构造 `contents[0].parts[0].text`、`generationConfig.responseModalities`、`generationConfig.imageConfig.aspectRatio` 和 `generationConfig.imageConfig.imageSize`。
 - 参考图会追加为 Gemini `inlineData` parts，字段包含 base64 `data` 和 `mimeType`。
 - `NewApiImageClient` 新增 `gemini_inline_data` response parser，解析 `candidates[].content.parts[].inlineData.data` 为现有 `b64_json` result image 形态。
 - API 侧允许 `gemini_generate_content` active revision 解析为 image task endpoint type，并在脱敏请求快照中使用 Gemini 默认路径。
 - Admin lint/preview 的 adapter target allowlist 已支持 `{model}` 占位路径，避免固定模板路径误拦截。
-- 新增 Gemini 官方 profile template `profile-templates/gemini-generate-content-image.json`，记录 Gemini 官方来源、`responseModalities`、`responseFormat.image.*`、`gemini_inline_data` parser 和 gateway support warning。
+- 新增 Gemini 官方 profile template `profile-templates/gemini-generate-content-image.json`，记录 Gemini 官方来源、`responseModalities`、`imageConfig.*`、`gemini_inline_data` parser 和 gateway support warning。
 - `scripts/init-m0.ts` 新增开发用 Gemini `generateContent` 非默认 profile 和 active revision；默认保持 disabled，直到管理员确认配置的 new-api 网关支持原生 Gemini 路径后再启用。
 - `scripts/verify-gemini-adapter.ts` 使用 mock HTTP gateway 验证 Gemini 请求 JSON、参考图 inlineData 映射、`inlineData` 解析、unsupported adapter 错误归一化，以及默认环境下 Gemini profile 不作为用户侧可提交默认 profile。
 - `scripts/verify-profile-templates.ts` 已覆盖 Gemini 模板存在性、`gemini_official` 来源和 `gemini_generate_content` adapter。

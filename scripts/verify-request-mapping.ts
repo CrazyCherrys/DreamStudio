@@ -30,7 +30,7 @@ const geminiNestedMapping = {
   content_type: 'json',
   fields: [
     { source: 'prompt', target: 'contents[0].parts[0].text' },
-    { source: 'params.aspect_ratio', target: 'generationConfig.responseFormat.image.aspectRatio' },
+    { source: 'params.aspect_ratio', target: 'generationConfig.imageConfig.aspectRatio' },
   ],
   constants: [
     {
@@ -83,7 +83,7 @@ function main() {
     'Gemini nested constant mapping failed',
   );
   assert(
-    readPath(gemini.body, ['generationConfig', 'responseFormat', 'image', 'aspectRatio']) === '1:1',
+    readPath(gemini.body, ['generationConfig', 'imageConfig', 'aspectRatio']) === '1:1',
     'Gemini nested parameter mapping failed',
   );
 

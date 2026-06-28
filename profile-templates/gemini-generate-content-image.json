@@ -83,12 +83,12 @@
         { "source": "prompt", "target": "contents[0].parts[0].text" },
         {
           "source": "params.aspect_ratio",
-          "target": "generationConfig.responseFormat.image.aspectRatio",
+          "target": "generationConfig.imageConfig.aspectRatio",
           "omit_if_null": true
         },
         {
           "source": "params.image_size",
-          "target": "generationConfig.responseFormat.image.imageSize",
+          "target": "generationConfig.imageConfig.imageSize",
           "omit_if_null": true
         }
       ],

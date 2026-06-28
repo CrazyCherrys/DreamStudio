@@ -164,7 +164,7 @@ Worker 内部适配：
 - request mapping 编译逻辑来自共享包 `packages/config/src/request-mapping.compiler.ts`，Worker 实际请求、Admin profile lint 和 Admin preview 使用同一套规则。
 - `openai_images_generation` adapter 使用 JSON body。
 - `openai_images_edit` adapter 使用 multipart body。
-- `gemini_generate_content` adapter 使用 JSON body，构造 `contents.parts`、`generationConfig.responseModalities` 和 `generationConfig.responseFormat.image.*`。
+- `gemini_generate_content` adapter 使用 JSON body，构造 `contents.parts`、`generationConfig.responseModalities` 和 `generationConfig.imageConfig.*`。
 - 参考图来自 M4 assets，经存储层读取为 Buffer 后 multipart 上传；edit adapter 的图片字段名来自 `request_mapping_snapshot.reference_field.target`，支持 `image` 和 `image[]`。
 - Gemini 参考图会作为 `contents[0].parts[]` 中的 `inlineData` 追加。
 - 没有 `execution_profile_snapshot` 或 `request_mapping_snapshot` 的开发期旧任务会失败，并提示用户重新提交任务。

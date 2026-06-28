@@ -196,8 +196,8 @@
   - 检查 `request_mapping` 中：
     - Prompt -> `contents[0].parts[0].text`
     - `generationConfig.responseModalities=["IMAGE"]`
-    - `generationConfig.responseFormat.image.aspectRatio`
-    - `generationConfig.responseFormat.image.imageSize`
+    - `generationConfig.imageConfig.aspectRatio`
+    - `generationConfig.imageConfig.imageSize`
   - 发布后，把该 profile 设成 `默认` + `启用`
 
 这样配置后：
