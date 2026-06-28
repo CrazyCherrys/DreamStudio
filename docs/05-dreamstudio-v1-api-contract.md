@@ -1136,59 +1136,7 @@ Content-Type: multipart/form-data
 }
 ```
 
-### 10.3 拉取 new-api 模型候选
-
-```http
-POST /api/v1/admin/model-sync-snapshots
-```
-
-请求：
-
-```json
-{
-  "new_api_base_url": "https://new-api.example.com",
-  "api_key": "sk-xxxxxxxx"
-}
-```
-
-响应：
-
-```json
-{
-  "success": true,
-  "data": {
-    "snapshot": {
-      "id": "uuid",
-      "base_url": "https://new-api.example.com",
-      "model_count": 128,
-      "created_at": "2026-06-19T12:00:00.000Z"
-    }
-  },
-  "request_id": "req_01hxyz"
-}
-```
-
-规则：
-
-- `api_key` 只用于本次拉取，不保存。
-- 如果请求未传 `api_key`，可以使用当前管理员自己已保存且有效的 `new-api` 配置。
-- 拉取接口调用上游 `GET /v1/models`。
-- 原始响应保存到 `model_sync_snapshots.raw_response`。
-- 拉取到的模型不会自动暴露给普通用户。
-
-### 10.4 查看模型候选快照
-
-```http
-GET /api/v1/admin/model-sync-snapshots
-GET /api/v1/admin/model-sync-snapshots/{snapshot_id}
-```
-
-规则：
-
-- 只展示模型候选和原始结构。
-- 管理员需要手动创建或更新 DreamStudio 模型目录。
-
-### 10.5 执行 Profile 管理
+### 10.3 执行 Profile 管理
 
 ```http
 GET /api/v1/admin/models/{model_record_id}/execution-profiles
@@ -1231,7 +1179,7 @@ Profile 请求核心字段：
 - 将某个 profile 设为默认时，服务端会取消同模型其他 profile 的默认标记。
 - 删除 profile 是软删除，同时取消默认和启用状态。
 
-### 10.6 执行 Profile Revision 管理
+### 10.4 执行 Profile Revision 管理
 
 ```http
 GET /api/v1/admin/execution-profiles/{profile_id}/revisions

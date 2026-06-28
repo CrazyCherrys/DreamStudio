@@ -168,18 +168,6 @@ export interface AdminExecutionProfileRevision {
   archived_at: string | null;
 }
 
-export interface ModelSyncSnapshotSummary {
-  id: string;
-  base_url: string;
-  operator_id: string;
-  model_count: number;
-  created_at: string;
-}
-
-export interface ModelSyncSnapshotDetail extends ModelSyncSnapshotSummary {
-  raw_response: unknown;
-}
-
 export interface AiModelPayload {
   modality: ModelModality;
   model_id: string;
@@ -290,11 +278,6 @@ export interface ExecutionProfileRevisionDiffResult {
     after: unknown;
     changed: boolean;
   }>;
-}
-
-export interface ModelSyncSnapshotPayload {
-  new_api_base_url?: string;
-  api_key?: string;
 }
 
 export function fetchPublicModels(
@@ -570,29 +553,6 @@ export function uploadModelIcon(file: File, csrfToken: string) {
     csrfToken,
     body: formData,
   });
-}
-
-export function createModelSyncSnapshot(payload: ModelSyncSnapshotPayload, csrfToken: string) {
-  return apiRequest<{ snapshot: ModelSyncSnapshotSummary }>('/api/v1/admin/model-sync-snapshots', {
-    method: 'POST',
-    csrfToken,
-    body: JSON.stringify(payload),
-  });
-}
-
-export function fetchModelSyncSnapshots() {
-  return apiRequest<{ items: ModelSyncSnapshotSummary[] }>('/api/v1/admin/model-sync-snapshots', {
-    cache: 'no-store',
-  });
-}
-
-export function fetchModelSyncSnapshot(snapshotId: string) {
-  return apiRequest<{ snapshot: ModelSyncSnapshotDetail }>(
-    `/api/v1/admin/model-sync-snapshots/${snapshotId}`,
-    {
-      cache: 'no-store',
-    },
-  );
 }
 
 export function modalityLabel(value: ModelModality) {

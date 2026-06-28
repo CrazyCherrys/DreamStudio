@@ -128,7 +128,6 @@ GET /api/v1/auth/me
 | `/admin/users` | 用户管理，详情和操作在当前页弹窗中完成 |
 | `/admin/users/{user_id}` | 用户详情兼容直达页 |
 | `/admin/models` | 模型管理 |
-| `/admin/model-sync` | 模型候选拉取 |
 | `/admin/system-settings` | 系统设置 |
 | `/admin/storage-settings` | 存储设置 |
 | `/admin/request-logs` | 请求日志 |
@@ -530,28 +529,7 @@ v1 结论：
 - v1 需要提供表单式或可视化参数 Schema 配置器。
 - 可以保留“高级 JSON 预览/导入导出”，但不能要求管理员主要通过手写 JSON 完成配置。
 
-### 6.6 模型候选拉取 `/admin/model-sync`
-
-功能：
-
-- 输入临时 `new-api` 服务地址和密钥。
-- 或使用管理员自己的已保存配置。
-- 调用 `GET /v1/models` 拉取候选模型。
-- 保存快照。
-- 从快照中复制模型 ID 到模型管理表单。
-
-接口：
-
-- `POST /api/v1/admin/model-sync-snapshots`
-- `GET /api/v1/admin/model-sync-snapshots`
-- `GET /api/v1/admin/model-sync-snapshots/{snapshot_id}`
-
-规则：
-
-- 候选模型不会自动对普通用户启用。
-- 临时密钥不保存。
-
-### 6.7 系统设置 `/admin/system-settings`
+### 6.6 系统设置 `/admin/system-settings`
 
 功能：
 
@@ -571,7 +549,7 @@ v1 结论：
 - `GET /api/v1/admin/system-settings`
 - `PATCH /api/v1/admin/system-settings`
 
-### 6.8 存储设置 `/admin/storage-settings`
+### 6.7 存储设置 `/admin/storage-settings`
 
 功能：
 
@@ -592,7 +570,7 @@ v1 结论：
 - S3 密钥只显示掩码。
 - 修改存储配置写审计日志。
 
-### 6.9 请求日志 `/admin/request-logs`
+### 6.8 请求日志 `/admin/request-logs`
 
 功能：
 
@@ -615,7 +593,7 @@ v1 结论：
 - 查看完整 prompt 和完整参数快照必须写审计日志。
 - 不展示完整 Authorization Header。
 
-### 6.10 审计日志 `/admin/audit-logs`
+### 6.9 审计日志 `/admin/audit-logs`
 
 功能：
 
@@ -733,13 +711,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A["进入 /admin/model-sync"] --> B["拉取 new-api 模型候选"]
-  B --> C["保存快照"]
-  C --> D["复制模型 ID"]
-  D --> E["进入 /admin/models"]
-  E --> F["创建或编辑图片模型"]
-  F --> G["配置参数 Schema"]
-  G --> H["启用模型"]
+  A["进入 /admin/models"] --> B["创建或编辑图片模型"]
+  B --> C["配置参数 Schema"]
+  C --> D["启用模型"]
   H --> I["普通用户可在 /studio 选择"]
 ```
 

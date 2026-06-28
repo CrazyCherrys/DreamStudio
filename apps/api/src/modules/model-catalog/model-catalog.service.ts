@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 
-import { HttpException, HttpStatus, Injectable, StreamableFile } from '@nestjs/common';
+import { HttpStatus, Injectable, StreamableFile } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
   ExecutionProfileOperation,
@@ -29,7 +29,6 @@ import { DEFAULT_MAX_IMAGE_BYTES } from '@dreamstudio/storage';
 import { apiError, validationFailed } from '../auth/auth.errors';
 import type { SessionContext } from '../auth/auth.types';
 import { AuditLogService } from '../new-api-config/audit-log.service';
-import { NewApiConfigService } from '../new-api-config/new-api-config.service';
 import {
   assertDefaultParams,
   normalizeParameterSchema,
@@ -47,9 +46,6 @@ import type {
   ExecutionProfilePreviewBody,
   ExecutionProfilePreviewResult,
   ExecutionProfileRevisionBody,
-  ModelSyncSnapshotBody,
-  ModelSyncSnapshotDetail,
-  ModelSyncSnapshotSummary,
   PublicDefaultExecutionProfile,
   PublicAiModel,
   ProfileTemplateImportBody,
@@ -101,7 +97,6 @@ type ExecutionProfileWithRevisions = Prisma.AiModelExecutionProfileGetPayload<{
 }>;
 type ExecutionProfileRevisionRecord = Prisma.AiModelExecutionProfileRevisionGetPayload<object>;
 
-const SNAPSHOT_PULL_TIMEOUT_MS = 12000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_DESCRIPTION_LENGTH = 1200;
 const MAX_ICON_URL_LENGTH = 500;
@@ -153,10 +148,7 @@ const adminExecutionProfilesInclude = {
 
 @Injectable()
 export class ModelCatalogService {
-  constructor(
-    private readonly auditLogService: AuditLogService,
-    private readonly newApiConfigService: NewApiConfigService,
-  ) {}
+  constructor(private readonly auditLogService: AuditLogService) {}
 
   async listPublicModels(
     query: Record<string, unknown>,
@@ -1019,71 +1011,6 @@ export class ModelCatalogService {
     return new StreamableFile(createReadStream(path));
   }
 
-  async createSnapshot(
-    body: ModelSyncSnapshotBody,
-    session: SessionContext,
-    request: Request,
-  ): Promise<{ snapshot: ModelSyncSnapshotSummary }> {
-    const connection = await this.resolveSnapshotConnection(body, session);
-    const rawResponse = await this.fetchModels(connection.baseUrl, connection.apiKey);
-    const modelCount = this.countModels(rawResponse);
-    const snapshot = await prisma.modelSyncSnapshot.create({
-      data: {
-        baseUrl: connection.baseUrl,
-        operatorId: session.userId,
-        rawResponse: rawResponse as Prisma.InputJsonValue,
-        modelCount,
-      },
-    });
-
-    await this.auditLogService.write({
-      action: 'admin_create_model_sync_snapshot',
-      targetType: 'model_sync_snapshot',
-      targetId: snapshot.id,
-      session,
-      request,
-      metadata: {
-        base_url: connection.baseUrl,
-        model_count: modelCount,
-        auth_source: connection.authSource,
-      },
-    });
-
-    return {
-      snapshot: this.serializeSnapshotSummary(snapshot),
-    };
-  }
-
-  async listSnapshots(): Promise<{ items: ModelSyncSnapshotSummary[] }> {
-    const snapshots = await prisma.modelSyncSnapshot.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 50,
-    });
-
-    return {
-      items: snapshots.map((snapshot) => this.serializeSnapshotSummary(snapshot)),
-    };
-  }
-
-  async getSnapshot(snapshotId: string): Promise<{ snapshot: ModelSyncSnapshotDetail }> {
-    this.assertUuid(snapshotId, 'snapshot_id');
-    const snapshot = await prisma.modelSyncSnapshot.findUnique({
-      where: {
-        id: snapshotId,
-      },
-    });
-
-    if (!snapshot) {
-      throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型候选快照不存在');
-    }
-
-    return {
-      snapshot: this.serializeSnapshotDetail(snapshot),
-    };
-  }
-
   private async validateModelBody(
     body: AiModelBody,
     options: { partial: boolean; modelId?: string },
@@ -1512,96 +1439,6 @@ export class ModelCatalogService {
     return revision;
   }
 
-  private async resolveSnapshotConnection(body: ModelSyncSnapshotBody, session: SessionContext) {
-    const temporaryApiKey = typeof body.api_key === 'string' ? body.api_key.trim() : '';
-
-    if (temporaryApiKey) {
-      const baseUrl = this.validateBaseUrl(body.new_api_base_url);
-      return {
-        baseUrl,
-        apiKey: temporaryApiKey,
-        authSource: 'temporary',
-      };
-    }
-
-    if (body.new_api_base_url !== undefined && String(body.new_api_base_url).trim()) {
-      throw validationFailed([
-        {
-          field: 'new_api_base_url',
-          message: '使用已保存配置时不要传临时 Base URL，避免将已保存密钥发送到临时地址',
-        },
-      ]);
-    }
-
-    const saved = await this.newApiConfigService.resolveSavedConnectionForUser(session.userId);
-    return {
-      ...saved,
-      authSource: 'saved',
-    };
-  }
-
-  private async fetchModels(baseUrl: string, apiKey: string) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), SNAPSHOT_PULL_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/v1/models`, {
-        method: 'GET',
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${apiKey}`,
-        },
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw apiError(
-          HttpStatus.BAD_GATEWAY,
-          'new_api_fetch_failed',
-          this.summarizeUpstreamStatus(response.status),
-        );
-      }
-
-      const payload = (await response.json().catch(() => null)) as unknown;
-      if (payload === null || payload === undefined) {
-        throw apiError(HttpStatus.BAD_GATEWAY, 'new_api_fetch_failed', 'new-api 返回非 JSON 响应');
-      }
-
-      return payload;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw apiError(HttpStatus.GATEWAY_TIMEOUT, 'new_api_fetch_timeout', '拉取模型候选超时');
-      }
-      if (!(error instanceof HttpException)) {
-        throw apiError(
-          HttpStatus.BAD_GATEWAY,
-          'new_api_fetch_failed',
-          this.sanitizeUpstreamError(error),
-        );
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  private countModels(payload: unknown): number {
-    if (
-      payload &&
-      typeof payload === 'object' &&
-      'data' in payload &&
-      Array.isArray((payload as { data: unknown }).data)
-    ) {
-      return (payload as { data: unknown[] }).data.length;
-    }
-
-    if (Array.isArray(payload)) {
-      return payload.length;
-    }
-
-    return 0;
-  }
-
   private async assertPublicModelExists(modelId: string) {
     this.assertUuid(modelId, 'model_record_id');
     const model = await prisma.aiModel.findFirst({
@@ -1989,36 +1826,6 @@ export class ModelCatalogService {
     return capabilities as PublicDefaultExecutionProfile['capabilities'];
   }
 
-  private serializeSnapshotSummary(snapshot: {
-    id: string;
-    baseUrl: string;
-    operatorId: string;
-    modelCount: number;
-    createdAt: Date;
-  }): ModelSyncSnapshotSummary {
-    return {
-      id: snapshot.id,
-      base_url: snapshot.baseUrl,
-      operator_id: snapshot.operatorId,
-      model_count: snapshot.modelCount,
-      created_at: snapshot.createdAt.toISOString(),
-    };
-  }
-
-  private serializeSnapshotDetail(snapshot: {
-    id: string;
-    baseUrl: string;
-    operatorId: string;
-    modelCount: number;
-    rawResponse: Prisma.JsonValue;
-    createdAt: Date;
-  }): ModelSyncSnapshotDetail {
-    return {
-      ...this.serializeSnapshotSummary(snapshot),
-      raw_response: snapshot.rawResponse,
-    };
-  }
-
   private readString(
     value: unknown,
     field: string,
@@ -2361,36 +2168,6 @@ export class ModelCatalogService {
     return value;
   }
 
-  private validateBaseUrl(value: unknown): string {
-    const raw = typeof value === 'string' ? value.trim() : '';
-    if (!raw) {
-      throw validationFailed([
-        {
-          field: 'new_api_base_url',
-          message: '临时 api_key 必须同时传 new_api_base_url',
-        },
-      ]);
-    }
-
-    try {
-      const url = new URL(raw);
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        throw new Error('unsupported protocol');
-      }
-      url.pathname = url.pathname.replace(/\/+$/, '');
-      url.search = '';
-      url.hash = '';
-      return url.toString().replace(/\/+$/, '');
-    } catch {
-      throw validationFailed([
-        {
-          field: 'new_api_base_url',
-          message: 'new_api_base_url 必须是合法 HTTP(S) URL',
-        },
-      ]);
-    }
-  }
-
   private assertUuid(value: string, field: string) {
     if (!UUID_PATTERN.test(value)) {
       throw validationFailed([
@@ -2400,26 +2177,6 @@ export class ModelCatalogService {
         },
       ]);
     }
-  }
-
-  private sanitizeUpstreamError(error: unknown) {
-    if (error instanceof Error) {
-      return error.message.slice(0, 300);
-    }
-    return '无法连接 new-api';
-  }
-
-  private summarizeUpstreamStatus(status: number) {
-    if (status === 401 || status === 403) {
-      return 'new-api 认证失败，请检查 API Key';
-    }
-    if (status === 404) {
-      return 'new-api 未提供 /v1/models 接口';
-    }
-    if (status >= 500) {
-      return 'new-api 服务暂时不可用';
-    }
-    return `new-api 返回 HTTP ${status}`;
   }
 
   private throwSchemaValidationError(error: unknown): never {

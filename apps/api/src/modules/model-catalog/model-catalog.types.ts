@@ -4,7 +4,6 @@ import type {
   ExecutionProfileSourceKind,
   ModelEndpointType,
   ModelModality,
-  NewApiConfigStatus,
   ReferenceTransferMode,
 } from '@prisma/client';
 
@@ -25,11 +24,6 @@ export interface AiModelBody {
   sort_order?: unknown;
   default_params?: unknown;
   parameter_schema?: unknown;
-}
-
-export interface ModelSyncSnapshotBody {
-  new_api_base_url?: unknown;
-  api_key?: unknown;
 }
 
 export interface ExecutionProfileBody {
@@ -250,20 +244,4 @@ export interface PublicDefaultExecutionProfile {
   parameter_schema: ParameterSchemaField[];
   default_params: unknown;
   capabilities: PublicExecutionProfileCapabilities;
-}
-
-export interface ModelSyncSnapshotSummary {
-  id: string;
-  base_url: string;
-  operator_id: string;
-  model_count: number;
-  created_at: string;
-}
-
-export interface ModelSyncSnapshotDetail extends ModelSyncSnapshotSummary {
-  raw_response: unknown;
-}
-
-export interface SavedConfigForSnapshot {
-  status: NewApiConfigStatus | 'missing';
 }

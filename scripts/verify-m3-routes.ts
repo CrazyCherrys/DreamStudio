@@ -103,9 +103,6 @@ async function main() {
     await page.goto(`${WEB_BASE_URL}/admin/models`, { waitUntil: 'networkidle' });
     await page.getByText('模型目录').waitFor({ timeout: 10000 });
 
-    await page.goto(`${WEB_BASE_URL}/admin/model-sync`, { waitUntil: 'networkidle' });
-    await page.getByText('模型候选拉取').waitFor({ timeout: 10000 });
-
     await page.goto(`${WEB_BASE_URL}/studio`, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: model.displayName }).waitFor({ timeout: 10000 });
     await page.getByLabel('Route Size').waitFor({ timeout: 10000 });
@@ -113,12 +110,7 @@ async function main() {
     console.log(
       JSON.stringify({
         ok: true,
-        checks: [
-          'admin_category_route',
-          'admin_models_route',
-          'admin_model_sync_route',
-          'studio_parameter_schema_render',
-        ],
+        checks: ['admin_category_route', 'admin_models_route', 'studio_parameter_schema_render'],
       }),
     );
   } finally {

@@ -20,10 +20,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     href: '/admin/models' as Route,
   },
   {
-    title: '模型同步',
-    href: '/admin/model-sync' as Route,
-  },
-  {
     title: '存储设置',
     href: '/admin/storage-settings' as Route,
   },

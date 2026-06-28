@@ -372,7 +372,6 @@ API：
 
 - 创建 `ai_models`，包含固定 `modality`、`icon_url`、`description` 和 `endpoint_types`。
 - 创建 `user_model_favorites`。
-- 创建 `model_sync_snapshots`。
 
 API：
 
@@ -383,9 +382,6 @@ API：
 - `GET /api/v1/admin/models/{model_record_id}`
 - `PATCH /api/v1/admin/models/{model_record_id}`
 - `DELETE /api/v1/admin/models/{model_record_id}`
-- `POST /api/v1/admin/model-sync-snapshots`
-- `GET /api/v1/admin/model-sync-snapshots`
-- `GET /api/v1/admin/model-sync-snapshots/{snapshot_id}`
 
 Schema 校验：
 
@@ -404,7 +400,6 @@ Schema 校验：
 管理员：
 
 - `/admin/models`
-- `/admin/model-sync`
 - 表单式参数 Schema 配置器。
 - 高级 JSON 预览、导入和导出。
 

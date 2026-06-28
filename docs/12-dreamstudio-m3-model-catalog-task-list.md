@@ -58,7 +58,6 @@ M3 需要补齐以下数据结构：
 
 - `ai_models`
 - `user_model_favorites`
-- `model_sync_snapshots`
 
 `ai_models` 需要支持：
 
@@ -89,15 +88,6 @@ M3 需要补齐以下数据结构：
 - `model_id`
 - `created_at`
 
-`model_sync_snapshots` 需要支持：
-
-- `id`
-- `base_url`
-- `operator_id`
-- `raw_response`
-- `model_count`
-- `created_at`
-
 索引和约束：
 
 - `ai_models.modality`
@@ -107,8 +97,6 @@ M3 需要补齐以下数据结构：
 - `ai_models.deleted_at`
 - `user_model_favorites(user_id, model_id)` 主键
 - `user_model_favorites.model_id`
-- `model_sync_snapshots.operator_id`
-- `model_sync_snapshots.created_at`
 
 规则：
 
@@ -198,28 +186,6 @@ M3 需要补齐以下数据结构：
 - 模板导入和 JSON 粘贴导入只创建 draft revision。
 - 发布 active revision 前应运行 lint、请求预览、dry-run test 和 diff。
 - OpenAI-compatible copy 必须由管理员删除未确认支持的字段。
-
-### 4.4 模型候选快照接口
-
-需要实现：
-
-- `POST /api/v1/admin/model-sync-snapshots`
-- `GET /api/v1/admin/model-sync-snapshots`
-- `GET /api/v1/admin/model-sync-snapshots/{snapshot_id}`
-
-规则：
-
-- 全部要求 `super_admin`。
-- 创建快照要求 CSRF。
-- 拉取使用 `GET {new_api_base_url}/v1/models`。
-- 请求可传临时 `api_key` 和 `new_api_base_url`。
-- 临时 `api_key` 只用于本次拉取，不保存。
-- 如果未传临时 `api_key`，可使用当前管理员已保存且有效的 `new-api` 配置。
-- 原始响应保存到 `model_sync_snapshots.raw_response`。
-- 候选模型不会自动创建或启用为 DreamStudio 模型。
-- 响应和日志不打印临时 `api_key` 明文。
-
----
 
 ## 5. 参数 Schema 标准
 
@@ -314,22 +280,6 @@ M3 需要提供后端工具：
 - 设置默认参数。
 - 配置参数 Schema。
 
-### 6.3 管理员模型候选页
-
-需要实现：
-
-- `/admin/model-sync`
-
-页面能力：
-
-- 输入临时 `new-api` Base URL 和 API Key。
-- 或选择使用管理员自己的已保存配置。
-- 点击“拉取模型候选”后通过弹窗输入临时 `new-api` Base URL 和 API Key，并调用 `GET /v1/models` 拉取候选。
-- 展示模型候选列表。
-- 展示历史快照。
-- 支持从候选复制模型 ID 到模型创建表单。
-- 不自动启用候选模型。
-
 ### 6.4 创作台模型选择
 
 需要更新：
@@ -361,7 +311,6 @@ M3 需要提供后端工具：
 - `SchemaPreview`
 - `ModelForm`
 - `ModelCategoryForm`
-- `ModelSyncSnapshotPanel`
 
 组件规则：
 
@@ -406,14 +355,10 @@ M3 完成时至少验证：
 - `default_params` 按 Schema 校验。
 - 普通用户只能看到启用模型。
 - 禁用模型不会展示给普通用户。
-- 模型候选快照可以拉取并保存 `raw_response`。
-- 候选模型不会自动进入普通用户模型列表。
-- 临时 `api_key` 不入库、不进响应、不进日志明文。
 
 `scripts/verify-m3-routes.ts` 至少验证：
 
 - 超级管理员可以访问 `/admin/models`。
-- 超级管理员可以访问 `/admin/model-sync`。
 - 普通用户不能访问管理页面。
 - 普通用户可以在 `/studio` 看到启用模型。
 - `/studio` 可以渲染 `ParameterSchemaForm`。
@@ -427,7 +372,6 @@ M3 完成时至少验证：
 - 创建一个图片类型模型，例如 `gpt-image-1`，端点选择 `openai_image_generations`。
 - 配置一个包含 `prompt_style`、`aspect_ratio`、`size`、`n` 的参数 Schema，其中 `aspect_ratio` 用于画幅比例，`size` 或 `resolution` 用于像素规格。
 - 禁用模型后，普通用户列表不再展示。
-- 拉取一次模型候选快照，确认候选不自动启用。
 
 普通用户：
 
@@ -436,13 +380,11 @@ M3 完成时至少验证：
 - 可以使用全部、聊天、图片、视频、我的和搜索框筛选模型。
 - 选择模型后，能看到按 Schema 渲染的参数表单。
 - 不能看到禁用分类和禁用模型。
-- 不能访问 `/admin/models`、`/admin/model-sync`。
+- 不能访问 `/admin/models`。
 
 安全：
 
-- 普通用户接口不返回模型候选快照。
-- 普通用户接口不返回临时 `api_key`。
-- 日志和审计不记录临时 `api_key` 明文。
+- 普通用户接口不返回管理员专用模型管理数据。
 - 管理接口均要求 `super_admin`。
 - 写操作均要求 CSRF。
 

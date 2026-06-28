@@ -1,15 +1,6 @@
-import { createServer } from 'node:http';
-
 import { PrismaClient } from '@prisma/client';
 
 const API_BASE_URL = process.env.DREAMSTUDIO_VERIFY_API_URL ?? 'http://127.0.0.1:3001';
-const MOCK_NEW_API_PORT = Number.parseInt(
-  process.env.DREAMSTUDIO_VERIFY_NEW_API_PORT ?? '3989',
-  10,
-);
-const MOCK_NEW_API_BASE_URL =
-  process.env.DREAMSTUDIO_VERIFY_NEW_API_BASE_URL ?? `http://172.20.0.1:${MOCK_NEW_API_PORT}`;
-const TEMP_API_KEY = process.env.DREAMSTUDIO_VERIFY_API_KEY ?? `sk-m3-temp-${Date.now()}`;
 const ADMIN_USERNAME = process.env.INITIAL_ADMIN_USERNAME ?? 'Cherry';
 const ADMIN_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD ?? 'DreamStudio';
 const USERNAME = `m3_user_${Date.now()}`;
@@ -66,20 +57,6 @@ interface ListPayload<T> {
   items: T[];
 }
 
-interface SnapshotCreatePayload {
-  snapshot: {
-    id: string;
-    base_url: string;
-    model_count: number;
-  };
-}
-
-interface SnapshotDetailPayload extends SnapshotCreatePayload {
-  snapshot: SnapshotCreatePayload['snapshot'] & {
-    raw_response: unknown;
-  };
-}
-
 const validSchema = [
   {
     key: 'size',
@@ -111,35 +88,6 @@ const validSchema = [
 ] as const;
 
 async function main() {
-  const server = process.env.DREAMSTUDIO_VERIFY_NEW_API_BASE_URL
-    ? null
-    : createServer((request, response) => {
-        if (
-          request.url === '/v1/models' &&
-          request.headers.authorization === `Bearer ${TEMP_API_KEY}`
-        ) {
-          response.writeHead(200, { 'content-type': 'application/json' });
-          response.end(
-            JSON.stringify({
-              object: 'list',
-              data: [{ id: 'm3-candidate-a' }, { id: 'm3-candidate-b' }],
-            }),
-          );
-          return;
-        }
-
-        response.writeHead(401, { 'content-type': 'application/json' });
-        response.end(JSON.stringify({ error: { message: 'invalid key' } }));
-      });
-
-  await new Promise<void>((resolve) => {
-    if (!server) {
-      resolve();
-      return;
-    }
-    server.listen(MOCK_NEW_API_PORT, '0.0.0.0', resolve);
-  });
-
   try {
     const admin = await login(ADMIN_USERNAME, ADMIN_PASSWORD);
     const user = await register(USERNAME, PASSWORD);
@@ -298,50 +246,6 @@ async function main() {
       'public model exposes parameter_schema for studio rendering',
     );
 
-    const snapshot = await post<SnapshotCreatePayload>(
-      '/api/v1/admin/model-sync-snapshots',
-      admin.jar,
-      {
-        new_api_base_url: MOCK_NEW_API_BASE_URL,
-        api_key: TEMP_API_KEY,
-      },
-    );
-    assert(snapshot.snapshot.model_count === 2, 'snapshot pulls model candidates');
-
-    const snapshotDetail = await get<SnapshotDetailPayload>(
-      `/api/v1/admin/model-sync-snapshots/${snapshot.snapshot.id}`,
-      admin.jar,
-    );
-    assert(
-      JSON.stringify(snapshotDetail.snapshot.raw_response).includes('m3-candidate-a'),
-      'snapshot raw_response is saved',
-    );
-
-    const publicModelsAfterSnapshot = await get<ListPayload<{ model_id: string }>>(
-      '/api/v1/models',
-      user.jar,
-    );
-    assert(
-      publicModelsAfterSnapshot.items.every((model) => model.model_id !== 'm3-candidate-a'),
-      'candidate models are not automatically public models',
-    );
-
-    const snapshotRow = await prisma.modelSyncSnapshot.findUniqueOrThrow({
-      where: { id: snapshot.snapshot.id },
-    });
-    const leakedSnapshot = JSON.stringify(snapshotRow).includes(TEMP_API_KEY);
-    const leakedAuditCount = await prisma.auditLog.count({
-      where: {
-        targetId: snapshot.snapshot.id,
-        metadata: {
-          path: ['api_key'],
-          equals: TEMP_API_KEY,
-        },
-      },
-    });
-    assert(!leakedSnapshot, 'temporary api_key is not persisted in snapshot row');
-    assert(leakedAuditCount === 0, 'temporary api_key is not stored in audit metadata');
-
     console.log(
       JSON.stringify({
         ok: true,
@@ -353,21 +257,11 @@ async function main() {
           'disabled_hidden',
           'parameter_schema_valid_saved',
           'parameter_schema_invalid_rejected',
-          'snapshot_raw_response_saved',
-          'candidates_not_public',
-          'temporary_key_not_persisted',
         ],
       }),
     );
   } finally {
     await prisma.$disconnect();
-    await new Promise<void>((resolve) => {
-      if (!server) {
-        resolve();
-        return;
-      }
-      server.close(() => resolve());
-    });
   }
 }
 

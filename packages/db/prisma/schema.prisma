@@ -147,7 +147,6 @@ model User {
   sessions                           UserSession[]
   newApiConfig                       UserNewApiConfig?
   auditLogs                          AuditLog[]
-  modelSyncSnapshots                 ModelSyncSnapshot[]
   assets                             Asset[]
   imageTasks                         ImageTask[]
   requestLogs                        RequestLog[]
@@ -339,20 +338,6 @@ model AiModelExecutionProfileRevision {
   @@index([createdAt])
   @@index([activatedAt])
   @@map("ai_model_execution_profile_revisions")
-}
-
-model ModelSyncSnapshot {
-  id          String   @id @default(uuid()) @db.Uuid
-  baseUrl     String   @map("base_url")
-  operatorId  String   @map("operator_id") @db.Uuid
-  rawResponse Json     @map("raw_response")
-  modelCount  Int      @default(0) @map("model_count")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  operator    User     @relation(fields: [operatorId], references: [id], onDelete: Restrict)
-
-  @@index([operatorId])
-  @@index([createdAt])
-  @@map("model_sync_snapshots")
 }
 
 model AuditLog {

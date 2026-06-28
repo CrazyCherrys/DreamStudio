@@ -32,7 +32,6 @@ import type {
   ExecutionProfilePreviewBody,
   ExecutionProfileRevisionBody,
   ProfileTemplateImportBody,
-  ModelSyncSnapshotBody,
 } from './model-catalog.types';
 
 @Controller('models')
@@ -312,31 +311,5 @@ export class PublicModelIconsController {
     @Res({ passthrough: true }) response: Response,
   ) {
     return this.modelCatalogService.downloadModelIcon(filename, response);
-  }
-}
-
-@Controller('admin/model-sync-snapshots')
-@UseGuards(SessionAuthGuard, SuperAdminGuard)
-export class AdminModelSyncSnapshotsController {
-  constructor(private readonly modelCatalogService: ModelCatalogService) {}
-
-  @Post()
-  @HttpCode(200)
-  @UseGuards(CsrfGuard)
-  createSnapshot(
-    @Body() body: ModelSyncSnapshotBody,
-    @Req() request: AuthenticatedRequest & Request,
-  ) {
-    return this.modelCatalogService.createSnapshot(body, request.auth!, request);
-  }
-
-  @Get()
-  listSnapshots() {
-    return this.modelCatalogService.listSnapshots();
-  }
-
-  @Get(':snapshotId')
-  getSnapshot(@Param('snapshotId') snapshotId: string) {
-    return this.modelCatalogService.getSnapshot(snapshotId);
   }
 }
