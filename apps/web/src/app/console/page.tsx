@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function AccountSettingsPage() {
+export default function ConsoleRootPage() {
   redirect('/console/account');
 }

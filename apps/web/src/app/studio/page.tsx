@@ -931,7 +931,6 @@ function StudioModelSidebar({
     <aside className="studio-sidebar">
       <div className="studio-sidebar-head">
         <span className="studio-kicker">模型栏</span>
-        <h1>模型选择</h1>
       </div>
 
       <div className="studio-category-tabs">
@@ -1002,13 +1001,13 @@ function StudioModelSidebar({
         ))}
       </div>
 
-      <Link className="studio-user-entry" href="/studio/assets">
+      <Link className="studio-user-entry" href="/console/account">
         <span className="studio-user-avatar">{getStudioUserInitial(user)}</span>
         <span className="studio-user-copy">
           <strong>{user?.display_name?.trim() || user?.username || 'DreamStudio 用户'}</strong>
           <small>
             <span className="studio-user-status-dot" />
-            我的作品
+            用户后台
           </small>
         </span>
       </Link>
@@ -1182,7 +1181,7 @@ function StudioTaskHistoryRow({ task }: { task: ImageTask }) {
         <span>{formatTaskHistoryTime(task.created_at)}</span>
       </div>
       <strong className={taskStatusTone(task.status)}>{taskStatusLabel(task.status)}</strong>
-      <Link className="studio-task-history-detail" href={`/studio/tasks/${task.id}`}>
+      <Link className="studio-task-history-detail" href={`/console/tasks/${task.id}`}>
         详情
       </Link>
     </article>

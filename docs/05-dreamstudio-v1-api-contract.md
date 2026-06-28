@@ -352,7 +352,27 @@ POST /api/v1/auth/refresh
 - 被禁用用户刷新失败，并撤销会话。
 - 刷新成功后返回新的 CSRF token。
 
-### 4.6 修改密码
+### 4.6 更新个人资料
+
+```http
+PATCH /api/v1/me/profile
+```
+
+请求：
+
+```json
+{
+  "display_name": "Alice"
+}
+```
+
+规则：
+
+- 仅允许当前登录用户更新自己的展示名。
+- `display_name` 允许留空，留空时回退为未设置展示名。
+- 更新成功后返回最新 `AuthPayload`，用于刷新前端当前登录态。
+
+### 4.7 修改密码
 
 ```http
 PATCH /api/v1/me/password

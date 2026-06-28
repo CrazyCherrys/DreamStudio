@@ -67,13 +67,14 @@ v1 页面不设计：
 
 ### 2.2 路由守卫规则
 
-- 访问 `/studio`、`/studio/tasks`、`/studio/assets` 需要登录。
+- 访问 `/studio`、`/console/account`、`/console/new-api`、`/console/tasks`、`/console/assets` 需要登录。
 - 普通用户访问 AI 创作相关页面时，需要有效 `new-api` 配置。
-- 访问 `/settings/new-api` 只需要登录，不要求密钥有效。
+- 访问 `/console/account`、`/console/new-api` 只需要登录，不要求密钥有效。
 - 访问 `/admin/*` 需要 `super_admin`。
 - 超级管理员访问后台不强制要求自己配置 `new-api` 密钥。
 - 超级管理员如果访问 AI 创作台，仍按普通用户规则要求有效密钥。
 - 被禁用用户不能继续访问任何登录后页面。
+- `/settings/account`、`/settings/new-api`、`/studio/tasks`、`/studio/tasks/{task_id}`、`/studio/assets` 作为兼容入口保留，并重定向到对应 `/console/*` 页面。
 
 ### 2.3 页面启动请求
 
@@ -112,11 +113,12 @@ GET /api/v1/auth/me
 | --- | --- |
 | `/onboarding/new-api` | `new-api` 密钥配置引导 |
 | `/studio` | AI 图片创作台 |
-| `/studio/tasks` | 任务列表 |
-| `/studio/tasks/{task_id}` | 任务详情 |
-| `/studio/assets` | 资产仓库 |
-| `/settings/account` | 账号设置 |
-| `/settings/new-api` | `new-api` 配置 |
+| `/console` | 用户后台根入口，重定向到 `/console/account` |
+| `/console/account` | 账号设置 |
+| `/console/new-api` | `new-api` 配置 |
+| `/console/tasks` | 任务列表 |
+| `/console/tasks/{task_id}` | 任务详情 |
+| `/console/assets` | 资产仓库 |
 
 管理员页面：
 
@@ -144,7 +146,7 @@ app/
   (app)/
     onboarding/
     studio/
-    settings/
+    console/
   (admin)/
     admin/
 ```
@@ -152,7 +154,7 @@ app/
 规则：
 
 - 路由分组不影响实际 URL。
-- `(app)` 使用用户登录后布局。
+- `(app)` 使用用户登录后布局；其中 `/console/*` 为统一用户后台。
 - `(admin)` 使用管理后台布局。
 - 页面不要直接调用 `new-api`，只调用 DreamStudio API。
 
@@ -311,7 +313,7 @@ POST /api/v1/image-tasks
 - 提交成功后立即展示 pending 任务卡片。
 - 任务进入终态后展示结果或失败摘要。
 
-### 5.3 任务列表 `/studio/tasks`
+### 5.3 任务列表 `/console/tasks`
 
 目标：
 
@@ -338,7 +340,7 @@ POST /api/v1/image-tasks
 - 任务终态包括 `succeeded`、`failed`、`timeout`、`canceled`。
 - 列表默认按创建时间倒序。
 
-### 5.4 任务详情 `/studio/tasks/{task_id}`
+### 5.4 任务详情 `/console/tasks/{task_id}`
 
 目标：
 
@@ -361,7 +363,7 @@ POST /api/v1/image-tasks
 - 普通用户不展示完整加密 prompt 的后台解密入口。
 - 管理员查看完整 prompt 走请求日志受限接口，不在用户任务详情中提供。
 
-### 5.5 资产仓库 `/studio/assets`
+### 5.5 资产仓库 `/console/assets`
 
 目标：
 
@@ -370,20 +372,13 @@ POST /api/v1/image-tasks
 功能：
 
 - 结果图列表。
+- 参考图列表。
 - 图片预览。
 - 下载。
 - 删除。
 - 批量删除。
-- 按任务或创建时间筛选。
-
-不展示：
-
-- 参考图列表。
-
-说明：
-
-- 参考图仍会作为任务依赖保存到 storage 和 `assets` 表。
-- 参考图只在创作台上传流程和任务详情中展示，不进入资产仓库主列表。
+- 在结果图和参考图之间切换。
+- 在当前页侧栏上传参考图。
 
 接口：
 
@@ -399,20 +394,22 @@ POST /api/v1/image-tasks
 - 删除后不可恢复。
 - 默认不展示已删除或已清理资产。
 
-### 5.6 账号设置 `/settings/account`
+### 5.6 账号设置 `/console/account`
 
 功能：
 
 - 查看账号信息。
 - 修改展示名。
 - 修改密码。
+- 退出当前登录会话。
 
 接口：
 
 - `GET /api/v1/auth/me`
+- `PATCH /api/v1/me/profile`
 - `PATCH /api/v1/me/password`
 
-### 5.7 new-api 配置 `/settings/new-api`
+### 5.7 new-api 配置 `/console/new-api`
 
 功能：
 

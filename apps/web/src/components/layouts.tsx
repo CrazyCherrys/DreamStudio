@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { AdminNavigation } from '@/components/admin-navigation';
+import { ConsoleNavigation } from '@/components/console-navigation';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -68,6 +69,34 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
         <div className="mt-4">
           <AdminNavigation />
+        </div>
+      </aside>
+
+      <section className="admin-content grid min-w-0 content-start gap-5 px-4 py-5 lg:px-6 lg:py-6 xl:px-8">
+        {children}
+      </section>
+    </main>
+  );
+}
+
+export function ConsoleLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="admin-shell min-h-screen lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
+      <aside className="admin-sidebar min-w-0 border-b border-[var(--ds-border)] bg-[var(--ds-admin-sidebar)] px-4 py-4 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 lg:grid lg:items-start">
+          <div>
+            <p className="ds-badge">Console</p>
+            <h1 className="mt-2 text-xl font-black">用户后台</h1>
+            <p className="ds-muted mt-1 hidden text-xs font-semibold lg:block">
+              账号、密钥、任务和作品管理
+            </p>
+          </div>
+          <Link className="ds-button ds-button-secondary min-h-10 px-3 text-sm" href="/studio">
+            返回创作台
+          </Link>
+        </div>
+        <div className="mt-4">
+          <ConsoleNavigation />
         </div>
       </aside>
 

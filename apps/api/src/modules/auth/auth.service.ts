@@ -11,7 +11,7 @@ import {
   unauthorized,
   validationFailed,
 } from './auth.errors';
-import type { AuthBody, PasswordBody, SessionContext } from './auth.types';
+import type { AuthBody, PasswordBody, ProfileBody, SessionContext } from './auth.types';
 import { CookieService } from './cookie.service';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { OriginService } from './origin.service';
@@ -163,6 +163,30 @@ export class AuthService {
     return this.authPayload(session.user, session.csrfToken);
   }
 
+  async updateProfile(body: ProfileBody, session: SessionContext) {
+    const input = this.validateProfileBody(body);
+    const user = await prisma.user.findUnique({
+      where: {
+        id: session.userId,
+      },
+    });
+
+    if (!user || user.status !== 'active') {
+      throw unauthorized();
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        displayName: input.displayName,
+      },
+    });
+
+    return this.authPayload(this.sessionService.toPublicUser(updatedUser), session.csrfToken);
+  }
+
   private async authPayload(user: SessionContext['user'], csrfToken: string) {
     const config = await prisma.userNewApiConfig.findUnique({
       where: {
@@ -266,6 +290,27 @@ export class AuthService {
     return {
       currentPassword,
       newPassword,
+    };
+  }
+
+  private validateProfileBody(body: ProfileBody) {
+    const details: Array<{ field: string; message: string }> = [];
+    const rawDisplayName = typeof body.display_name === 'string' ? body.display_name.trim() : '';
+    const displayName = rawDisplayName.length > 0 ? rawDisplayName : null;
+
+    if (displayName && displayName.length > 160) {
+      details.push({
+        field: 'display_name',
+        message: '展示名不能超过 160 位',
+      });
+    }
+
+    if (details.length > 0) {
+      throw validationFailed(details);
+    }
+
+    return {
+      displayName,
     };
   }
 }
