@@ -324,38 +324,12 @@ select option {
 
 .studio-sidebar {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
   border-right: 1px solid var(--studio-line);
   background:
     linear-gradient(180deg, rgba(45, 212, 191, 0.04), transparent 180px), rgba(7, 11, 10, 0.98);
   box-shadow: 18px 0 44px rgba(0, 0, 0, 0.38);
-}
-
-.studio-sidebar-head {
-  padding: 26px 20px 18px;
-  border-bottom: 1px solid var(--studio-line);
-}
-
-.studio-sidebar-head h1 {
-  margin: 12px 0 0;
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
-.studio-kicker {
-  display: inline-flex;
-  width: fit-content;
-  min-height: 26px;
-  align-items: center;
-  border: 1px solid rgba(39, 198, 183, 0.22);
-  border-radius: 999px;
-  background: rgba(39, 198, 183, 0.1);
-  color: var(--studio-teal);
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 800;
 }
 
 .studio-category-tabs {
@@ -1145,7 +1119,8 @@ select option {
   grid-template-areas:
     'reference prompt'
     'rail rail';
-  gap: 14px;
+  column-gap: 10px;
+  row-gap: 14px;
   align-items: stretch;
   overflow: visible;
   border-radius: 18px;
@@ -1153,6 +1128,10 @@ select option {
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 132px),
     rgba(255, 255, 255, 0.04);
   padding: 16px;
+}
+
+.studio-composer-main.has-reference-selection {
+  column-gap: 14px;
 }
 
 .studio-composer-body {
@@ -1315,8 +1294,9 @@ select option {
   display: grid;
   place-items: center;
   border-style: dashed;
-  border-color: rgba(151, 176, 164, 0.42);
-  color: #7f897f;
+  border-color: rgba(151, 176, 164, 0.62);
+  background: rgba(38, 44, 41, 0.96);
+  color: #d6ddd3;
   text-align: center;
   transform: rotate(-7deg);
   cursor: pointer;
@@ -1382,9 +1362,9 @@ select option {
 
 .studio-reference-add {
   z-index: 8;
-  border-color: rgba(151, 176, 164, 0.34);
-  background: rgba(48, 51, 61, 0.44);
-  color: rgba(220, 228, 220, 0.72);
+  border-color: rgba(151, 176, 164, 0.58);
+  background: rgba(38, 44, 41, 0.96);
+  color: #dce4dc;
   font-weight: 900;
   cursor: pointer;
   transform: translate(var(--reference-stack-x, 0), var(--reference-stack-y, 0))
@@ -1455,7 +1435,7 @@ select option {
   gap: 8px;
   border: 1px solid var(--studio-line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(34, 40, 37, 0.96);
   color: #efe3d4;
   padding: 0 12px;
   font-size: 12px;
@@ -1660,6 +1640,21 @@ select option {
   background: rgba(39, 198, 183, 0.12);
 }
 
+.studio-quick-options button:disabled,
+.studio-quick-options button[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.studio-count-field {
+  display: grid;
+  gap: 8px;
+}
+
+.studio-count-presets {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .studio-quick-input {
   width: 100%;
   min-height: 40px;
@@ -1676,6 +1671,22 @@ select option {
 .studio-quick-input:focus {
   border-color: rgba(39, 198, 183, 0.5);
   box-shadow: 0 0 0 3px rgba(39, 198, 183, 0.1);
+}
+
+.studio-quick-input.is-error {
+  border-color: rgba(251, 113, 133, 0.7);
+  box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.14);
+}
+
+.studio-count-custom {
+  display: grid;
+  gap: 6px;
+}
+
+.studio-quick-field-error {
+  color: #fda4af;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .studio-quick-toggle {

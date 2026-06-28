@@ -40,6 +40,7 @@ type QuickParameterKind = 'count' | 'size' | 'resolution';
 type StudioReferencePreview = Pick<AssetItem, 'id' | 'download_url' | 'filename'>;
 
 const MAX_SELECTED_REFERENCES = 8;
+const QUICK_COUNT_PRESET_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 interface QuickParameterConfig {
   fields: ParameterSchemaField[];
@@ -72,6 +73,7 @@ function StudioContent() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
   const quickParameterRef = useRef<HTMLDivElement | null>(null);
+  const taskHistoryRef = useRef<HTMLDivElement | null>(null);
   const taskHistoryRequestIdRef = useRef(0);
   const selectedModelId = selectedModel?.id ?? null;
 
@@ -96,21 +98,26 @@ function StudioContent() {
   }, []);
 
   useEffect(() => {
-    if (!openQuickParameter) {
+    if (!openQuickParameter && !taskHistoryOpen) {
       return;
     }
 
-    function closeOnOutsidePointer(event: PointerEvent) {
+    function closeOnOutsideClick(event: MouseEvent) {
       const target = event.target;
-      if (target instanceof Node && quickParameterRef.current?.contains(target)) {
+      if (!(target instanceof Node)) {
         return;
       }
-      setOpenQuickParameter(null);
+      if (openQuickParameter && !quickParameterRef.current?.contains(target)) {
+        setOpenQuickParameter(null);
+      }
+      if (taskHistoryOpen && !taskHistoryRef.current?.contains(target)) {
+        setTaskHistoryOpen(false);
+      }
     }
 
-    window.addEventListener('pointerdown', closeOnOutsidePointer);
-    return () => window.removeEventListener('pointerdown', closeOnOutsidePointer);
-  }, [openQuickParameter]);
+    window.addEventListener('click', closeOnOutsideClick);
+    return () => window.removeEventListener('click', closeOnOutsideClick);
+  }, [openQuickParameter, taskHistoryOpen]);
 
   const loadModelTasks = useCallback(
     async (modelRecordId: string, options: { showLoading?: boolean } = {}) => {
@@ -240,6 +247,7 @@ function StudioContent() {
     setSelectedModel(model);
     setParameterValues({});
     setShowModelIntro(true);
+    setOpenQuickParameter(null);
     if (!getModelSupportsReferenceImage(model)) {
       setSelectedReferences([]);
     }
@@ -427,6 +435,7 @@ function StudioContent() {
               onOpenChange={setTaskHistoryOpen}
               onSearchChange={setTaskHistorySearchQuery}
               open={taskHistoryOpen}
+              refElement={taskHistoryRef}
               searchQuery={taskHistorySearchQuery}
               tasks={modelTasks}
             />
@@ -441,7 +450,11 @@ function StudioContent() {
           </section>
 
           <form className="studio-composer" onSubmit={submitTask}>
-            <div className="studio-composer-main">
+            <div
+              className={`studio-composer-main ${
+                selectedReferences.length > 0 ? 'has-reference-selection' : ''
+              }`}
+            >
               <label className="sr-only" htmlFor="studio-reference-upload">
                 上传参考图
               </label>
@@ -548,16 +561,31 @@ function QuickParameterBar({
                 {config.fields.map((field) => (
                   <div className="studio-quick-field" key={field.key}>
                     {config.fields.length > 1 ? <span>{field.label}</span> : null}
-                    <ParameterFieldControl
-                      field={field}
-                      onChange={(nextValue) =>
-                        updateParameterValues({
-                          ...values,
-                          [field.key]: nextValue,
-                        })
-                      }
-                      value={values[field.key] ?? field.default ?? null}
-                    />
+                    {config.kind === 'count' && supportsQuickCountPresets(field) ? (
+                      <CountQuickFieldControl
+                        field={field}
+                        onChange={(nextValue) =>
+                          updateParameterValues({
+                            ...values,
+                            [field.key]: nextValue,
+                          })
+                        }
+                        onCommit={() => onOpenChange(null)}
+                        value={values[field.key] ?? field.default ?? null}
+                      />
+                    ) : (
+                      <ParameterFieldControl
+                        field={field}
+                        onChange={(nextValue) =>
+                          updateParameterValues({
+                            ...values,
+                            [field.key]: nextValue,
+                          })
+                        }
+                        onCommit={() => onOpenChange(null)}
+                        value={values[field.key] ?? field.default ?? null}
+                      />
+                    )}
                     {field.description ? <p>{field.description}</p> : null}
                   </div>
                 ))}
@@ -573,10 +601,12 @@ function QuickParameterBar({
 function ParameterFieldControl({
   field,
   onChange,
+  onCommit,
   value,
 }: {
   field: ParameterSchemaField;
   onChange: (value: string | number | boolean | null) => void;
+  onCommit?: () => void;
   value: string | number | boolean | null;
 }) {
   if (field.type === 'select') {
@@ -586,7 +616,10 @@ function ParameterFieldControl({
           <button
             className={value === option.value ? 'is-active' : ''}
             key={String(option.value)}
-            onClick={() => onChange(option.value)}
+            onClick={() => {
+              onChange(option.value);
+              onCommit?.();
+            }}
             type="button"
           >
             {option.label}
@@ -601,7 +634,10 @@ function ParameterFieldControl({
       <label className="studio-quick-toggle">
         <input
           checked={value === true}
-          onChange={(event) => onChange(event.target.checked)}
+          onChange={(event) => {
+            onChange(event.target.checked);
+            onCommit?.();
+          }}
           type="checkbox"
         />
         <span>{field.label}</span>
@@ -627,11 +663,154 @@ function ParameterFieldControl({
         }
         onChange(event.target.value);
       }}
+      onBlur={() => onCommit?.()}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter') {
+          return;
+        }
+        event.preventDefault();
+        onCommit?.();
+      }}
       placeholder={field.placeholder}
       step={field.type === 'integer' ? 1 : undefined}
       type={field.type === 'number' || field.type === 'integer' ? 'number' : 'text'}
       value={inputValue}
     />
+  );
+}
+
+function CountQuickFieldControl({
+  field,
+  onChange,
+  onCommit,
+  value,
+}: {
+  field: ParameterSchemaField;
+  onChange: (value: string | number | boolean | null) => void;
+  onCommit: () => void;
+  value: string | number | boolean | null;
+}) {
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customValue, setCustomValue] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
+  const customInputRef = useRef<HTMLInputElement | null>(null);
+  const numericValue = readQuickCountValue(value);
+  const isCustomValue =
+    numericValue !== null &&
+    !QUICK_COUNT_PRESET_VALUES.some((presetValue) => presetValue === numericValue);
+
+  useEffect(() => {
+    setCustomValue(numericValue === null ? '' : String(numericValue));
+    setCustomError(null);
+    if (!isCustomValue) {
+      setCustomOpen(false);
+    }
+  }, [field.key, isCustomValue, numericValue]);
+
+  useEffect(() => {
+    if (!customOpen) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      customInputRef.current?.focus();
+      customInputRef.current?.select();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [customOpen]);
+
+  function submitCustomValue() {
+    const trimmedValue = customValue.trim();
+    if (trimmedValue === '') {
+      setCustomError('请输入张数');
+      return;
+    }
+    const parsedValue = Number(trimmedValue);
+    if (!Number.isInteger(parsedValue)) {
+      setCustomError('张数必须是整数');
+      return;
+    }
+    if (field.min !== undefined && parsedValue < field.min) {
+      setCustomError(`张数不能小于 ${field.min}`);
+      return;
+    }
+    if (field.max !== undefined && parsedValue > field.max) {
+      setCustomError(`张数不能大于 ${field.max}`);
+      return;
+    }
+    setCustomError(null);
+    setCustomOpen(false);
+    onChange(parsedValue);
+    onCommit();
+  }
+
+  return (
+    <div className="studio-count-field">
+      <div className="studio-quick-options studio-count-presets">
+        {QUICK_COUNT_PRESET_VALUES.map((presetValue) => {
+          const disabled =
+            (field.min !== undefined && presetValue < field.min) ||
+            (field.max !== undefined && presetValue > field.max);
+          return (
+            <button
+              aria-disabled={disabled}
+              className={numericValue === presetValue ? 'is-active' : ''}
+              disabled={disabled}
+              key={presetValue}
+              onClick={() => {
+                setCustomError(null);
+                setCustomOpen(false);
+                onChange(presetValue);
+                onCommit();
+              }}
+              type="button"
+            >
+              {presetValue}
+            </button>
+          );
+        })}
+        <button
+          className={customOpen || isCustomValue ? 'is-active' : ''}
+          onClick={() => {
+            setCustomValue(numericValue === null ? '' : String(numericValue));
+            setCustomError(null);
+            setCustomOpen(true);
+          }}
+          type="button"
+        >
+          自定义
+        </button>
+      </div>
+      {customOpen || isCustomValue ? (
+        <div className="studio-count-custom">
+          <input
+            className={`studio-quick-input ${customError ? 'is-error' : ''}`}
+            inputMode="numeric"
+            max={field.max}
+            min={field.min}
+            onBlur={submitCustomValue}
+            onChange={(event) => {
+              setCustomValue(event.target.value);
+              if (customError) {
+                setCustomError(null);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') {
+                return;
+              }
+              event.preventDefault();
+              submitCustomValue();
+            }}
+            placeholder="输入张数"
+            ref={customInputRef}
+            step={1}
+            type="number"
+            value={customValue}
+          />
+          {customError ? <span className="studio-quick-field-error">{customError}</span> : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -728,6 +907,20 @@ function formatQuickFieldValue(
     return field.label;
   }
   return String(normalizedValue).replace(/\s*x\s*/i, ' x ');
+}
+
+function supportsQuickCountPresets(field: ParameterSchemaField) {
+  return field.type === 'integer' || field.type === 'number';
+}
+
+function readQuickCountValue(value: string | number | boolean | null) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+  return null;
 }
 
 function mergeQuickParameterDefaults(
@@ -979,10 +1172,6 @@ function StudioModelSidebar({
 
   return (
     <aside className="studio-sidebar">
-      <div className="studio-sidebar-head">
-        <span className="studio-kicker">模型栏</span>
-      </div>
-
       <div className="studio-category-tabs">
         {filters.map((filter) => (
           <button
@@ -1138,6 +1327,7 @@ function StudioTaskHistoryPanel({
   onOpenChange,
   onSearchChange,
   open,
+  refElement,
   searchQuery,
   tasks,
 }: {
@@ -1147,6 +1337,7 @@ function StudioTaskHistoryPanel({
   onOpenChange: (value: boolean) => void;
   onSearchChange: (value: string) => void;
   open: boolean;
+  refElement: RefObject<HTMLDivElement | null>;
   searchQuery: string;
   tasks: ImageTask[];
 }) {
@@ -1163,7 +1354,7 @@ function StudioTaskHistoryPanel({
   }, [normalizedQuery, tasks]);
 
   return (
-    <div className="studio-task-history">
+    <div className="studio-task-history" ref={refElement}>
       <button
         aria-expanded={open}
         className="studio-task-history-trigger"
