@@ -538,6 +538,14 @@ S3 配置通过管理员后台写入 `storage_settings`。
 - 正确传递 `X-Forwarded-Proto`。
 - 正确传递 `X-Forwarded-For`。
 
+### 10.3 内网 HTTP 调试
+
+开发或内网调试时，DreamStudio 可能直接通过 `http://局域网IP:3000` 访问。
+
+- `/studio` 前端不能把任务提交幂等 ID 生成为仅限安全上下文的浏览器能力。
+- 即使没有 HTTPS，图片任务提交也应能正常创建 `client_request_id` 并发出请求。
+- 生产环境仍应优先通过反向代理提供 HTTPS，避免 Cookie、安全上下文和浏览器能力差异带来的额外风险。
+
 ---
 
 ## 11. 日志与保留
