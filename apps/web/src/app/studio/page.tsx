@@ -453,34 +453,37 @@ function StudioContent() {
                 references={selectedReferences}
                 uploading={uploadingReference}
               />
-              <textarea
-                className="studio-prompt-input"
-                onChange={(event) => setPrompt(event.target.value)}
-                onKeyDown={handlePromptKeyDown}
-                placeholder="描述你想生成的画面..."
-                value={prompt}
-              />
-              <div className="studio-composer-actions">
-                <button
-                  aria-label={submitting ? '正在提交任务' : '提交生成任务'}
-                  className="studio-submit-button"
-                  disabled={!canSubmit}
-                  title={submitting ? '提交中' : '提交生成任务'}
-                  type="submit"
-                >
-                  <Send aria-hidden="true" size={17} strokeWidth={2.4} />
-                </button>
+              <div className="studio-composer-body">
+                <textarea
+                  className="studio-prompt-input"
+                  onChange={(event) => setPrompt(event.target.value)}
+                  onKeyDown={handlePromptKeyDown}
+                  placeholder="描述你想生成的画面..."
+                  value={prompt}
+                />
+                <div className="studio-composer-footer">
+                  <QuickParameterBar
+                    configs={quickParameters}
+                    onOpenChange={setOpenQuickParameter}
+                    openKind={openQuickParameter}
+                    refElement={quickParameterRef}
+                    updateParameterValues={updateParameterValues}
+                    values={parameterValues}
+                  />
+                  <div className="studio-composer-actions">
+                    <button
+                      aria-label={submitting ? '正在提交任务' : '提交生成任务'}
+                      className="studio-submit-button"
+                      disabled={!canSubmit}
+                      title={submitting ? '提交中' : '提交生成任务'}
+                      type="submit"
+                    >
+                      <Send aria-hidden="true" size={17} strokeWidth={2.4} />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <QuickParameterBar
-              configs={quickParameters}
-              onOpenChange={setOpenQuickParameter}
-              openKind={openQuickParameter}
-              refElement={quickParameterRef}
-              updateParameterValues={updateParameterValues}
-              values={parameterValues}
-            />
           </form>
         </section>
       </section>
@@ -831,13 +834,13 @@ function StudioReferenceUploader({
               style={
                 {
                   '--reference-index': index,
-                  '--reference-stack-x': `${Math.min(index, 4) * 8}px`,
-                  '--reference-stack-y': `${Math.min(index, 4) * -3}px`,
+                  '--reference-stack-x': `${Math.min(index, 4) * 10}px`,
+                  '--reference-stack-y': `${Math.min(index, 4) * -4}px`,
                   '--reference-rotation': `${index % 2 === 0 ? -6 : 5}deg`,
-                  '--reference-focus-x': `${index * 80}px`,
-                  '--reference-expanded-x': `${index * 80}px`,
-                  '--reference-mobile-expanded-x': `${index * 66}px`,
-                  '--reference-expanded-y': `${index % 2 === 0 ? 0 : 8}px`,
+                  '--reference-focus-x': `${index * 96}px`,
+                  '--reference-expanded-x': `${index * 96}px`,
+                  '--reference-mobile-expanded-x': `${index * 86}px`,
+                  '--reference-expanded-y': `${index % 2 === 0 ? 0 : 10}px`,
                   '--reference-expanded-rotation': `${index % 2 === 0 ? -3 : 3}deg`,
                 } as CSSProperties
               }
@@ -862,13 +865,13 @@ function StudioReferenceUploader({
             style={
               {
                 '--reference-index': references.length,
-                '--reference-stack-x': `${Math.min(references.length, 2) * 16 + 24}px`,
-                '--reference-stack-y': `${Math.min(references.length, 3) * -3}px`,
+                '--reference-stack-x': `${Math.min(references.length, 2) * 22 + 34}px`,
+                '--reference-stack-y': `${Math.min(references.length, 3) * -4}px`,
                 '--reference-rotation': `${references.length % 2 === 0 ? -5 : 4}deg`,
-                '--reference-focus-x': `${references.length * 80}px`,
-                '--reference-expanded-x': `${references.length * 80}px`,
-                '--reference-mobile-expanded-x': `${references.length * 66}px`,
-                '--reference-expanded-y': `${references.length % 2 === 0 ? 0 : 8}px`,
+                '--reference-focus-x': `${references.length * 96}px`,
+                '--reference-expanded-x': `${references.length * 96}px`,
+                '--reference-mobile-expanded-x': `${references.length * 86}px`,
+                '--reference-expanded-y': `${references.length % 2 === 0 ? 0 : 10}px`,
                 '--reference-expanded-rotation': `${references.length % 2 === 0 ? -3 : 3}deg`,
               } as CSSProperties
             }
