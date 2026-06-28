@@ -1,7 +1,40 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { AdminNavigation } from '@/components/admin-navigation';
 import { ConsoleNavigation } from '@/components/console-navigation';
+
+function SidebarBrand({ subtitle }: { subtitle: string }) {
+  return (
+    <div>
+      <Link
+        aria-label="前往创作台"
+        className="group inline-flex items-center gap-3 rounded-[20px] border border-transparent p-2 -ml-2 transition hover:border-[var(--ds-border)] hover:bg-[rgba(255,255,255,0.04)]"
+        href="/studio"
+      >
+        <span className="relative flex h-12 w-12 shrink-0 overflow-hidden rounded-[18px] border border-[rgba(139,231,225,0.24)] bg-[linear-gradient(160deg,rgba(255,134,93,0.14),rgba(139,231,225,0.08))] shadow-[0_14px_28px_rgba(0,0,0,0.22)]">
+          <Image
+            alt="DreamStudio brand mark"
+            className="object-cover object-top scale-[1.18]"
+            fill
+            priority
+            sizes="48px"
+            src="/brand/dreamstudio-mark.webp"
+          />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[11px] font-bold uppercase tracking-[0.28em] text-[var(--ds-brand-hover)]">
+            Create
+          </span>
+          <span className="mt-1 block text-lg font-black tracking-[0.01em] text-[var(--ds-text)] transition group-hover:text-[var(--ds-brand-hover)]">
+            DreamStuDio
+          </span>
+        </span>
+      </Link>
+      <p className="ds-muted mt-3 hidden text-xs font-semibold lg:block">{subtitle}</p>
+    </div>
+  );
+}
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -55,17 +88,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <main className="admin-shell min-h-screen lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
       <aside className="admin-sidebar min-w-0 border-b border-[var(--ds-border)] bg-[var(--ds-admin-sidebar)] px-4 py-4 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 lg:grid lg:items-start">
-          <div>
-            <p className="ds-badge">Admin</p>
-            <h1 className="mt-2 text-xl font-black">管理后台</h1>
-            <p className="ds-muted mt-1 hidden text-xs font-semibold lg:block">
-              系统配置与运维控制台
-            </p>
-          </div>
-          <Link className="ds-button ds-button-secondary min-h-10 px-3 text-sm" href="/">
-            返回首页
-          </Link>
+        <div className="flex flex-wrap items-start gap-3 lg:grid lg:items-start">
+          <SidebarBrand subtitle="管理后台 · 系统配置与运维控制台" />
         </div>
         <div className="mt-4">
           <AdminNavigation />
@@ -83,17 +107,8 @@ export function ConsoleLayout({ children }: { children: React.ReactNode }) {
   return (
     <main className="admin-shell min-h-screen lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
       <aside className="admin-sidebar min-w-0 border-b border-[var(--ds-border)] bg-[var(--ds-admin-sidebar)] px-4 py-4 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 lg:grid lg:items-start">
-          <div>
-            <p className="ds-badge">Console</p>
-            <h1 className="mt-2 text-xl font-black">用户后台</h1>
-            <p className="ds-muted mt-1 hidden text-xs font-semibold lg:block">
-              账号、密钥、任务和作品管理
-            </p>
-          </div>
-          <Link className="ds-button ds-button-secondary min-h-10 px-3 text-sm" href="/studio">
-            返回创作台
-          </Link>
+        <div className="flex flex-wrap items-start gap-3 lg:grid lg:items-start">
+          <SidebarBrand subtitle="用户后台 · 账号、密钥、任务和作品管理" />
         </div>
         <div className="mt-4">
           <ConsoleNavigation />
