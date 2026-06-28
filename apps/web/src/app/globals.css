@@ -1130,8 +1130,8 @@ select option {
   display: block;
   width: min(var(--studio-composer-width), calc(100% - 72px));
   transform: translateX(50%);
-  border: 0;
-  border-radius: 22px;
+  border: 1px solid rgba(151, 176, 164, 0.22);
+  border-radius: 18px;
   background: rgba(10, 15, 13, 0.9);
   padding: 0;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
@@ -1142,10 +1142,13 @@ select option {
   position: relative;
   display: grid;
   grid-template-columns: 178px minmax(0, 1fr);
+  grid-template-areas:
+    'reference prompt'
+    'rail rail';
   gap: 14px;
   align-items: stretch;
   overflow: visible;
-  border-radius: 22px;
+  border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 132px),
     rgba(255, 255, 255, 0.04);
@@ -1153,22 +1156,31 @@ select option {
 }
 
 .studio-composer-body {
+  grid-area: prompt;
   display: grid;
   min-width: 0;
   min-height: 126px;
   align-items: stretch;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.028);
   padding: 2px 0 0;
 }
 
-.studio-composer-footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 12px;
+.studio-composer-rail {
+  grid-area: rail;
+  display: flex;
   min-width: 0;
-  padding: 6px 0 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.studio-composer-rail-leading {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
 .studio-prompt-input {
@@ -1231,8 +1243,9 @@ select option {
 .studio-composer-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   align-self: end;
+  flex-shrink: 0;
   padding: 0 2px 2px 0;
 }
 
@@ -1261,6 +1274,7 @@ select option {
 }
 
 .studio-reference-uploader {
+  grid-area: reference;
   position: relative;
   display: grid;
   width: 178px;
@@ -1329,7 +1343,7 @@ select option {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 9px;
+  border-radius: 8px;
   object-fit: cover;
 }
 
@@ -1431,6 +1445,39 @@ select option {
   color: var(--studio-teal);
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.78;
+}
+
+.studio-reference-rail-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--studio-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #efe3d4;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.studio-reference-rail-button:hover,
+.studio-reference-rail-button:focus-visible {
+  border-color: rgba(39, 198, 183, 0.42);
+  background: rgba(39, 198, 183, 0.11);
+}
+
+.studio-reference-rail-button.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .studio-reference-stack:hover .studio-reference-card,
@@ -1478,7 +1525,8 @@ select option {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  width: 100%;
+  width: auto;
+  flex: 1;
   min-width: 0;
   border-radius: 0;
   background: transparent;
@@ -1490,16 +1538,15 @@ select option {
 }
 
 .studio-quick-param-trigger {
-  display: grid;
-  grid-template-columns: auto auto;
+  display: inline-flex;
   min-height: 38px;
   align-items: center;
-  gap: 2px 8px;
+  gap: 8px;
   border: 1px solid var(--studio-line);
-  border-radius: 999px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   color: #efe3d4;
-  padding: 6px 12px;
+  padding: 0 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -1510,21 +1557,17 @@ select option {
   background: rgba(39, 198, 183, 0.11);
 }
 
-.studio-quick-param-trigger > span {
-  grid-row: 1 / 3;
+.studio-quick-param-icon {
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   place-items: center;
   border: 1px solid rgba(246, 179, 61, 0.28);
-  border-radius: 999px;
+  border-radius: 8px;
   background: rgba(246, 179, 61, 0.1);
   color: var(--studio-amber);
-  font-size: 13px;
-  font-weight: 900;
 }
 
-.studio-quick-param-trigger strong,
 .studio-quick-param-trigger small {
   overflow: hidden;
   max-width: 140px;
@@ -1532,15 +1575,10 @@ select option {
   white-space: nowrap;
 }
 
-.studio-quick-param-trigger strong {
-  font-size: 11px;
-  font-weight: 900;
-}
-
 .studio-quick-param-trigger small {
-  color: var(--studio-muted);
-  font-size: 10px;
-  font-weight: 800;
+  color: #f4f7f2;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .studio-quick-param-popover {
@@ -1722,6 +1760,10 @@ select option {
 
   .studio-composer-main {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      'reference'
+      'prompt'
+      'rail';
     gap: 10px;
     padding: 14px;
   }
@@ -1731,10 +1773,15 @@ select option {
     padding-top: 0;
   }
 
-  .studio-composer-footer {
-    grid-template-columns: 1fr;
+  .studio-composer-rail {
     align-items: stretch;
+    flex-direction: column;
     gap: 10px;
+  }
+
+  .studio-composer-rail-leading {
+    width: 100%;
+    gap: 8px;
   }
 
   .studio-prompt-input {
@@ -1825,6 +1872,7 @@ select option {
 
   .studio-quick-params {
     gap: 8px;
+    width: 100%;
   }
 
   .studio-quick-param-popover {

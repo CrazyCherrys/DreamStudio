@@ -6,11 +6,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type CSSProperties,
   type RefObject,
 } from 'react';
 import Link from 'next/link';
-import { Plus, Send } from 'lucide-react';
+import { Crop, Images, Layers3, Plus, Send, Square } from 'lucide-react';
 
 import { useAuth } from '@/components/auth-provider';
 import { RouteGuard } from '@/components/route-guard';
@@ -42,7 +43,7 @@ const MAX_SELECTED_REFERENCES = 8;
 
 interface QuickParameterConfig {
   fields: ParameterSchemaField[];
-  icon: string;
+  icon: ReactNode;
   kind: QuickParameterKind;
   label: string;
 }
@@ -461,7 +462,16 @@ function StudioContent() {
                   placeholder="描述你想生成的画面..."
                   value={prompt}
                 />
-                <div className="studio-composer-footer">
+              </div>
+              <div className="studio-composer-rail">
+                <div className="studio-composer-rail-leading">
+                  <StudioReferenceRailButton
+                    disabled={!selectedSupportsReferenceImage || selectedMaxReferenceImages <= 0}
+                    inputId="studio-reference-upload"
+                    maxReferences={selectedMaxReferenceImages}
+                    references={selectedReferences}
+                    uploading={uploadingReference}
+                  />
                   <QuickParameterBar
                     configs={quickParameters}
                     onOpenChange={setOpenQuickParameter}
@@ -470,17 +480,17 @@ function StudioContent() {
                     updateParameterValues={updateParameterValues}
                     values={parameterValues}
                   />
-                  <div className="studio-composer-actions">
-                    <button
-                      aria-label={submitting ? '正在提交任务' : '提交生成任务'}
-                      className="studio-submit-button"
-                      disabled={!canSubmit}
-                      title={submitting ? '提交中' : '提交生成任务'}
-                      type="submit"
-                    >
-                      <Send aria-hidden="true" size={17} strokeWidth={2.4} />
-                    </button>
-                  </div>
+                </div>
+                <div className="studio-composer-actions">
+                  <button
+                    aria-label={submitting ? '正在提交任务' : '提交生成任务'}
+                    className="studio-submit-button"
+                    disabled={!canSubmit}
+                    title={submitting ? '提交中' : '提交生成任务'}
+                    type="submit"
+                  >
+                    <Send aria-hidden="true" size={17} strokeWidth={2.4} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -518,19 +528,21 @@ function QuickParameterBar({
         return (
           <div className="studio-quick-param" key={config.kind}>
             <button
+              aria-label={`${config.label}：${value}`}
               aria-expanded={isOpen}
               className={`studio-quick-param-trigger ${isOpen ? 'is-active' : ''}`}
               onClick={() => onOpenChange(isOpen ? null : config.kind)}
               type="button"
             >
-              <span aria-hidden="true">{config.icon}</span>
-              <strong>{config.label}</strong>
+              <span aria-hidden="true" className="studio-quick-param-icon">
+                {config.icon}
+              </span>
               <small>{value}</small>
             </button>
             {isOpen ? (
               <div className="studio-quick-param-popover">
                 <div className="studio-quick-param-head">
-                  <span>{config.icon}</span>
+                  <span aria-hidden="true">{config.icon}</span>
                   <strong>{config.label}</strong>
                 </div>
                 {config.fields.map((field) => (
@@ -632,25 +644,25 @@ function buildQuickParameters(schema: ParameterSchemaField[]): QuickParameterCon
 
   const definitions: Array<{
     fields: (schema: ParameterSchemaField[], usedKeys: Set<string>) => ParameterSchemaField[];
-    icon: string;
+    icon: ReactNode;
     kind: QuickParameterKind;
     label: string;
   }> = [
     {
       fields: (items, keys) => findSingleQuickFieldBySlots(items, keys, ['count']),
-      icon: '#',
+      icon: <Layers3 size={15} strokeWidth={1.8} />,
       kind: 'count',
       label: '张数',
     },
     {
       fields: (items, keys) => findSingleQuickFieldBySlots(items, keys, ['aspect_ratio']),
-      icon: '□',
+      icon: <Crop size={15} strokeWidth={1.8} />,
       kind: 'size',
       label: '比例',
     },
     {
       fields: (items, keys) => findSingleQuickFieldBySlots(items, keys, ['resolution']),
-      icon: '▣',
+      icon: <Square size={15} strokeWidth={1.8} />,
       kind: 'resolution',
       label: '分辨率',
     },
@@ -897,6 +909,41 @@ function StudioReferenceUploader({
       />
       {statusLabel ? <span className="studio-reference-status">{statusLabel}</span> : null}
     </div>
+  );
+}
+
+function StudioReferenceRailButton({
+  disabled,
+  inputId,
+  maxReferences,
+  references,
+  uploading,
+}: {
+  disabled: boolean;
+  inputId: string;
+  maxReferences: number;
+  references: StudioReferencePreview[];
+  uploading: boolean;
+}) {
+  const uploadDisabled = disabled || uploading || references.length >= maxReferences;
+  const label = disabled
+    ? '不支持'
+    : uploading
+      ? '上传中'
+      : references.length > 0
+        ? `${references.length}/${maxReferences}`
+        : '添加';
+
+  return (
+    <label
+      aria-disabled={uploadDisabled}
+      className={`studio-reference-rail-button ${uploadDisabled ? 'is-disabled' : ''}`}
+      htmlFor={uploadDisabled ? undefined : inputId}
+      title={disabled ? '当前模型不支持上传参考图' : '上传参考图'}
+    >
+      <Images aria-hidden="true" size={16} strokeWidth={1.9} />
+      <span>{label}</span>
+    </label>
   );
 }
 
