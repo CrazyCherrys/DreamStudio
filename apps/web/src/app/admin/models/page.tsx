@@ -680,7 +680,7 @@ function ModelEditorDialog({
     <AdminDialog
       badge="Models"
       disabled={submitting}
-      maxWidthClass="max-w-6xl"
+      maxWidthClass="max-w-7xl"
       onClose={onClose}
       title={model ? `编辑模型：${model.display_name}` : '新增模型'}
       description={

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 import { DsButton, DsInput } from '@/components/ui';
 import {
@@ -739,6 +739,9 @@ export function ModelForm({
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [iconError, setIconError] = useState<string | null>(null);
   const [showFallbackSchema, setShowFallbackSchema] = useState(false);
+  const iconInputId = useId();
+  const hasIconPreview = Boolean(form.icon_url);
+  const iconActionLabel = uploadingIcon ? '上传中...' : hasIconPreview ? '更换图标' : '上传图标';
 
   function patchForm(patch: Partial<AiModelPayload>) {
     setForm((current) => ({
@@ -856,34 +859,73 @@ export function ModelForm({
         </label>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[84px_1fr]">
-        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] text-2xl font-black">
-          {form.icon_url ? (
-            <img
-              alt={form.display_name || '模型图标'}
-              className="h-full w-full object-cover"
-              src={form.icon_url}
-            />
-          ) : (
-            form.display_name.slice(0, 1) || 'M'
-          )}
-        </div>
+      <div className="grid gap-4 md:grid-cols-[164px_1fr]">
         <div className="grid gap-3">
-          <DsInput
-            label="图标 URL"
-            onChange={(event) => patchForm({ icon_url: event.target.value || null })}
-            value={form.icon_url ?? ''}
-          />
-          <label className="flex w-fit cursor-pointer items-center justify-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-black">
-            {uploadingIcon ? '上传中...' : '上传图标'}
-            <input
-              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-              className="sr-only"
-              disabled={uploadingIcon}
-              onChange={uploadIcon}
-              type="file"
-            />
+          <label
+            className={`group relative flex min-h-40 w-full items-center justify-center overflow-hidden rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-4 text-center ${
+              uploadingIcon ? 'cursor-progress opacity-80' : 'cursor-pointer'
+            }`}
+            htmlFor={iconInputId}
+          >
+            {hasIconPreview ? (
+              <>
+                <img
+                  alt={form.display_name || '模型图标'}
+                  className="h-full w-full object-cover"
+                  src={form.icon_url ?? ''}
+                />
+                <span className="absolute inset-x-0 bottom-0 bg-black/60 px-3 py-2 text-xs font-black text-white opacity-0 transition group-hover:opacity-100">
+                  {iconActionLabel}
+                </span>
+              </>
+            ) : (
+              <span className="grid gap-2">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-[var(--ds-border-strong)] text-3xl font-black">
+                  +
+                </span>
+                <span className="text-sm font-black">{iconActionLabel}</span>
+                <span className="ds-muted text-xs">支持 JPG、PNG、WEBP、GIF、SVG</span>
+              </span>
+            )}
           </label>
+          <input
+            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+            className="sr-only"
+            disabled={uploadingIcon}
+            id={iconInputId}
+            onChange={uploadIcon}
+            type="file"
+          />
+        </div>
+        <div className="grid content-start gap-3">
+          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+            <p className="font-black">模型图标</p>
+            <p className="ds-muted mt-2 text-sm leading-6">
+              这里只显示图标预览，不再直接展示图标 URL。没有图标时，直接在左侧预览位上传即可。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <label
+              className={`flex w-fit items-center justify-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-black ${
+                uploadingIcon ? 'cursor-progress opacity-80' : 'cursor-pointer'
+              }`}
+              htmlFor={iconInputId}
+            >
+              {iconActionLabel}
+            </label>
+            {hasIconPreview ? (
+              <DsButton
+                onClick={() => {
+                  setIconError(null);
+                  patchForm({ icon_url: null });
+                }}
+                type="button"
+                variant="secondary"
+              >
+                移除图标
+              </DsButton>
+            ) : null}
+          </div>
           {iconError ? (
             <p className="text-sm font-semibold text-[var(--ds-danger)]">{iconError}</p>
           ) : null}
@@ -1050,6 +1092,7 @@ export function ExecutionProfileManager({
     'openai-image-generation-gpt-image-2',
   );
   const [showExpertProfileFields, setShowExpertProfileFields] = useState(false);
+  const [showTemplateImport, setShowTemplateImport] = useState(false);
   const [showRevisionJson, setShowRevisionJson] = useState(false);
 
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId) ?? null;
@@ -1104,6 +1147,7 @@ export function ExecutionProfileManager({
       setRevisionDraft(nextRevision ? revisionToPayload(nextRevision) : null);
       setRevisionJsonText(nextRevision ? formatRevisionExport(nextRevision) : '');
       setTemplateUpstreamModelId(nextProfile?.upstream_model_id ?? model.model_id);
+      setShowTemplateImport(false);
       setShowRevisionJson(false);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : '读取执行配置失败');
@@ -1126,6 +1170,9 @@ export function ExecutionProfileManager({
     setPreview(null);
     setRevisionDiff(null);
     setTemplateUpstreamModelId(profile.upstream_model_id);
+    setShowTemplateImport(false);
+    setShowRevisionJson(false);
+    setShowExpertProfileFields(false);
   }
 
   function selectRevision(revision: AdminExecutionProfileRevision) {
@@ -1134,6 +1181,7 @@ export function ExecutionProfileManager({
     setRevisionJsonText(formatRevisionExport(revision));
     setPreview(null);
     setRevisionDiff(null);
+    setShowRevisionJson(false);
   }
 
   async function loadTemplates() {
@@ -1489,6 +1537,9 @@ export function ExecutionProfileManager({
               setRevisionDraft(null);
               setRevisionJsonText('');
               setPreview(null);
+              setShowTemplateImport(false);
+              setShowRevisionJson(false);
+              setShowExpertProfileFields(false);
             }}
             type="button"
             variant="secondary"
@@ -1663,71 +1714,95 @@ export function ExecutionProfileManager({
 
           {selectedProfile ? (
             <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
-              <h4 className="font-black">模板导入</h4>
-              <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_1fr]">
-                <label className="grid gap-2 text-sm font-bold">
-                  <span>Profile template</span>
-                  <select
-                    className="ds-input"
-                    onChange={(event) => setSelectedTemplateId(event.target.value)}
-                    value={selectedTemplateId}
-                  >
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-2 text-sm font-bold">
-                  <span>导入模式</span>
-                  <select
-                    className="ds-input"
-                    onChange={(event) =>
-                      setTemplateImportMode(event.target.value as ProfileTemplateImportMode)
-                    }
-                    value={templateImportMode}
-                  >
-                    <option value="template">按模板来源导入</option>
-                    <option
-                      disabled={!selectedTemplate?.compatible_copy_allowed}
-                      value="openai_compatible_copy"
-                    >
-                      复制为 compatible 草稿
-                    </option>
-                  </select>
-                </label>
-                <DsInput
-                  label="upstream_model_id"
-                  onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
-                  value={templateUpstreamModelId}
-                />
-              </div>
-              {selectedTemplate ? (
-                <div className="grid gap-2 text-sm">
-                  <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
-                  <p className="break-all font-semibold">
-                    {selectedTemplate.adapter_key} · {selectedTemplate.source_url ?? 'no source'}
-                  </p>
-                  <p className="text-xs font-semibold">
-                    Runtime {selectedTemplate.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
-                    {selectedTemplate.publishable ? 'publishable' : 'blocked'}
-                    {selectedTemplate.blocked_reason ? ` · ${selectedTemplate.blocked_reason}` : ''}
-                  </p>
-                  <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
-                    {selectedTemplate.compatible_warning}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-black">模板导入</h4>
+                  <p className="ds-muted mt-1 text-sm">
+                    低频操作。需要导入官方模板或 compatible 草稿时再展开。
                   </p>
                 </div>
-              ) : null}
-              <DsButton
-                className="w-fit"
-                disabled={savingProfile || !selectedTemplateId}
-                onClick={importSelectedTemplate}
-                type="button"
-                variant="secondary"
-              >
-                从模板导入 Draft
-              </DsButton>
+                <DsButton
+                  onClick={() => setShowTemplateImport((current) => !current)}
+                  type="button"
+                  variant="secondary"
+                >
+                  {showTemplateImport ? '收起模板导入' : '展开模板导入'}
+                </DsButton>
+              </div>
+              {showTemplateImport ? (
+                <>
+                  <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_1fr]">
+                    <label className="grid gap-2 text-sm font-bold">
+                      <span>Profile template</span>
+                      <select
+                        className="ds-input"
+                        onChange={(event) => setSelectedTemplateId(event.target.value)}
+                        value={selectedTemplateId}
+                      >
+                        {templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold">
+                      <span>导入模式</span>
+                      <select
+                        className="ds-input"
+                        onChange={(event) =>
+                          setTemplateImportMode(event.target.value as ProfileTemplateImportMode)
+                        }
+                        value={templateImportMode}
+                      >
+                        <option value="template">按模板来源导入</option>
+                        <option
+                          disabled={!selectedTemplate?.compatible_copy_allowed}
+                          value="openai_compatible_copy"
+                        >
+                          复制为 compatible 草稿
+                        </option>
+                      </select>
+                    </label>
+                    <DsInput
+                      label="upstream_model_id"
+                      onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
+                      value={templateUpstreamModelId}
+                    />
+                  </div>
+                  {selectedTemplate ? (
+                    <div className="grid gap-2 text-sm">
+                      <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
+                      <p className="break-all font-semibold">
+                        {selectedTemplate.adapter_key} · {selectedTemplate.source_url ?? 'no source'}
+                      </p>
+                      <p className="text-xs font-semibold">
+                        Runtime {selectedTemplate.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
+                        {selectedTemplate.publishable ? 'publishable' : 'blocked'}
+                        {selectedTemplate.blocked_reason
+                          ? ` · ${selectedTemplate.blocked_reason}`
+                          : ''}
+                      </p>
+                      <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
+                        {selectedTemplate.compatible_warning}
+                      </p>
+                    </div>
+                  ) : null}
+                  <DsButton
+                    className="w-fit"
+                    disabled={savingProfile || !selectedTemplateId}
+                    onClick={importSelectedTemplate}
+                    type="button"
+                    variant="secondary"
+                  >
+                    从模板导入 Draft
+                  </DsButton>
+                </>
+              ) : (
+                <p className="rounded-[var(--ds-radius-sm)] border border-dashed border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
+                  选择现有 Profile 后，可按官方模板或 compatible copy 生成新的 Draft revision。
+                </p>
+              )}
             </div>
           ) : null}
 
@@ -1840,7 +1915,7 @@ function RevisionEditor({
   revisionDiff: ExecutionProfileRevisionDiffResult | null;
   revision: AdminExecutionProfileRevision;
 }) {
-  const [showExpertDraftFields, setShowExpertDraftFields] = useState(mode === 'configure');
+  const [showExpertDraftFields, setShowExpertDraftFields] = useState(false);
 
   useEffect(() => {
     if (mode === 'release') {

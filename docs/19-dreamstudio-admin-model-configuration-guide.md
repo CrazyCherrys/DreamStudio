@@ -61,6 +61,17 @@
 - `启用`：勾选
 - `推荐`：按产品需要决定
 
+### 图标区怎么用
+
+- 基础信息页不再直接显示 `图标 URL` 输入框。
+- 左侧图标卡片就是主入口：
+  - 没有图标时，直接在卡片内点击 `上传图标`
+  - 已有图标时，卡片显示预览，悬停可看到 `更换图标`
+- 右侧保留：
+  - `上传图标` / `更换图标`
+  - `移除图标`
+- 图标仍然会保存为模型的 `icon_url`，只是后台默认不再让管理员手填 URL。
+
 ### 端点标签推荐值
 
 不是运行时真值，只是后台展示建议：
@@ -102,14 +113,17 @@
 ### 新版执行配置界面怎么理解
 
 - `执行配置` 步骤：
-  - 重点看模板向导、Profile 摘要、快捷参数和默认参数
+  - 重点看 Profile 基础信息、快捷参数和默认参数
   - 适合日常配置和官方模板维护
 - `发布检查` 步骤：
   - 重点看 `Lint / 预览请求 / Diff / Dry run / 发布`
   - 请求预览会直接显示 `runtime_supported / publishable / parser / publish_blockers`
+- `模板导入`：
+  - 默认折叠
+  - 只有需要导入官方模板或 compatible 草稿时再展开
 - `专家字段`：
-  - `request_mapping`、`capabilities`、`validation_rules`、原始 revision 字段默认折叠
-  - 只在需要协议级自定义时展开
+  - `Profile 专家字段`、`Revision JSON`、`request_mapping`、`capabilities`、`validation_rules`、原始 revision 字段默认折叠
+  - 只在需要协议级自定义、JSON 导入导出或排障时展开
 
 ## 5. OpenAI 官方怎么配
 
