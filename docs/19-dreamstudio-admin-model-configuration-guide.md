@@ -54,7 +54,7 @@
 - `参考图传递`：
   - OpenAI Image generation 选 `none`
   - OpenAI Responses image tool 选 `url`
-  - Gemini Interactions 选 `url`
+  - Gemini generateContent 选 `url`
 - `端点标签`：只作展示用途，建议按实际可能协议勾选
 - `支持参考图`：只作模型级展示提示，真正生效仍以 active revision 为准
 - `启用`：勾选
@@ -66,7 +66,7 @@
 
 - OpenAI GPT Image 2 文生图：勾 `openai_image_generations`
 - OpenAI Responses 图片工具：勾 `openai_responses_image`
-- Gemini `gemini-3-pro-image-preview`：勾 `gemini_interactions_image`
+- Gemini 官方图片模型：勾 `gemini_generate_content`
 - 同一模型未来可能切协议时，可以同时勾多个标签
 
 ### 模型级回退参数说明
@@ -178,40 +178,33 @@
 
 ### 主线：`gemini-3-pro-image-preview`
 
-当前 DreamStudio 对 Gemini 新官方图片模型的主线是 Interactions。
+当前 DreamStudio 对 Gemini 官方图片模型只支持 `generateContent`。
 
 推荐配置：
 
 - 模型表单：
-  - `模型 ID`：`gemini-3-pro-image-preview`
-  - `展示名称`：例如 `Gemini 3 Pro Image Preview`
+  - `模型 ID`：填当前网关实际支持的 Gemini 图片模型 ID
+  - `展示名称`：按实际模型名称填写
   - `厂商`：`Google`
   - `参考图传递`：`url`
-  - `端点标签`：勾 `gemini_interactions_image`
+  - `端点标签`：勾 `gemini_generate_content`
 - 执行配置：
-  - 新建 profile，名称可用 `Gemini Interactions image`
-  - 模板导入：`gemini-interactions-image`
+  - 新建 profile，名称可用 `Gemini generateContent image`
+  - 模板导入：`gemini-generate-content-image`
   - `upstream_model_id`：改成真实 Gemini 官方模型 ID
-  - 保持 `adapter_key=gemini_interactions_image`
+  - 保持 `adapter_key=gemini_generate_content`
   - 检查 `request_mapping` 中：
-    - Prompt -> `input[0].text`
-    - `response_format.type=image`
-    - `response_format.mime_type`
-    - `response_format.aspect_ratio`
-    - `response_format.image_size`
+    - Prompt -> `contents[0].parts[0].text`
+    - `generationConfig.responseModalities=["IMAGE"]`
+    - `generationConfig.responseFormat.image.aspectRatio`
+    - `generationConfig.responseFormat.image.imageSize`
   - 发布后，把该 profile 设成 `默认` + `启用`
 
 这样配置后：
 
-- `/studio` 会按 Gemini Interactions 协议提交
+- `/studio` 会按 Gemini generateContent 协议提交
 - 支持参考图
 - 后续 Gemini 新官方图片模型只需要改 `upstream_model_id`，不需要改代码
-
-### Gemini legacy 说明
-
-- `gemini-generate-content-image` 模板仍保留
-- 只用于旧 `generateContent` 官方链路参考
-- 不推荐用于 `gemini-3-pro-image-preview` 及后续新官方模型
 
 ## 7. 发布前必须检查什么
 
@@ -232,7 +225,7 @@
 注意：
 
 - `Dry run` 通过不代表你的 new-api gateway 一定支持该官方协议
-- 对 OpenAI Responses 和 Gemini Interactions，仍需要你自己确认网关实际兼容
+- 对 OpenAI Responses 和 Gemini generateContent，仍需要你自己确认网关实际兼容
 
 ## 8. 怎样确认 Studio 已经切过去
 
@@ -252,7 +245,7 @@
 
 - GPT Image 2 文生图：`openai_images_generation`
 - OpenAI Responses：`openai_responses_image`
-- Gemini 3 Pro Image Preview：`gemini_interactions_image`
+- Gemini 官方图片模型：`gemini_generate_content`
 
 ## 9. 最常见的配置错误
 
@@ -261,7 +254,7 @@
 - profile 已发布，但没有设为 `默认`
 - profile 是默认，但没有 `启用`
 - `upstream_model_id` 还保留模板默认值，没改成真实模型 ID
-- Gemini 新模型误用了 `gemini_generate_content`
+- Gemini 模型配置了当前网关不支持的 `generateContent` 模型 ID
 - 以为勾选 `endpoint_types` 就能切协议，实际上不会
 
 ## 10. 推荐最小操作清单
@@ -284,11 +277,11 @@
 5. `Lint -> 预览 -> Diff -> Dry run -> 发布`
 6. 设为默认启用
 
-### 配 Gemini `gemini-3-pro-image-preview`
+### 配 Gemini 官方图片模型
 
 1. 新增图片模型
 2. 新建 profile
-3. 导入 `gemini-interactions-image`
-4. 确认 `upstream_model_id=gemini-3-pro-image-preview`
+3. 导入 `gemini-generate-content-image`
+4. 确认 `upstream_model_id` 为当前网关实际支持的 Gemini 图片模型 ID
 5. `Lint -> 预览 -> Test -> 发布`
 6. 设为默认启用

@@ -492,10 +492,6 @@ export class ImageTasksService implements OnModuleDestroy {
       return ModelEndpointType.openai_responses_image;
     }
 
-    if (profile.adapterKey === 'gemini_interactions_image') {
-      return ModelEndpointType.gemini_interactions_image;
-    }
-
     if (profile.adapterKey === 'gemini_generate_content') {
       return ModelEndpointType.gemini_generate_content;
     }

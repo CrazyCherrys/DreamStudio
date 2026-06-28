@@ -10,7 +10,7 @@
     "source_kind": "gemini_official",
     "source_url": "https://ai.google.dev/gemini-api/docs/image-generation",
     "source_checked_at": "2026-06-25T00:00:00.000Z",
-    "source_summary": "Legacy Gemini generateContent image template. New Gemini image models should prefer the Interactions template when gateway support is available.",
+    "source_summary": "Gemini official generateContent image template for the current DreamStudio gateway-compatible Gemini image path.",
     "adapter_key": "gemini_generate_content",
     "adapter_version": "1",
     "transport_key": "new_api_bearer",

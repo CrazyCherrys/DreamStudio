@@ -60,7 +60,6 @@ const TEMPLATE_FILENAMES = [
   'openai-image-edit-gpt-image-2.json',
   'openai-responses-image-tool.json',
   'gemini-generate-content-image.json',
-  'gemini-interactions-image.json',
   'openai-compatible-image-generation-minimal.json',
 ];
 

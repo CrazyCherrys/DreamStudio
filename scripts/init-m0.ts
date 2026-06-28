@@ -30,11 +30,11 @@ const PASSWORD_HASH_PREFIX = 'scrypt';
 const PASSWORD_KEY_LENGTH = 64;
 const DEFAULT_IMAGE_MODEL_ID = 'gpt-image-2';
 const DEFAULT_IMAGE_PROFILE_NAME = 'OpenAI Image generation';
-const DEFAULT_GEMINI_PROFILE_NAME = 'Gemini Interactions image';
+const DEFAULT_GEMINI_PROFILE_NAME = 'Gemini generateContent image';
 const DEFAULT_IMAGE_ADAPTER_KEY = 'openai_images_generation';
 const DEFAULT_IMAGE_ADAPTER_VERSION = '1';
 const DEFAULT_IMAGE_RESPONSE_PARSER_KEY = 'openai_image_data';
-const DEFAULT_GEMINI_ADAPTER_KEY = 'gemini_interactions_image';
+const DEFAULT_GEMINI_ADAPTER_KEY = 'gemini_generate_content';
 const DEFAULT_GEMINI_ADAPTER_VERSION = '1';
 const DEFAULT_GEMINI_RESPONSE_PARSER_KEY = 'gemini_inline_data';
 const DEFAULT_IMAGE_SOURCE_URL = 'https://developers.openai.com/api/docs/guides/image-generation';
@@ -414,8 +414,8 @@ const defaultGeminiCapabilities = {
 const defaultGeminiValidationRules = {
   version: 1,
   notes: [
-    'Gemini Interactions stays disabled until the configured gateway supports /v1beta/interactions.',
-    'Aspect ratio and image size map to Gemini response_format image fields.',
+    'Gemini generateContent stays disabled until the configured gateway supports /v1beta/models/{model}:generateContent.',
+    'Aspect ratio and image size map to Gemini generationConfig.responseFormat.image fields.',
   ],
 } satisfies Prisma.InputJsonObject;
 
@@ -486,7 +486,6 @@ async function ensureDefaultImageModel() {
       endpointTypes: [
         ModelEndpointType.openai_image_generations,
         ModelEndpointType.openai_responses_image,
-        ModelEndpointType.gemini_interactions_image,
         ModelEndpointType.gemini_generate_content,
       ],
       referenceTransferMode: ReferenceTransferMode.none,
@@ -506,7 +505,6 @@ async function ensureDefaultImageModel() {
       endpointTypes: [
         ModelEndpointType.openai_image_generations,
         ModelEndpointType.openai_responses_image,
-        ModelEndpointType.gemini_interactions_image,
         ModelEndpointType.gemini_generate_content,
       ],
       referenceTransferMode: ReferenceTransferMode.none,
@@ -705,8 +703,8 @@ async function upsertDefaultGeminiExecutionProfile(
     adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
     adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
     transportKey: 'new_api_bearer',
-    upstreamModelId: 'gemini-3-pro-image-preview',
-    upstreamEndpointPath: '/v1beta/interactions',
+    upstreamModelId: 'gemini-2.5-flash-image',
+    upstreamEndpointPath: '/v1beta/models/gemini-2.5-flash-image:generateContent',
     referenceTransferMode: ReferenceTransferMode.url,
     supportsReferenceImage: true,
     maxReferenceImages: 8,
@@ -771,12 +769,12 @@ async function upsertDefaultGeminiExecutionProfileRevision(profile: AiModelExecu
       sourceUrl: DEFAULT_GEMINI_SOURCE_URL,
       sourceCheckedAt: DEFAULT_GEMINI_SOURCE_CHECKED_AT,
       sourceSummary:
-        'Gemini official image generation guide snapshot: Interactions is the preferred path for gemini-3-pro-image-preview and newer models, using input parts and response_format image controls.',
+        'Gemini official image generation guide snapshot: DreamStudio currently uses generateContent with contents parts, responseModalities, and responseFormat image controls.',
       adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
       adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
       transportKey: 'new_api_bearer',
-      upstreamModelId: 'gemini-3-pro-image-preview',
-      upstreamEndpointPath: '/v1beta/interactions',
+      upstreamModelId: 'gemini-2.5-flash-image',
+      upstreamEndpointPath: '/v1beta/models/gemini-2.5-flash-image:generateContent',
       referenceTransferMode: ReferenceTransferMode.url,
       supportsReferenceImage: true,
       maxReferenceImages: 8,
@@ -789,7 +787,7 @@ async function upsertDefaultGeminiExecutionProfileRevision(profile: AiModelExecu
       responseParserKey: DEFAULT_GEMINI_RESPONSE_PARSER_KEY,
       capabilities: defaultGeminiCapabilities,
       validationRules: defaultGeminiValidationRules,
-      changeSummary: 'Initial development Gemini Interactions image profile.',
+      changeSummary: 'Initial development Gemini generateContent image profile.',
       activatedAt: now,
     },
     update: {
@@ -798,12 +796,12 @@ async function upsertDefaultGeminiExecutionProfileRevision(profile: AiModelExecu
       sourceUrl: DEFAULT_GEMINI_SOURCE_URL,
       sourceCheckedAt: DEFAULT_GEMINI_SOURCE_CHECKED_AT,
       sourceSummary:
-        'Gemini official image generation guide snapshot: Interactions is the preferred path for gemini-3-pro-image-preview and newer models, using input parts and response_format image controls.',
+        'Gemini official image generation guide snapshot: DreamStudio currently uses generateContent with contents parts, responseModalities, and responseFormat image controls.',
       adapterKey: DEFAULT_GEMINI_ADAPTER_KEY,
       adapterVersion: DEFAULT_GEMINI_ADAPTER_VERSION,
       transportKey: 'new_api_bearer',
-      upstreamModelId: 'gemini-3-pro-image-preview',
-      upstreamEndpointPath: '/v1beta/interactions',
+      upstreamModelId: 'gemini-2.5-flash-image',
+      upstreamEndpointPath: '/v1beta/models/gemini-2.5-flash-image:generateContent',
       referenceTransferMode: ReferenceTransferMode.url,
       supportsReferenceImage: true,
       maxReferenceImages: 8,
@@ -816,7 +814,7 @@ async function upsertDefaultGeminiExecutionProfileRevision(profile: AiModelExecu
       responseParserKey: DEFAULT_GEMINI_RESPONSE_PARSER_KEY,
       capabilities: defaultGeminiCapabilities,
       validationRules: defaultGeminiValidationRules,
-      changeSummary: 'Initial development Gemini Interactions image profile.',
+      changeSummary: 'Initial development Gemini generateContent image profile.',
       activatedAt: now,
       archivedAt: null,
     },

@@ -32,8 +32,7 @@ const ENDPOINT_FILTERS: Array<{ label: string; value: ModelEndpointType | '' }> 
   { label: 'OpenAI Image', value: 'openai_image_generations' },
   { label: 'OpenAI Edit', value: 'openai_image_edits' },
   { label: 'OpenAI Responses', value: 'openai_responses_image' },
-  { label: 'Gemini Interactions', value: 'gemini_interactions_image' },
-  { label: 'Gemini Legacy', value: 'gemini_generate_content' },
+  { label: 'Gemini generateContent', value: 'gemini_generate_content' },
 ];
 
 const MODALITY_FILTERS: Array<{ label: string; value: ModelModality | '' }> = [

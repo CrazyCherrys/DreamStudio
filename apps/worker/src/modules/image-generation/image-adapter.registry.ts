@@ -124,36 +124,6 @@ const geminiGenerateContentAdapter: ImageGenerationAdapter = {
   },
 };
 
-const geminiInteractionsImageAdapter: ImageGenerationAdapter = {
-  key: 'gemini_interactions_image',
-  version: 1,
-  allowedTargetPaths: ['/v1beta/interactions'],
-  async execute(input) {
-    const endpointPath = readEndpointPath(input.task, '/v1beta/interactions');
-    assertAllowedTargetPath(this, endpointPath, input.task.modelIdSnapshot);
-    const compiled = compileRequestMapping(readRequestMapping(input.task), {
-      model: input.task.modelIdSnapshot,
-      prompt: input.prompt,
-      params: input.parameters,
-    });
-    if (compiled.contentType !== 'json') {
-      throw adapterFailure(
-        'invalid_request_mapping',
-        'Gemini Interactions adapter 需要 json request mapping',
-      );
-    }
-
-    return input.client.sendJsonImageRequest({
-      baseUrl: input.task.newApiBaseUrlSnapshot,
-      apiKey: input.apiKey,
-      endpointPath,
-      body: appendGeminiInteractionsInputs(compiled.body, input.prompt, input.references),
-      responseParser: 'gemini_inline_data',
-      timeoutMs: input.timeoutMs,
-    });
-  },
-};
-
 const openAiResponsesImageAdapter: ImageGenerationAdapter = {
   key: 'openai_responses_image',
   version: 1,
@@ -189,7 +159,6 @@ const IMAGE_ADAPTERS = new Map(
     openAiImagesGenerationAdapter,
     openAiImagesEditAdapter,
     openAiResponsesImageAdapter,
-    geminiInteractionsImageAdapter,
     geminiGenerateContentAdapter,
   ].map((adapter) => [adapter.key, adapter]),
 );
@@ -339,28 +308,5 @@ function appendResponsesReferenceInputs(
   return {
     ...body,
     input,
-  };
-}
-
-function appendGeminiInteractionsInputs(
-  body: Record<string, unknown>,
-  _prompt: string,
-  references: NewApiImageReference[],
-): Record<string, unknown> {
-  const inputParts = Array.isArray(body.input) ? [...body.input] : [];
-  if (references.length > 0) {
-    inputParts.push(
-      ...references.map((reference) => ({
-        inlineData: {
-          data: reference.buffer.toString('base64'),
-          mimeType: reference.contentType,
-        },
-      })),
-    );
-  }
-
-  return {
-    ...body,
-    input: inputParts,
   };
 }

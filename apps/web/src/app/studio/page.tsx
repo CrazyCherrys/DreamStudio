@@ -175,6 +175,9 @@ function StudioContent() {
       if (model.modality === 'image' && !model.default_execution_profile) {
         return false;
       }
+      if (model.default_execution_profile?.adapter_key === 'gemini_interactions_image') {
+        return false;
+      }
       const matchesFilter =
         selectedFilter === 'all'
           ? true
@@ -421,7 +424,6 @@ function StudioContent() {
       'openai_images_generation',
       'openai_images_edit',
       'openai_responses_image',
-      'gemini_interactions_image',
       'gemini_generate_content',
     ].includes(selectedExecutionProfile.adapter_key),
   );

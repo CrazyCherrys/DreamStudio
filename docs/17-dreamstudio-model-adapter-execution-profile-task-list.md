@@ -1279,7 +1279,7 @@ curl -I http://127.0.0.1:3000/
 - 实现 `openai_responses_image` Worker runtime adapter。
 - 支持 Responses `prompt -> input` 映射、参考图 `input_image` 追加和 `image_generation_call` 图片结果解析。
 - 补齐 OpenAI Image generation/edit/Responses 官方模板字段和跨字段校验。
-- Gemini Interactions 图片模板已升级为可运行/可发布官方主线，面向 `gemini-3-pro-image-preview` 及后续新官方模型。
+- Gemini 官方图片模型当前统一走 `gemini_generate_content`；`gemini_interactions_image` 不再作为当前 DreamStudio 支持路径。
 - OpenAI-compatible copy 必须清空未确认官方默认参数，字段保持 `suspect` 并阻断 lint/发布。
 - Admin 模板导入和 preview 显示 runtime/publish 状态、parser key 和 publish blockers。
 
@@ -1310,7 +1310,7 @@ curl -I http://127.0.0.1:3000/
 2. 进入任意图片模型执行配置。
 3. 点击从模板导入。
 4. 确认 OpenAI Responses image tool 显示 runtime supported/publishable。
-5. 确认 Gemini Interactions image 显示 runtime unsupported/blocked。
+5. 确认后台模板列表中不再提供 Gemini Interactions image。
 6. 导入 OpenAI Responses image tool 为 draft。
 7. 点击预览请求，确认 endpoint 是 `/v1/responses`，body 包含 `input` 和 `tools[0].type=image_generation`。
 8. 复制 OpenAI 官方模板为 OpenAI-compatible 草稿。
@@ -1320,22 +1320,22 @@ curl -I http://127.0.0.1:3000/
 
 - Adapter 是否可运行、可发布、可用 parser 和允许路径有单一声明源。
 - Responses image tool 不再只是模板，Worker 可按任务快照执行。
-- Gemini Interactions 官方模板可以先作为草稿参考存在，但不会误发布到用户侧。
+- 当前不再保留 Gemini Interactions 官方模板，避免误配置到用户侧。
 - OpenAI-compatible copy 不会把 OpenAI 官方全量字段带着默认值误发布。
 
 ### 14.7 已完成
 
 已完成：
 
-- 新增 `packages/config/src/image-adapter-manifest.ts`，声明 `openai_images_generation`、`openai_images_edit`、`openai_responses_image`、`gemini_generate_content` 和 `gemini_interactions_image`。
+- 新增 `packages/config/src/image-adapter-manifest.ts`，声明 `openai_images_generation`、`openai_images_edit`、`openai_responses_image` 和 `gemini_generate_content`。
 - API lint、Admin preview 和 Worker adapter registry 已改为读取 manifest，未知 adapter、runtime unsupported、publishable false 和 parser key 不匹配都会阻断发布。
 - `openai_responses_image` Worker adapter 已支持 `/v1/responses` JSON 请求、Responses `input` 结构、参考图 `input_image` 和 `image_generation_call` parser。
 - Request mapping compiler 新增 `promptToResponsesInput` 和 GPT Image 2 size 校验 transform。
 - Parameter schema 校验新增 `openai_output_compression_requires_jpeg_or_webp`、`openai_partial_images_requires_stream` 和 `compatible_field_confirmed`。
 - OpenAI generation/edit/Responses 模板已补齐本轮官方参数、跨字段校验和来源检查时间。
-- 新增 `profile-templates/gemini-interactions-image.json`，作为 Gemini 新官方图片模型主模板。
+- Gemini 官方图片模型模板以 `profile-templates/gemini-generate-content-image.json` 为当前主模板。
 - Admin 模板列表和 request preview 显示 runtime/publish 状态、parser 和 publish blockers；test 文案改为 dry-run。
-- `scripts/verify-adapter-manifest.ts` 已验证 manifest 声明；`scripts/verify-image-adapters.ts` 已覆盖 Responses runtime；`scripts/verify-profile-templates.ts` 已覆盖 Gemini Interactions draft-only、Responses publishable 和 compatible copy 阻断。
+- `scripts/verify-adapter-manifest.ts` 已验证 manifest 声明；`scripts/verify-image-adapters.ts` 已覆盖 Responses runtime；`scripts/verify-profile-templates.ts` 已覆盖 Gemini generateContent、Responses publishable 和 compatible copy 阻断。
 
 ## 15. 建议提交顺序
 
@@ -1376,5 +1376,5 @@ docker compose up -d --build dreamstudio
 阶段 12 已完成。后续如继续扩展，建议按独立阶段处理：
 
 1. 增加 direct OpenAI/Gemini 官方密钥管理时，先写独立 transport/密钥方案。
-2. 如果 new-api 网关确认支持 Gemini `/v1beta/interactions`，再把 `gemini_interactions_image` manifest 改为 runtime supported/publishable，并补 Worker adapter/verifier。
+2. 如果后续项目确定要重新支持 Gemini `/v1beta/interactions`，再单独新增 `gemini_interactions_image` manifest、Worker adapter、模板和 verifier。
 3. 根据用户最终人工审阅反馈调整默认模型、模板和 Studio 暴露策略。

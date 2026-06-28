@@ -50,16 +50,6 @@ export const IMAGE_ADAPTER_MANIFESTS = [
     runtimeSupported: true,
     version: 1,
   },
-  {
-    allowedTargetPaths: ['/v1beta/interactions'],
-    contentTypes: ['json'],
-    defaultEndpointPath: '/v1beta/interactions',
-    key: 'gemini_interactions_image',
-    publishable: true,
-    responseParserKeys: ['gemini_inline_data'],
-    runtimeSupported: true,
-    version: 1,
-  },
 ] as const satisfies ImageAdapterManifest[];
 
 export type ImageAdapterKey = (typeof IMAGE_ADAPTER_MANIFESTS)[number]['key'];

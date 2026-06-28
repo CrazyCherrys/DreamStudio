@@ -188,81 +188,6 @@ async function main() {
       'responses image_generation_call parse failed',
     );
 
-    const geminiInteractionsAdapter = getImageGenerationAdapter('gemini_interactions_image');
-    const geminiInteractionsResponse = await geminiInteractionsAdapter.execute({
-      apiKey: 'sk-verify-adapters',
-      client,
-      parameters: {
-        aspect_ratio: '16:9',
-        image_size: '2K',
-        mime_type: 'image/png',
-      },
-      prompt: 'adapter gemini interactions verifier',
-      references,
-      task: buildTask({
-        adapterKey: 'gemini_interactions_image',
-        endpointPath: '/v1beta/interactions',
-        requestMapping: {
-          content_type: 'json',
-          fields: [
-            { source: 'model', target: 'model' },
-            { source: 'prompt', target: 'input[0].text' },
-            { source: 'params.mime_type', target: 'response_format.mime_type', omit_if_null: true },
-            {
-              source: 'params.aspect_ratio',
-              target: 'response_format.aspect_ratio',
-              omit_if_null: true,
-            },
-            {
-              source: 'params.image_size',
-              target: 'response_format.image_size',
-              omit_if_null: true,
-            },
-          ],
-          constants: [{ target: 'response_format.type', value: 'image' }],
-        },
-        baseUrl,
-        modelId: 'gemini-3-pro-image-preview',
-      }),
-      timeoutMs: 30_000,
-    });
-
-    const geminiInteractionsRequest = requests.at(-1);
-    assert(geminiInteractionsRequest, 'gemini interactions request was not captured');
-    assert(
-      geminiInteractionsRequest.url === '/v1beta/interactions',
-      'gemini interactions adapter used wrong endpoint',
-    );
-    const geminiInteractionsBody = JSON.parse(
-      geminiInteractionsRequest.body.toString('utf8'),
-    ) as Record<string, unknown>;
-    assert(
-      geminiInteractionsBody.model === 'gemini-3-pro-image-preview',
-      'gemini interactions model mismatch',
-    );
-    assert(
-      readPath(geminiInteractionsBody, ['input', 0, 'text']) ===
-        'adapter gemini interactions verifier',
-      'gemini interactions prompt mapping failed',
-    );
-    assert(
-      readPath(geminiInteractionsBody, ['response_format', 'type']) === 'image',
-      'gemini interactions response_format.type mismatch',
-    );
-    assert(
-      readPath(geminiInteractionsBody, ['response_format', 'aspect_ratio']) === '16:9',
-      'gemini interactions aspect ratio mismatch',
-    );
-    assert(
-      readPath(geminiInteractionsBody, ['input', 1, 'inlineData', 'data']) ===
-        Buffer.from('fake-image-bytes').toString('base64'),
-      'gemini interactions reference mapping failed',
-    );
-    assert(
-      geminiInteractionsResponse.data[0]?.b64_json === 'R0VNSU5JLUlNQUdFLURBVEE=',
-      'gemini interactions inlineData parse failed',
-    );
-
     try {
       getImageGenerationAdapter('not_supported');
       throw new Error('unsupported adapter should have failed');
@@ -312,8 +237,6 @@ async function main() {
             'image_data_b64_json_parsed',
             'responses_adapter_posts_responses_json',
             'responses_image_generation_call_parsed',
-            'gemini_interactions_adapter_posts_json',
-            'gemini_interactions_request_and_response_parsed',
             'unsupported_adapter_normalized',
             'missing_profile_snapshot_fails',
           ],
@@ -331,27 +254,6 @@ async function main() {
 
 function sendMockResponse(request: IncomingMessage, response: ServerResponse) {
   response.setHeader('content-type', 'application/json');
-  if (request.url === '/v1beta/interactions') {
-    response.end(
-      JSON.stringify({
-        candidates: [
-          {
-            content: {
-              parts: [
-                {
-                  inlineData: {
-                    data: 'R0VNSU5JLUlNQUdFLURBVEE=',
-                    mimeType: 'image/png',
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      }),
-    );
-    return;
-  }
   if (request.url === '/v1/responses') {
     response.end(
       JSON.stringify({

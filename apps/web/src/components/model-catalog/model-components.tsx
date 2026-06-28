@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { AdminDialog } from '@/components/admin-dialog';
 import { DsButton, DsInput } from '@/components/ui';
 import {
   activateExecutionProfileRevision,
@@ -33,9 +32,6 @@ import {
   type ExecutionProfileSourceKind,
   type ModelEndpointType,
   type ModelModality,
-  type ModelSyncSnapshotDetail,
-  type ModelSyncSnapshotPayload,
-  type ModelSyncSnapshotSummary,
   type ParameterFieldType,
   type ParameterSchemaOption,
   type ParameterSchemaField,
@@ -65,7 +61,6 @@ const ENDPOINT_TYPES: ModelEndpointType[] = [
   'openai_image_generations',
   'openai_image_edits',
   'openai_responses_image',
-  'gemini_interactions_image',
   'gemini_generate_content',
 ];
 const TRANSFER_MODES: ReferenceTransferMode[] = ['none', 'multipart', 'url'];
@@ -87,7 +82,7 @@ type StudioQuickParameterKind = 'count' | 'ratio' | 'resolution';
 type ExecutionTemplatePreset =
   | 'openai-image-generation-gpt-image-2'
   | 'openai-responses-image-tool'
-  | 'gemini-interactions-image';
+  | 'gemini-generate-content-image';
 
 interface StudioQuickParameterConfig {
   defaultField: ParameterSchemaField;
@@ -229,18 +224,18 @@ const EXECUTION_TEMPLATE_PRESETS: Array<{
     },
   },
   {
-    id: 'gemini-interactions-image',
-    label: 'Gemini Interactions image',
-    description: '适合 `gemini-3-pro-image-preview` 及后续 Gemini 新官方图片模型。',
-    adapterKey: 'gemini_interactions_image',
+    id: 'gemini-generate-content-image',
+    label: 'Gemini generateContent image',
+    description: '适合当前通过 `/v1beta/models/{model}:generateContent` 接入的 Gemini 官方图片模型。',
+    adapterKey: 'gemini_generate_content',
     profileDefaults: {
-      name: 'Gemini Interactions image',
-      adapter_key: 'gemini_interactions_image',
-      operation: 'text_to_image',
+      name: 'Gemini generateContent image',
+      adapter_key: 'gemini_generate_content',
+      operation: 'image_to_image',
       reference_transfer_mode: 'url',
       supports_reference_image: true,
       max_reference_images: 8,
-      upstream_endpoint_path: '/v1beta/interactions',
+      upstream_endpoint_path: '/v1beta/models/{model}:generateContent',
     },
   },
 ];
@@ -1821,133 +1816,6 @@ export function ExecutionProfileManager({
     </section>
   );
 }
-export function ModelSyncSnapshotPanel({
-  snapshots,
-  selectedSnapshot,
-  onCreate,
-  onSelect,
-  creating,
-  error,
-}: {
-  snapshots: ModelSyncSnapshotSummary[];
-  selectedSnapshot: ModelSyncSnapshotDetail | null;
-  onCreate: (payload: ModelSyncSnapshotPayload) => Promise<void>;
-  onSelect: (snapshotId: string) => Promise<void>;
-  creating: boolean;
-  error?: string | null;
-}) {
-  const [baseUrl, setBaseUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-
-  async function createWithTemporaryKey(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await onCreate({
-      ...(baseUrl.trim() ? { new_api_base_url: baseUrl.trim() } : {}),
-      ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}),
-    });
-    setApiKey('');
-    setCreateDialogOpen(false);
-  }
-
-  function closeCreateDialog() {
-    if (creating) {
-      return;
-    }
-    setApiKey('');
-    setCreateDialogOpen(false);
-  }
-
-  return (
-    <div className="grid gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-black">历史快照</h3>
-          <p className="ds-muted mt-1 text-sm">拉取操作可使用临时 Base URL 和 API Key。</p>
-        </div>
-        <DsButton disabled={creating} onClick={() => setCreateDialogOpen(true)} type="button">
-          {creating ? '拉取中...' : '拉取模型候选'}
-        </DsButton>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-[320px_1fr]">
-        <div className="grid max-h-[540px] gap-2 overflow-auto">
-          {snapshots.map((snapshot) => (
-            <button
-              className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-3 text-left text-sm"
-              key={snapshot.id}
-              onClick={() => onSelect(snapshot.id)}
-              type="button"
-            >
-              <strong>{snapshot.model_count} 个候选</strong>
-              <span className="ds-muted mt-1 block break-all text-xs">{snapshot.base_url}</span>
-              <span className="ds-muted mt-1 block text-xs">
-                {new Intl.DateTimeFormat('zh-CN', {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
-                }).format(new Date(snapshot.created_at))}
-              </span>
-            </button>
-          ))}
-        </div>
-        <pre className="min-h-80 overflow-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 text-xs">
-          {selectedSnapshot
-            ? JSON.stringify(selectedSnapshot.raw_response, null, 2)
-            : '选择一个快照查看 raw_response'}
-        </pre>
-      </div>
-
-      {createDialogOpen ? (
-        <AdminDialog
-          badge="Model Sync"
-          disabled={creating}
-          maxWidthClass="max-w-2xl"
-          onClose={closeCreateDialog}
-          title="拉取模型候选"
-        >
-          <form className="grid gap-4" onSubmit={createWithTemporaryKey}>
-            <p className="ds-muted text-sm leading-6">
-              留空临时配置时，将使用当前管理员已保存的 new-api 配置。临时 API Key 只用于本次拉取。
-            </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <DsInput
-                label="临时 Base URL"
-                onChange={(event) => setBaseUrl(event.target.value)}
-                placeholder="https://new-api.example.com"
-                value={baseUrl}
-              />
-              <DsInput
-                label="临时 API Key"
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder="留空则使用当前管理员已保存配置"
-                type="password"
-                value={apiKey}
-              />
-            </div>
-            {error ? (
-              <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
-                {error}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap justify-end gap-3">
-              <DsButton
-                disabled={creating}
-                onClick={closeCreateDialog}
-                type="button"
-                variant="secondary"
-              >
-                取消
-              </DsButton>
-              <DsButton disabled={creating} type="submit">
-                {creating ? '拉取中...' : '拉取并保存快照'}
-              </DsButton>
-            </div>
-          </form>
-        </AdminDialog>
-      ) : null}
-    </div>
-  );
-}
 
 function RevisionEditor({
   disabled,
@@ -2496,7 +2364,7 @@ function createProfileFromTemplatePreset(
   const responseParserKey =
     preset.id === 'openai-responses-image-tool'
       ? 'openai_responses_image_generation_call'
-      : preset.id === 'gemini-interactions-image'
+      : preset.id === 'gemini-generate-content-image'
         ? 'gemini_inline_data'
         : 'openai_image_data';
 

@@ -2,9 +2,6 @@ import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
 
 import { ModelCatalogService } from '../apps/api/src/modules/model-catalog/model-catalog.service';
 import { AuditLogService } from '../apps/api/src/modules/new-api-config/audit-log.service';
-import { EncryptionService } from '../apps/api/src/modules/new-api-config/encryption.service';
-import { NewApiConnectionService } from '../apps/api/src/modules/new-api-config/new-api-connection.service';
-import { NewApiConfigService } from '../apps/api/src/modules/new-api-config/new-api-config.service';
 import { SystemSettingsService } from '../apps/api/src/modules/new-api-config/system-settings.service';
 
 const prisma = new PrismaClient();
@@ -12,16 +9,7 @@ const prisma = new PrismaClient();
 async function main() {
   const systemSettingsService = new SystemSettingsService();
   const auditLogService = new AuditLogService(systemSettingsService);
-  const encryptionService = new EncryptionService();
-  const service = new ModelCatalogService(
-    auditLogService,
-    new NewApiConfigService(
-      auditLogService,
-      new NewApiConnectionService(),
-      encryptionService,
-      systemSettingsService,
-    ),
-  );
+  const service = new ModelCatalogService(auditLogService);
   const admin = await prisma.user.findFirstOrThrow({
     where: {
       role: UserRole.super_admin,
@@ -57,7 +45,6 @@ async function main() {
     'openai-image-edit-gpt-image-2',
     'openai-responses-image-tool',
     'gemini-generate-content-image',
-    'gemini-interactions-image',
     'openai-compatible-image-generation-minimal',
   ]) {
     assert(templateIds.has(requiredTemplate), `missing template ${requiredTemplate}`);
@@ -94,25 +81,6 @@ async function main() {
     'Gemini template adapter mismatch',
   );
   assert(geminiTemplate.runtime_supported === true, 'Gemini generateContent should be runnable');
-  const geminiInteractionsTemplate = templates.items.find(
-    (template) => template.id === 'gemini-interactions-image',
-  );
-  assert(
-    geminiInteractionsTemplate?.category === 'gemini_official',
-    'Gemini interactions template category mismatch',
-  );
-  assert(
-    geminiInteractionsTemplate.adapter_key === 'gemini_interactions_image',
-    'Gemini interactions adapter mismatch',
-  );
-  assert(
-    geminiInteractionsTemplate.runtime_supported === true,
-    'Gemini interactions should be runnable',
-  );
-  assert(
-    geminiInteractionsTemplate.publishable === true,
-    'Gemini interactions should be publishable',
-  );
   const responsesTemplate = templates.items.find(
     (template) => template.id === 'openai-responses-image-tool',
   );

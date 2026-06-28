@@ -10,7 +10,6 @@ const requiredAdapters = [
   'openai_images_edit',
   'openai_responses_image',
   'gemini_generate_content',
-  'gemini_interactions_image',
 ];
 
 for (const adapterKey of requiredAdapters) {
@@ -39,15 +38,6 @@ assert(
   findImageAdapterManifest('openai_responses_image')?.publishable === true,
   'Responses image should be publishable',
 );
-assert(
-  findImageAdapterManifest('gemini_interactions_image')?.publishable === true,
-  'Gemini interactions should be publishable',
-);
-assert(
-  findImageAdapterManifest('gemini_interactions_image')?.runtimeSupported === true,
-  'Gemini interactions runtime should be supported',
-);
-
 console.log(
   JSON.stringify(
     {
@@ -58,7 +48,6 @@ console.log(
         'gemini_generate_content_path_renders_model',
         'responses_runtime_supported',
         'responses_publishable',
-        'gemini_interactions_runtime_supported',
       ],
       adapters: listImageAdapterManifests().map((manifest) => ({
         key: manifest.key,

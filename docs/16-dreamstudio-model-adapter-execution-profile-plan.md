@@ -734,7 +734,7 @@ Studio：
 
 ### 阶段 12：Adapter manifest、Responses runtime 和官方参数补齐
 
-- 已新增共享 `IMAGE_ADAPTER_MANIFESTS`，集中声明 `openai_images_generation`、`openai_images_edit`、`openai_responses_image`、`gemini_generate_content` 和 draft-only `gemini_interactions_image` 的 allowed target path、parser key、runtime 支持和 publishable 状态。
+- 已新增共享 `IMAGE_ADAPTER_MANIFESTS`，集中声明 `openai_images_generation`、`openai_images_edit`、`openai_responses_image` 和 `gemini_generate_content` 的 allowed target path、parser key、runtime 支持和 publishable 状态。
 - API lint、Admin preview 和 Worker adapter registry 已复用 manifest，未知 adapter、runtime 未实现、不可发布 adapter 和 parser key 不匹配都会阻断发布。
 - Admin 模板列表和 preview 会显示 runtime/publish 状态、parser key 和 publish blockers。
 - `openai_responses_image` Worker adapter 已接入 `/v1/responses`，支持 `promptToResponsesInput`、参考图 `input_image` 追加和 `image_generation_call` 解析。
