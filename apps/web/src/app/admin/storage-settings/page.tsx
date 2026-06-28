@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/components/auth-provider';
+import { AdminPageHeading } from '@/components/admin-page-heading';
 import { AdminLayout } from '@/components/layouts';
 import { RouteGuard } from '@/components/route-guard';
 import { DsButton, DsInput } from '@/components/ui';
@@ -118,7 +119,7 @@ function StorageSettingsContent() {
   if (loading) {
     return (
       <section className="ds-card admin-panel p-6">
-        <span className="ds-badge">Storage</span>
+        <AdminPageHeading title="存储设置" />
         <p className="ds-muted mt-4 font-semibold">正在读取存储设置...</p>
       </section>
     );
@@ -127,8 +128,7 @@ function StorageSettingsContent() {
   if (!settings) {
     return (
       <section className="ds-card admin-panel p-6">
-        <span className="ds-badge">Storage</span>
-        <h2 className="mt-4 text-2xl font-black">存储设置</h2>
+        <AdminPageHeading title="存储设置" />
         <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error ?? '读取存储设置失败'}
         </p>
@@ -141,13 +141,7 @@ function StorageSettingsContent() {
 
   return (
     <section className="ds-card admin-panel p-6">
-      <div>
-        <span className="ds-badge">Storage</span>
-        <h2 className="mt-4 text-2xl font-black">存储设置</h2>
-        <p className="ds-muted mt-2">
-          配置参考图和结果图的本地或 S3 兼容对象存储。切换存储不会自动迁移旧文件。
-        </p>
-      </div>
+      <AdminPageHeading title="存储设置" />
 
       <form className="mt-6 grid gap-6" onSubmit={submitSettings}>
         <div className="flex flex-wrap gap-2">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/components/auth-provider';
+import { AdminPageHeading } from '@/components/admin-page-heading';
 import { AdminLayout } from '@/components/layouts';
 import { ModelSyncSnapshotPanel } from '@/components/model-catalog/model-components';
 import { RouteGuard } from '@/components/route-guard';
@@ -78,11 +79,7 @@ function AdminModelSyncContent() {
 
   return (
     <section className="ds-card admin-panel p-6">
-      <span className="ds-badge">Model Sync</span>
-      <h2 className="mt-4 text-2xl font-black">模型候选拉取</h2>
-      <p className="ds-muted mt-2 max-w-3xl leading-7">
-        拉取 new-api `/v1/models` 并保存 raw_response。候选模型不会自动进入普通用户模型列表。
-      </p>
+      <AdminPageHeading title="模型候选拉取" />
 
       {message ? (
         <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">

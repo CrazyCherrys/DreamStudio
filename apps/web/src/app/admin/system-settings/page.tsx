@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/components/auth-provider';
+import { AdminPageHeading } from '@/components/admin-page-heading';
 import { AdminLayout } from '@/components/layouts';
 import { RouteGuard } from '@/components/route-guard';
 import { DsButton, DsInput } from '@/components/ui';
@@ -81,7 +82,7 @@ function SystemSettingsContent() {
   if (loading) {
     return (
       <section className="ds-card admin-panel p-6">
-        <span className="ds-badge">System</span>
+        <AdminPageHeading title="系统设置" />
         <p className="ds-muted mt-4 font-semibold">正在读取系统设置...</p>
       </section>
     );
@@ -90,8 +91,7 @@ function SystemSettingsContent() {
   if (!settings) {
     return (
       <section className="ds-card admin-panel p-6">
-        <span className="ds-badge">System</span>
-        <h2 className="mt-4 text-2xl font-black">系统设置</h2>
+        <AdminPageHeading title="系统设置" />
         <p className="mt-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
           {error ?? '读取系统设置失败'}
         </p>
@@ -104,11 +104,7 @@ function SystemSettingsContent() {
 
   return (
     <section className="ds-card admin-panel p-6">
-      <div>
-        <span className="ds-badge">System</span>
-        <h2 className="mt-4 text-2xl font-black">系统设置</h2>
-        <p className="ds-muted mt-2">M2 支持保存 new-api 默认地址、用户自定义开关和任务参数。</p>
-      </div>
+      <AdminPageHeading title="系统设置" />
 
       <form className="mt-6 grid gap-5" onSubmit={saveSettings}>
         <DsInput

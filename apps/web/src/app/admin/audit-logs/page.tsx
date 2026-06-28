@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { AdminPageHeading } from '@/components/admin-page-heading';
 import { AdminLayout } from '@/components/layouts';
 import { RouteGuard } from '@/components/route-guard';
 import { DsButton } from '@/components/ui';
@@ -60,13 +61,7 @@ function AdminAuditLogsContent() {
 
   return (
     <section className="ds-card admin-panel p-6">
-      <div>
-        <span className="ds-badge">Audit Logs</span>
-        <h2 className="mt-4 text-2xl font-black">审计日志</h2>
-        <p className="ds-muted mt-2">
-          追踪 reveal、用户状态变更、重置密码、系统设置和存储设置操作。
-        </p>
-      </div>
+      <AdminPageHeading title="审计日志" />
 
       <form
         className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6"

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { useEffect, useState } from 'react';
 
+import { AdminPageHeading } from '@/components/admin-page-heading';
 import { AdminLayout } from '@/components/layouts';
 import { RouteGuard } from '@/components/route-guard';
 import { DsButton } from '@/components/ui';
@@ -62,13 +63,7 @@ function AdminRequestLogsContent() {
   return (
     <section className="ds-card admin-panel p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span className="ds-badge">Request Logs</span>
-          <h2 className="mt-4 text-2xl font-black">请求日志</h2>
-          <p className="ds-muted mt-2">
-            默认只展示 Prompt 摘要和脱敏参数；完整内容需要在详情页 reveal。
-          </p>
-        </div>
+        <AdminPageHeading title="请求日志" />
       </div>
 
       <form

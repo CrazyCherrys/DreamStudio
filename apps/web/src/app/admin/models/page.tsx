@@ -4,6 +4,7 @@ import { Pencil, Plus, RefreshCw, Star, Trash2, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { AdminConfirmDialog, AdminDialog } from '@/components/admin-dialog';
+import { AdminPageHeading } from '@/components/admin-page-heading';
 import { useAuth } from '@/components/auth-provider';
 import { AdminLayout } from '@/components/layouts';
 import { ExecutionProfileManager, ModelForm } from '@/components/model-catalog/model-components';
@@ -239,31 +240,27 @@ function AdminModelsContent() {
   return (
     <>
       <section className="ds-card admin-panel p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <span className="ds-badge">Catalog</span>
-            <h2 className="mt-4 text-2xl font-black">模型目录</h2>
-            <p className="ds-muted mt-2 max-w-3xl text-sm leading-6">
-              先用列表管理状态，再在弹窗里分步完成基础信息、执行配置和发布检查。
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <DsButton
-              className="gap-2"
-              disabled={loading}
-              onClick={() => void loadData()}
-              type="button"
-              variant="secondary"
-            >
-              <RefreshCw aria-hidden="true" size={16} />
-              刷新
-            </DsButton>
-            <DsButton className="gap-2" onClick={openNewModelDialog} type="button">
-              <Plus aria-hidden="true" size={16} />
-              新增模型
-            </DsButton>
-          </div>
-        </div>
+        <AdminPageHeading
+          actions={
+            <>
+              <DsButton
+                className="gap-2"
+                disabled={loading}
+                onClick={() => void loadData()}
+                type="button"
+                variant="secondary"
+              >
+                <RefreshCw aria-hidden="true" size={16} />
+                刷新
+              </DsButton>
+              <DsButton className="gap-2" onClick={openNewModelDialog} type="button">
+                <Plus aria-hidden="true" size={16} />
+                新增模型
+              </DsButton>
+            </>
+          }
+          title="模型目录"
+        />
 
         <div className="mt-5 grid gap-3 text-sm font-black md:grid-cols-4">
           <StatusSummary label="已添加模型" value={models.length} />

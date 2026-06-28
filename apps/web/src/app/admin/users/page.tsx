@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { AdminDialog } from '@/components/admin-dialog';
+import { AdminPageHeading } from '@/components/admin-page-heading';
 import { AdminUserDetailPanel } from '@/components/admin-user-detail-panel';
 import { AdminLayout } from '@/components/layouts';
 import { RouteGuard } from '@/components/route-guard';
@@ -69,13 +70,7 @@ function AdminUsersContent() {
     <>
       <section className="ds-card admin-panel p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <span className="ds-badge">Users</span>
-            <h2 className="mt-4 text-2xl font-black">用户管理</h2>
-            <p className="ds-muted mt-2">
-              搜索用户、查看状态，并在当前页面弹窗中执行禁用、启用、删除和重置密码。
-            </p>
-          </div>
+          <AdminPageHeading title="用户管理" />
           <form
             className="grid gap-2 md:grid-cols-[220px_150px_auto_auto]"
             onSubmit={(event) => {
@@ -205,7 +200,6 @@ function AdminUsersContent() {
 
       {selectedUser ? (
         <AdminDialog
-          badge="Users"
           maxWidthClass="max-w-6xl"
           onClose={closeUserDialog}
           title={`管理用户：${selectedUser.username}`}
