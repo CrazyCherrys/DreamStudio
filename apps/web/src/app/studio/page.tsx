@@ -23,6 +23,7 @@ import {
   taskStatusLabel,
   taskStatusTone,
   type ImageTask,
+  type PublicTaskAsset,
 } from '@/lib/image-tasks';
 import {
   endpointTypeShortLabel,
@@ -37,16 +38,31 @@ import {
 
 type StudioModelFilter = 'all' | ModelModality | 'favorite';
 type QuickParameterKind = 'count' | 'size' | 'resolution';
+type StudioParameterValue = string | number | boolean | null;
 type StudioReferencePreview = Pick<AssetItem, 'id' | 'download_url' | 'filename'>;
 
 const MAX_SELECTED_REFERENCES = 8;
 const QUICK_COUNT_PRESET_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+const STUDIO_QUICK_PARAM_STORAGE_KEY = 'dreamstudio:studio:quick-params:v1';
 
 interface QuickParameterConfig {
   fields: ParameterSchemaField[];
   icon: ReactNode;
   kind: QuickParameterKind;
   label: string;
+}
+
+interface StudioCanvasTile {
+  asset: PublicTaskAsset | null;
+  id: string;
+  status: ImageTask['status'];
+}
+
+interface StudioCanvasBatch {
+  completedTileCount: number;
+  task: ImageTask;
+  tileCount: number;
+  tiles: StudioCanvasTile[];
 }
 
 function createClientRequestId() {
@@ -72,23 +88,26 @@ function StudioContent() {
   const [selectedFilter, setSelectedFilter] = useState<StudioModelFilter>('all');
   const [modelSearchQuery, setModelSearchQuery] = useState('');
   const [selectedModel, setSelectedModel] = useState<PublicAiModel | null>(null);
-  const [parameterValues, setParameterValues] = useState<
-    Record<string, string | number | boolean | null>
-  >({});
+  const [parameterValues, setParameterValues] = useState<Record<string, StudioParameterValue>>({});
   const [prompt, setPrompt] = useState('');
   const [selectedReferences, setSelectedReferences] = useState<StudioReferencePreview[]>([]);
   const [modelTasks, setModelTasks] = useState<ImageTask[]>([]);
+  const [taskTileCountHints, setTaskTileCountHints] = useState<Record<string, number>>({});
   const [taskHistoryOpen, setTaskHistoryOpen] = useState(false);
   const [taskHistorySearchQuery, setTaskHistorySearchQuery] = useState('');
   const [taskHistoryLoading, setTaskHistoryLoading] = useState(false);
   const [taskHistoryError, setTaskHistoryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<PublicTaskAsset | null>(null);
   const [showModelIntro, setShowModelIntro] = useState(true);
   const [openQuickParameter, setOpenQuickParameter] = useState<QuickParameterKind | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
+  const [hydratedQuickParameterBucketKey, setHydratedQuickParameterBucketKey] = useState<
+    string | null
+  >(null);
   const quickParameterRef = useRef<HTMLDivElement | null>(null);
   const taskHistoryRef = useRef<HTMLDivElement | null>(null);
   const taskHistoryRequestIdRef = useRef(0);
@@ -152,7 +171,7 @@ function StudioContent() {
           pageSize: 50,
         });
         if (taskHistoryRequestIdRef.current === requestId) {
-          setModelTasks(payload.items);
+          setModelTasks(sortImageTasksByCreatedAtDesc(payload.items));
         }
       } catch (requestError) {
         if (taskHistoryRequestIdRef.current === requestId) {
@@ -213,6 +232,26 @@ function StudioContent() {
     () => buildQuickParameters(selectedParameterSchema),
     [selectedParameterSchema],
   );
+  const resolvedQuickParameterValues = useMemo(
+    () => mergeQuickParameterDefaults(quickParameters, parameterValues, selectedDefaultParams),
+    [parameterValues, quickParameters, selectedDefaultParams],
+  );
+  const quickParameterFields = useMemo(
+    () => quickParameters.flatMap((config) => config.fields),
+    [quickParameters],
+  );
+  const selectedQuickCountField = useMemo(
+    () => findQuickParameterFieldByKind(quickParameters, 'count'),
+    [quickParameters],
+  );
+  const quickParameterBucketKey = useMemo(
+    () =>
+      buildQuickParameterBucketKey(
+        selectedModel?.model_id ?? null,
+        selectedExecutionProfile?.revision_id ?? null,
+      ),
+    [selectedExecutionProfile?.revision_id, selectedModel?.model_id],
+  );
   useEffect(() => {
     if (selectedModel && filteredModels.some((model) => model.id === selectedModel.id)) {
       return;
@@ -221,6 +260,8 @@ function StudioContent() {
     setSelectedModel(nextSelectedModel);
     setParameterValues({});
     setShowModelIntro(Boolean(nextSelectedModel));
+    setPreviewAsset(null);
+    setOpenQuickParameter(null);
     if (!getModelSupportsReferenceImage(nextSelectedModel)) {
       setSelectedReferences([]);
     }
@@ -240,6 +281,10 @@ function StudioContent() {
   }, [loadModelTasks, selectedModelId]);
 
   useEffect(() => {
+    setPreviewAsset(null);
+  }, [selectedModelId, modelTasks[0]?.id]);
+
+  useEffect(() => {
     if (
       !selectedModelId ||
       !modelTasks.some((task) => task.status === 'pending' || task.status === 'running')
@@ -251,6 +296,32 @@ function StudioContent() {
     }, 3000);
     return () => clearInterval(timer);
   }, [loadModelTasks, modelTasks, selectedModelId]);
+
+  useEffect(() => {
+    if (!quickParameterBucketKey) {
+      setHydratedQuickParameterBucketKey(null);
+      setParameterValues({});
+      return;
+    }
+    const restoredValues = loadQuickParameterMemory(quickParameterBucketKey, quickParameterFields);
+    setParameterValues(restoredValues);
+    setHydratedQuickParameterBucketKey(quickParameterBucketKey);
+  }, [quickParameterBucketKey, quickParameterFields]);
+
+  useEffect(() => {
+    if (!quickParameterBucketKey || hydratedQuickParameterBucketKey !== quickParameterBucketKey) {
+      return;
+    }
+    persistQuickParameterMemory(
+      quickParameterBucketKey,
+      buildQuickParameterMemoryPayload(quickParameterFields, parameterValues),
+    );
+  }, [
+    hydratedQuickParameterBucketKey,
+    parameterValues,
+    quickParameterBucketKey,
+    quickParameterFields,
+  ]);
 
   const updateParameterValues = useCallback(
     (value: Record<string, string | number | boolean | null>) => {
@@ -268,6 +339,7 @@ function StudioContent() {
     setParameterValues({});
     setShowModelIntro(true);
     setOpenQuickParameter(null);
+    setPreviewAsset(null);
     if (!getModelSupportsReferenceImage(model)) {
       setSelectedReferences([]);
     }
@@ -325,6 +397,7 @@ function StudioContent() {
         parameterValues,
         selectedDefaultParams,
       );
+      const expectedTileCount = resolveExpectedTileCount(quickParameters, resolvedParameters);
       const created = await createImageTask(
         {
           model_record_id: selectedModel.id,
@@ -337,10 +410,17 @@ function StudioContent() {
         },
         csrfToken,
       );
+      setTaskTileCountHints((current) => ({
+        ...current,
+        [created.item.id]: expectedTileCount,
+      }));
       taskHistoryRequestIdRef.current += 1;
       setTaskHistoryLoading(false);
       setModelTasks((current) =>
-        [created.item, ...current.filter((task) => task.id !== created.item.id)].slice(0, 50),
+        sortImageTasksByCreatedAtDesc([
+          created.item,
+          ...current.filter((task) => task.id !== created.item.id),
+        ]).slice(0, 50),
       );
       setMessage('任务已提交。');
       setShowModelIntro(false);
@@ -428,7 +508,16 @@ function StudioContent() {
     ].includes(selectedExecutionProfile.adapter_key),
   );
   const canSubmit = Boolean(selectedImageModelSupported && prompt.trim() && !submitting);
-  const resultTask = modelTasks.find((task) => task.result_assets.length > 0) ?? null;
+  const latestTask = modelTasks[0] ?? null;
+  const latestCanvasBatch = useMemo(
+    () =>
+      buildStudioCanvasBatch(
+        latestTask,
+        selectedQuickCountField,
+        latestTask ? taskTileCountHints[latestTask.id] : undefined,
+      ),
+    [latestTask, selectedQuickCountField, taskTileCountHints],
+  );
   return (
     <main className="studio-workspace">
       <StudioModelSidebar
@@ -459,10 +548,12 @@ function StudioContent() {
               tasks={modelTasks}
             />
             <StudioCanvas
+              batch={latestCanvasBatch}
               error={error}
               message={message}
-              modelTasks={modelTasks}
-              resultTask={resultTask}
+              onClosePreview={() => setPreviewAsset(null)}
+              onOpenPreview={setPreviewAsset}
+              previewAsset={previewAsset}
               selectedModel={selectedModel}
               showModelIntro={showModelIntro}
             />
@@ -508,6 +599,7 @@ function StudioContent() {
                     configs={quickParameters}
                     onOpenChange={setOpenQuickParameter}
                     openKind={openQuickParameter}
+                    resolvedValues={resolvedQuickParameterValues}
                     refElement={quickParameterRef}
                     updateParameterValues={updateParameterValues}
                     values={parameterValues}
@@ -537,6 +629,7 @@ function QuickParameterBar({
   configs,
   onOpenChange,
   openKind,
+  resolvedValues,
   refElement,
   updateParameterValues,
   values,
@@ -544,6 +637,7 @@ function QuickParameterBar({
   configs: QuickParameterConfig[];
   onOpenChange: (kind: QuickParameterKind | null) => void;
   openKind: QuickParameterKind | null;
+  resolvedValues: Record<string, StudioParameterValue>;
   refElement: RefObject<HTMLDivElement | null>;
   updateParameterValues: (value: Record<string, string | number | boolean | null>) => void;
   values: Record<string, string | number | boolean | null>;
@@ -555,7 +649,7 @@ function QuickParameterBar({
   return (
     <div className="studio-quick-params" ref={refElement}>
       {configs.map((config) => {
-        const value = formatQuickParameterValue(config.fields, values);
+        const value = formatQuickParameterValue(config.fields, resolvedValues);
         const isOpen = openKind === config.kind;
         return (
           <div className="studio-quick-param" key={config.kind}>
@@ -584,25 +678,19 @@ function QuickParameterBar({
                       <CountQuickFieldControl
                         field={field}
                         onChange={(nextValue) =>
-                          updateParameterValues({
-                            ...values,
-                            [field.key]: nextValue,
-                          })
+                          updateParameterValues(setQuickParameterOverride(values, field.key, nextValue))
                         }
                         onCommit={() => onOpenChange(null)}
-                        value={values[field.key] ?? field.default ?? null}
+                        value={resolvedValues[field.key] ?? field.default ?? null}
                       />
                     ) : (
                       <ParameterFieldControl
                         field={field}
                         onChange={(nextValue) =>
-                          updateParameterValues({
-                            ...values,
-                            [field.key]: nextValue,
-                          })
+                          updateParameterValues(setQuickParameterOverride(values, field.key, nextValue))
                         }
                         onCommit={() => onOpenChange(null)}
-                        value={values[field.key] ?? field.default ?? null}
+                        value={resolvedValues[field.key] ?? field.default ?? null}
                       />
                     )}
                     {field.description ? <p>{field.description}</p> : null}
@@ -899,6 +987,13 @@ function getFieldUiOrder(field: ParameterSchemaField) {
   return typeof field.ui?.order === 'number' ? field.ui.order : Number.MAX_SAFE_INTEGER;
 }
 
+function findQuickParameterFieldByKind(
+  configs: QuickParameterConfig[],
+  kind: QuickParameterKind,
+): ParameterSchemaField | null {
+  return configs.find((config) => config.kind === kind)?.fields[0] ?? null;
+}
+
 function formatQuickParameterValue(
   fields: ParameterSchemaField[],
   values: Record<string, string | number | boolean | null>,
@@ -930,6 +1025,20 @@ function formatQuickFieldValue(
 
 function supportsQuickCountPresets(field: ParameterSchemaField) {
   return field.type === 'integer' || field.type === 'number';
+}
+
+function setQuickParameterOverride(
+  values: Record<string, StudioParameterValue>,
+  key: string,
+  nextValue: StudioParameterValue,
+) {
+  const nextValues = { ...values };
+  if (nextValue === null) {
+    delete nextValues[key];
+    return nextValues;
+  }
+  nextValues[key] = nextValue;
+  return nextValues;
 }
 
 function readQuickCountValue(value: string | number | boolean | null) {
@@ -965,6 +1074,268 @@ function mergeQuickParameterDefaults(
     }
   }
   return nextValues;
+}
+
+function resolveExpectedTileCount(
+  configs: QuickParameterConfig[],
+  values: Record<string, StudioParameterValue>,
+) {
+  const countField = findQuickParameterFieldByKind(configs, 'count');
+  if (!countField) {
+    return 1;
+  }
+  return normalizeTileCountValue(countField, values[countField.key]) ?? 1;
+}
+
+function sortImageTasksByCreatedAtDesc(tasks: ImageTask[]) {
+  return [...tasks].sort((left, right) => {
+    const timeDiff = getTaskSortTimestamp(right) - getTaskSortTimestamp(left);
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+    return right.id.localeCompare(left.id);
+  });
+}
+
+function getTaskSortTimestamp(task: ImageTask) {
+  return (
+    parseTimestamp(task.created_at) ??
+    parseTimestamp(task.queued_at) ??
+    parseTimestamp(task.updated_at) ??
+    0
+  );
+}
+
+function parseTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildQuickParameterBucketKey(modelId: string | null, revisionId: string | null) {
+  if (!modelId) {
+    return null;
+  }
+  return `${modelId}:${revisionId ?? 'no-revision'}`;
+}
+
+function loadQuickParameterMemory(bucketKey: string, fields: ParameterSchemaField[]) {
+  const storage = readQuickParameterStorage();
+  const bucket = storage[bucketKey];
+  if (!isRecord(bucket)) {
+    return {};
+  }
+  const restoredValues: Record<string, StudioParameterValue> = {};
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(bucket, field.key)) {
+      continue;
+    }
+    const normalizedValue = normalizeQuickParameterValue(field, bucket[field.key]);
+    if (normalizedValue !== undefined) {
+      restoredValues[field.key] = normalizedValue;
+    }
+  }
+  return restoredValues;
+}
+
+function buildQuickParameterMemoryPayload(
+  fields: ParameterSchemaField[],
+  values: Record<string, StudioParameterValue>,
+) {
+  const payload: Record<string, StudioParameterValue> = {};
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(values, field.key)) {
+      continue;
+    }
+    const normalizedValue = normalizeQuickParameterValue(field, values[field.key]);
+    if (normalizedValue !== undefined) {
+      payload[field.key] = normalizedValue;
+    }
+  }
+  return payload;
+}
+
+function persistQuickParameterMemory(
+  bucketKey: string,
+  payload: Record<string, StudioParameterValue>,
+) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    const storage = readQuickParameterStorage();
+    if (Object.keys(payload).length === 0) {
+      delete storage[bucketKey];
+    } else {
+      storage[bucketKey] = payload;
+    }
+    window.localStorage.setItem(STUDIO_QUICK_PARAM_STORAGE_KEY, JSON.stringify(storage));
+  } catch {
+    // Ignore storage quota and JSON errors in the browser-only preference layer.
+  }
+}
+
+function readQuickParameterStorage(): Record<string, Record<string, StudioParameterValue>> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  try {
+    const rawValue = window.localStorage.getItem(STUDIO_QUICK_PARAM_STORAGE_KEY);
+    if (!rawValue) {
+      return {};
+    }
+    const parsedValue = JSON.parse(rawValue);
+    if (!isRecord(parsedValue)) {
+      return {};
+    }
+    const storage: Record<string, Record<string, StudioParameterValue>> = {};
+    for (const [bucketKey, bucketValue] of Object.entries(parsedValue)) {
+      if (isRecord(bucketValue)) {
+        storage[bucketKey] = bucketValue as Record<string, StudioParameterValue>;
+      }
+    }
+    return storage;
+  } catch {
+    return {};
+  }
+}
+
+function buildStudioCanvasBatch(
+  task: ImageTask | null,
+  countField: ParameterSchemaField | null,
+  hintedTileCount?: number,
+): StudioCanvasBatch | null {
+  if (!task) {
+    return null;
+  }
+
+  const inferredTileCount =
+    hintedTileCount && hintedTileCount > 0
+      ? hintedTileCount
+      : inferTileCountFromTaskSnapshot(task, countField) ?? 1;
+  const tileCount = Math.max(inferredTileCount, task.result_assets.length, 1);
+  const tiles = Array.from({ length: tileCount }, (_, index) => {
+    const asset = task.result_assets[index] ?? null;
+    return {
+      asset,
+      id: asset?.id ?? `${task.id}:${index}`,
+      status: asset ? 'succeeded' : task.status,
+    } satisfies StudioCanvasTile;
+  });
+
+  return {
+    completedTileCount: task.result_assets.length,
+    task,
+    tileCount,
+    tiles,
+  };
+}
+
+function inferTileCountFromTaskSnapshot(task: ImageTask, countField: ParameterSchemaField | null) {
+  if (!countField) {
+    return null;
+  }
+  return normalizeTileCountValue(countField, task.sanitized_parameter_snapshot[countField.key]);
+}
+
+function normalizeTileCountValue(field: ParameterSchemaField, value: unknown) {
+  const normalizedValue = normalizeQuickParameterValue(field, value);
+  const numericValue =
+    normalizedValue === undefined ? null : readQuickCountValue(normalizedValue ?? null);
+  if (numericValue === null || !Number.isInteger(numericValue) || numericValue < 1) {
+    return null;
+  }
+  return numericValue;
+}
+
+function normalizeQuickParameterValue(
+  field: ParameterSchemaField,
+  value: unknown,
+): StudioParameterValue | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (field.type === 'select') {
+    return matchFieldOptionValue(field.options ?? [], value);
+  }
+
+  if (field.type === 'boolean') {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (value === 'true') {
+      return true;
+    }
+    if (value === 'false') {
+      return false;
+    }
+    return undefined;
+  }
+
+  if (field.type === 'integer' || field.type === 'number') {
+    const parsedValue =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim() !== ''
+          ? Number(value)
+          : Number.NaN;
+    if (!Number.isFinite(parsedValue)) {
+      return undefined;
+    }
+    if (field.type === 'integer' && !Number.isInteger(parsedValue)) {
+      return undefined;
+    }
+    if (field.min !== undefined && parsedValue < field.min) {
+      return undefined;
+    }
+    if (field.max !== undefined && parsedValue > field.max) {
+      return undefined;
+    }
+    return parsedValue;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return undefined;
+  }
+  if (field.options?.length) {
+    return matchFieldOptionValue(field.options, trimmedValue);
+  }
+  return trimmedValue;
+}
+
+function matchFieldOptionValue(
+  options: Array<{ value: string | number | boolean }>,
+  value: unknown,
+): string | number | boolean | undefined {
+  for (const option of options) {
+    if (option.value === value) {
+      return option.value;
+    }
+    if (typeof option.value === 'number' && typeof value === 'string' && value.trim() !== '') {
+      const parsedValue = Number(value);
+      if (Number.isFinite(parsedValue) && parsedValue === option.value) {
+        return option.value;
+      }
+    }
+    if (typeof option.value === 'boolean' && typeof value === 'string') {
+      if ((value === 'true' && option.value) || (value === 'false' && !option.value)) {
+        return option.value;
+      }
+    }
+  }
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function getModelSupportsReferenceImage(model: PublicAiModel | null) {
@@ -1279,30 +1650,38 @@ function getStudioUserInitial(user: AuthUser | null) {
 }
 
 function StudioCanvas({
+  batch,
   error,
   message,
-  modelTasks,
-  resultTask,
+  onClosePreview,
+  onOpenPreview,
+  previewAsset,
   selectedModel,
   showModelIntro,
 }: {
+  batch: StudioCanvasBatch | null;
   error: string | null;
   message: string | null;
-  modelTasks: ImageTask[];
-  resultTask: ImageTask | null;
+  onClosePreview: () => void;
+  onOpenPreview: (asset: PublicTaskAsset) => void;
+  previewAsset: PublicTaskAsset | null;
   selectedModel: PublicAiModel | null;
   showModelIntro: boolean;
 }) {
-  const activeTask =
-    modelTasks.find((task) => task.status === 'pending' || task.status === 'running') ??
-    modelTasks[0] ??
-    null;
-  const shouldShowModelIntro = Boolean(
-    showModelIntro &&
-    selectedModel &&
-    activeTask?.status !== 'pending' &&
-    activeTask?.status !== 'running',
-  );
+  const shouldShowModelIntro = Boolean(showModelIntro && selectedModel && !batch);
+
+  useEffect(() => {
+    if (!previewAsset) {
+      return;
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClosePreview();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClosePreview, previewAsset]);
 
   return (
     <div className="studio-canvas-content">
@@ -1313,30 +1692,93 @@ function StudioCanvas({
 
       {shouldShowModelIntro && selectedModel ? (
         <ModelIntro model={selectedModel} />
-      ) : resultTask ? (
-        <div className="studio-result-frame">
-          <div className="studio-result-meta">
-            <span>{taskStatusLabel(resultTask.status)}</span>
-            <strong>{resultTask.prompt_summary}</strong>
+      ) : batch ? (
+        <div className="studio-canvas-batch">
+          <div className="studio-canvas-batch-meta">
+            <div className="studio-canvas-batch-copy">
+              <span className={`studio-canvas-status is-${batch.task.status}`}>
+                {taskStatusLabel(batch.task.status)}
+              </span>
+              <strong>{batch.task.prompt_summary}</strong>
+              <small>{formatStudioBatchSummary(batch)}</small>
+            </div>
           </div>
-          <div className="studio-result-grid">
-            {resultTask.result_assets.map((asset) => (
-              <a className="studio-result-tile" href={asset.download_url} key={asset.id}>
-                <img alt={asset.filename} src={asset.download_url} />
-              </a>
-            ))}
+          <div className="studio-canvas-batch-grid">
+            {batch.tiles.map((tile, index) =>
+              tile.asset ? (
+                <button
+                  className="studio-canvas-tile is-image"
+                  key={tile.id}
+                  onClick={() => onOpenPreview(tile.asset!)}
+                  type="button"
+                >
+                  <img alt={tile.asset.filename} src={tile.asset.download_url} />
+                </button>
+              ) : (
+                <div
+                  className={`studio-canvas-tile is-status is-${tile.status}`}
+                  key={tile.id}
+                >
+                  <div className="studio-canvas-tile-body">
+                    <span className="studio-canvas-tile-index">{index + 1}</span>
+                    <strong>{taskStatusLabel(tile.status)}</strong>
+                  </div>
+                </div>
+              ),
+            )}
           </div>
         </div>
       ) : (
         <div className="studio-empty-canvas">
           <div className="studio-empty-mark">{selectedModel?.display_name.slice(0, 1) ?? 'D'}</div>
-          <h2>{activeTask ? taskStatusLabel(activeTask.status) : '等待第一张画面'}</h2>
+          <h2>等待第一张画面</h2>
           <p>{selectedModel?.display_name ?? '选择一个图片模型'}</p>
-          {activeTask ? <small>{activeTask.prompt_summary}</small> : null}
         </div>
       )}
+
+      {previewAsset ? (
+        <div
+          className="studio-preview-overlay"
+          onClick={() => onClosePreview()}
+          role="presentation"
+        >
+          <div
+            className="studio-preview-dialog"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={previewAsset.filename}
+          >
+            <div className="studio-preview-toolbar">
+              <a
+                className="studio-preview-download"
+                download={previewAsset.filename}
+                href={previewAsset.download_url}
+              >
+                下载
+              </a>
+            </div>
+            <div className="studio-preview-image-wrap">
+              <img alt={previewAsset.filename} src={previewAsset.download_url} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function formatStudioBatchSummary(batch: StudioCanvasBatch) {
+  if (
+    (batch.task.status === 'running' ||
+      batch.task.status === 'failed' ||
+      batch.task.status === 'timeout' ||
+      batch.task.status === 'canceled') &&
+    batch.completedTileCount > 0
+  ) {
+    return `${batch.completedTileCount}/${batch.tileCount} 已返回`;
+  }
+  return `${batch.tileCount} 张`;
 }
 
 function StudioTaskHistoryPanel({
