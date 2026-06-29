@@ -34,6 +34,7 @@ export interface PublicImageTask {
   sanitized_parameter_snapshot: unknown;
   resolved_request_sanitized_snapshot: unknown;
   reference_asset_ids: string[];
+  primary_reference_asset: PublicTaskAsset | null;
   status: string;
   error_code: string | null;
   error_message: string | null;

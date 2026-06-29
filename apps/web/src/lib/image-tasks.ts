@@ -50,6 +50,7 @@ export interface ImageTask {
   sanitized_parameter_snapshot: Record<string, unknown>;
   resolved_request_sanitized_snapshot: Record<string, unknown> | null;
   reference_asset_ids: string[];
+  primary_reference_asset: PublicTaskAsset | null;
   status: ImageTaskStatus;
   error_code: string | null;
   error_message: string | null;

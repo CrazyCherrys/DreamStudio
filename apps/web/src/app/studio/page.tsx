@@ -58,6 +58,7 @@ type StudioReferencePreview = Pick<AssetItem, 'id' | 'download_url' | 'filename'
 const MAX_SELECTED_REFERENCES = 8;
 const QUICK_COUNT_PRESET_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 const STUDIO_QUICK_PARAM_STORAGE_KEY = 'dreamstudio:studio:quick-params:v1';
+const STUDIO_SELECTED_MODEL_STORAGE_KEY = 'dreamstudio:studio:selected-model:v1';
 
 interface QuickParameterConfig {
   fields: ParameterSchemaField[];
@@ -137,7 +138,6 @@ function StudioContent() {
       try {
         const nextModels = await fetchPublicModels({ modality: 'image' });
         setModels(nextModels.items);
-        setSelectedModel(nextModels.items[0] ?? null);
       } catch (requestError) {
         setError(
           requestError instanceof ApiClientError ? requestError.message : '读取创作台数据失败',
@@ -273,8 +273,15 @@ function StudioContent() {
     if (selectedModel && filteredModels.some((model) => model.id === selectedModel.id)) {
       return;
     }
-    const nextSelectedModel = filteredModels[0] ?? null;
+    const rememberedModelId = readStudioSelectedModelId();
+    const nextSelectedModel =
+      (rememberedModelId
+        ? (filteredModels.find((model) => model.id === rememberedModelId) ?? null)
+        : null) ??
+      filteredModels[0] ??
+      null;
     setSelectedModel(nextSelectedModel);
+    persistStudioSelectedModelId(nextSelectedModel?.id ?? null);
     setParameterValues({});
     setShowModelIntro(Boolean(nextSelectedModel));
     setPreviewAsset(null);
@@ -353,6 +360,7 @@ function StudioContent() {
 
   function selectModel(model: PublicAiModel) {
     setSelectedModel(model);
+    persistStudioSelectedModelId(model.id);
     setParameterValues({});
     setShowModelIntro(true);
     setOpenQuickParameter(null);
@@ -764,7 +772,6 @@ function StudioContent() {
               quickParameters={quickParameters}
               referenceLimit={selectedMaxReferenceImages}
               selectedReferenceCount={selectedReferences.length}
-              selectedReferences={selectedReferences}
               selectedModel={selectedModel}
               supportsReferenceImage={selectedSupportsReferenceImage}
               showModelIntro={showModelIntro}
@@ -1418,6 +1425,33 @@ function readQuickParameterStorage(): Record<string, Record<string, StudioParame
   }
 }
 
+function readStudioSelectedModelId() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const storedValue = window.localStorage.getItem(STUDIO_SELECTED_MODEL_STORAGE_KEY);
+    return typeof storedValue === 'string' && storedValue.trim() ? storedValue : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistStudioSelectedModelId(modelId: string | null) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    if (!modelId) {
+      window.localStorage.removeItem(STUDIO_SELECTED_MODEL_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(STUDIO_SELECTED_MODEL_STORAGE_KEY, modelId);
+  } catch {
+    // Ignore storage errors in the browser-only preference layer.
+  }
+}
+
 function buildStudioCanvasBatch(
   task: ImageTask | null,
   countField: ParameterSchemaField | null,
@@ -1466,10 +1500,14 @@ function normalizeSnapshotParameters(snapshot: Record<string, unknown>) {
   return parameters;
 }
 
-function resolveStudioBatchCover(
-  batch: StudioCanvasBatch,
-  selectedReferences: StudioReferencePreview[],
-) {
+function resolveStudioBatchCover(batch: StudioCanvasBatch) {
+  const primaryReferenceAsset = batch.task.primary_reference_asset;
+  if (primaryReferenceAsset) {
+    return {
+      download_url: primaryReferenceAsset.download_url,
+      filename: primaryReferenceAsset.filename,
+    };
+  }
   const firstResult = batch.task.result_assets[0];
   if (firstResult) {
     return {
@@ -1477,7 +1515,7 @@ function resolveStudioBatchCover(
       filename: firstResult.filename,
     };
   }
-  return selectedReferences[0] ?? null;
+  return null;
 }
 
 function buildStudioBatchParameterPills(
@@ -1956,7 +1994,6 @@ function StudioCanvas({
   quickParameters,
   referenceLimit,
   selectedReferenceCount,
-  selectedReferences,
   selectedModel,
   supportsReferenceImage,
   showModelIntro,
@@ -1972,7 +2009,6 @@ function StudioCanvas({
   quickParameters: QuickParameterConfig[];
   referenceLimit: number;
   selectedReferenceCount: number;
-  selectedReferences: StudioReferencePreview[];
   selectedModel: PublicAiModel | null;
   supportsReferenceImage: boolean;
   showModelIntro: boolean;
@@ -2022,7 +2058,6 @@ function StudioCanvas({
             quickParameters={quickParameters}
             referenceLimit={referenceLimit}
             selectedReferenceCount={selectedReferenceCount}
-            selectedReferences={selectedReferences}
             supportsReferenceImage={supportsReferenceImage}
           />
         ) : (
@@ -2049,7 +2084,6 @@ function StudioCanvasBatchView({
   quickParameters,
   referenceLimit,
   selectedReferenceCount,
-  selectedReferences,
   supportsReferenceImage,
 }: {
   activeAction: StudioBatchActionKey | null;
@@ -2059,10 +2093,9 @@ function StudioCanvasBatchView({
   quickParameters: QuickParameterConfig[];
   referenceLimit: number;
   selectedReferenceCount: number;
-  selectedReferences: StudioReferencePreview[];
   supportsReferenceImage: boolean;
 }) {
-  const cover = resolveStudioBatchCover(batch, selectedReferences);
+  const cover = resolveStudioBatchCover(batch);
   const parameterPills = buildStudioBatchParameterPills(batch, quickParameters);
   const hasResultAssets = batch.task.result_assets.length > 0;
   const canReferenceAll =
@@ -2090,9 +2123,6 @@ function StudioCanvasBatchView({
         <div className="studio-canvas-batch-copy">
           <div className="studio-canvas-batch-title-row">
             <strong>{batch.task.prompt_summary}</strong>
-            <span className={`studio-canvas-status is-${batch.task.status}`}>
-              {taskStatusLabel(batch.task.status)}
-            </span>
           </div>
           <div className="studio-canvas-batch-pills" aria-label="任务参数">
             <span>{formatStudioBatchSummary(batch)}</span>

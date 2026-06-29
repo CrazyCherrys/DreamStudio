@@ -87,7 +87,7 @@ export class ImageTasksService implements OnModuleDestroy {
       });
       if (existing) {
         return {
-          item: this.serializeTask(existing),
+          item: (await this.serializeTasks([existing], session.userId))[0],
         };
       }
     }
@@ -97,7 +97,7 @@ export class ImageTasksService implements OnModuleDestroy {
     await this.enqueueTask(task);
 
     return {
-      item: this.serializeTask(task),
+      item: (await this.serializeTasks([task], session.userId))[0],
     };
   }
 
@@ -135,7 +135,7 @@ export class ImageTasksService implements OnModuleDestroy {
     ]);
 
     return {
-      items: items.map((task) => this.serializeTask(task)),
+      items: await this.serializeTasks(items, session.userId),
       pagination: {
         page,
         page_size: pageSize,
@@ -148,7 +148,7 @@ export class ImageTasksService implements OnModuleDestroy {
   async getTask(taskId: string, session: SessionContext) {
     const task = await this.findOwnTask(taskId, session, true);
     return {
-      item: this.serializeTask(task),
+      item: (await this.serializeTasks([task], session.userId))[0],
     };
   }
 
@@ -159,7 +159,7 @@ export class ImageTasksService implements OnModuleDestroy {
     }
     if (task.status !== 'pending') {
       return {
-        item: this.serializeTask(task),
+        item: (await this.serializeTasks([task], session.userId))[0],
       };
     }
 
@@ -180,7 +180,7 @@ export class ImageTasksService implements OnModuleDestroy {
     });
 
     return {
-      item: this.serializeTask(updated),
+      item: (await this.serializeTasks([updated], session.userId))[0],
     };
   }
 
@@ -209,7 +209,7 @@ export class ImageTasksService implements OnModuleDestroy {
     await this.enqueueTask(created);
 
     return {
-      item: this.serializeTask(created),
+      item: (await this.serializeTasks([created], session.userId))[0],
     };
   }
 
@@ -229,7 +229,7 @@ export class ImageTasksService implements OnModuleDestroy {
 
     return {
       deleted: true,
-      item: this.serializeTask(updated),
+      item: (await this.serializeTasks([updated], session.userId))[0],
     };
   }
 
@@ -640,7 +640,58 @@ export class ImageTasksService implements OnModuleDestroy {
     return task;
   }
 
-  private serializeTask(task: TaskWithAssets): PublicImageTask {
+  private async serializeTasks(tasks: TaskWithAssets[], userId: string) {
+    const primaryReferenceAssetMap = await this.loadPrimaryReferenceAssetMap(tasks, userId);
+    return tasks.map((task) =>
+      this.serializeTask(task, primaryReferenceAssetMap.get(task.id) ?? null),
+    );
+  }
+
+  private async loadPrimaryReferenceAssetMap(tasks: TaskWithAssets[], userId: string) {
+    const firstReferenceIdByTask = new Map<string, string>();
+    const assetIds = new Set<string>();
+
+    for (const task of tasks) {
+      const firstReferenceAssetId = task.referenceAssetIds[0];
+      if (!firstReferenceAssetId) {
+        continue;
+      }
+      firstReferenceIdByTask.set(task.id, firstReferenceAssetId);
+      assetIds.add(firstReferenceAssetId);
+    }
+
+    if (assetIds.size === 0) {
+      return new Map<string, Asset>();
+    }
+
+    const assets = await prisma.asset.findMany({
+      where: {
+        id: {
+          in: Array.from(assetIds),
+        },
+        userId,
+        kind: 'reference_image',
+        status: 'available',
+        deletedAt: null,
+      },
+    });
+    const assetById = new Map(assets.map((asset) => [asset.id, asset]));
+    const primaryReferenceAssetMap = new Map<string, Asset>();
+
+    for (const [taskId, assetId] of firstReferenceIdByTask) {
+      const asset = assetById.get(assetId);
+      if (asset) {
+        primaryReferenceAssetMap.set(taskId, asset);
+      }
+    }
+
+    return primaryReferenceAssetMap;
+  }
+
+  private serializeTask(
+    task: TaskWithAssets,
+    primaryReferenceAsset: Asset | null,
+  ): PublicImageTask {
     return {
       id: task.id,
       model_record_id: task.modelRecordId,
@@ -656,6 +707,9 @@ export class ImageTasksService implements OnModuleDestroy {
       sanitized_parameter_snapshot: task.sanitizedParameterSnapshot,
       resolved_request_sanitized_snapshot: task.resolvedRequestSanitizedSnapshot,
       reference_asset_ids: task.referenceAssetIds,
+      primary_reference_asset: primaryReferenceAsset
+        ? this.serializeAsset(primaryReferenceAsset)
+        : null,
       status: task.status,
       error_code: task.errorCode,
       error_message: task.errorMessage,
