@@ -12,14 +12,27 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { Crop, Images, Layers3, Plus, Send, Square } from 'lucide-react';
+import {
+  Crop,
+  Download,
+  ImagePlus,
+  Images,
+  Layers3,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Send,
+  Square,
+  Trash2,
+} from 'lucide-react';
 
 import { useAuth } from '@/components/auth-provider';
 import { RouteGuard } from '@/components/route-guard';
 import { ApiClientError, type AuthUser } from '@/lib/auth';
-import { uploadReferenceImage, type AssetItem } from '@/lib/assets';
+import { uploadReferenceImage, uploadReferenceImageFromUrl, type AssetItem } from '@/lib/assets';
 import {
   createImageTask,
+  deleteImageTask,
   fetchImageTasks,
   taskStatusLabel,
   taskStatusTone,
@@ -66,6 +79,8 @@ interface StudioCanvasBatch {
   tiles: StudioCanvasTile[];
 }
 
+type StudioBatchActionKey = 'reference-all' | 'edit' | 'regenerate' | 'download-all' | 'delete';
+
 function createClientRequestId() {
   const cryptoObject = globalThis.crypto;
   if (cryptoObject?.randomUUID) {
@@ -106,6 +121,7 @@ function StudioContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
+  const [activeBatchAction, setActiveBatchAction] = useState<StudioBatchActionKey | null>(null);
   const [hydratedQuickParameterBucketKey, setHydratedQuickParameterBucketKey] = useState<
     string | null
   >(null);
@@ -432,6 +448,192 @@ function StudioContent() {
     }
   }
 
+  async function createTaskFromSnapshot(task: ImageTask) {
+    if (!csrfToken) {
+      setError('登录状态已失效，请重新登录');
+      return null;
+    }
+    if (!selectedModel || selectedModel.id !== task.model_record_id) {
+      setError('请先切回该任务对应的模型');
+      return null;
+    }
+    if (!selectedImageModelSupported) {
+      setError('当前模型暂不支持图片任务');
+      return null;
+    }
+    const promptSummary = task.prompt_summary.trim();
+    if (!promptSummary) {
+      setError('当前任务没有可复用的 Prompt 摘要');
+      return null;
+    }
+
+    const parameters = normalizeSnapshotParameters(task.sanitized_parameter_snapshot);
+    const defaultParameters = normalizeSnapshotParameters(selectedDefaultParams);
+    const expectedTileCount = resolveExpectedTileCount(quickParameters, {
+      ...defaultParameters,
+      ...parameters,
+    });
+    const created = await createImageTask(
+      {
+        model_record_id: selectedModel.id,
+        execution_profile_id: selectedExecutionProfile?.id ?? task.execution_profile_id,
+        prompt: promptSummary,
+        negative_prompt: null,
+        parameters,
+        reference_asset_ids: task.reference_asset_ids,
+        client_request_id: createClientRequestId(),
+      },
+      csrfToken,
+    );
+    setTaskTileCountHints((current) => ({
+      ...current,
+      [created.item.id]: expectedTileCount,
+    }));
+    taskHistoryRequestIdRef.current += 1;
+    setTaskHistoryLoading(false);
+    setModelTasks((current) =>
+      sortImageTasksByCreatedAtDesc([
+        created.item,
+        ...current.filter((item) => item.id !== created.item.id),
+      ]).slice(0, 50),
+    );
+    setShowModelIntro(false);
+    return created.item;
+  }
+
+  async function convertResultAssetsToReferences(
+    assets: PublicTaskAsset[],
+    options: { replace?: boolean } = {},
+  ) {
+    if (!csrfToken) {
+      setError('登录状态已失效，请重新登录');
+      return [];
+    }
+    if (!selectedSupportsReferenceImage || selectedMaxReferenceImages <= 0) {
+      setError('当前模型不支持参考图');
+      return [];
+    }
+    const baseCount = options.replace ? 0 : selectedReferences.length;
+    const remainingSlots = selectedMaxReferenceImages - baseCount;
+    if (remainingSlots <= 0) {
+      setError(`最多只能选择 ${selectedMaxReferenceImages} 张参考图`);
+      return [];
+    }
+    const uploadableAssets = assets.slice(0, remainingSlots);
+    if (uploadableAssets.length === 0) {
+      setError('当前任务暂无可引用的结果图');
+      return [];
+    }
+
+    const uploadedAssets = await Promise.all(
+      uploadableAssets.map(async (asset) => {
+        const uploaded = await uploadReferenceImageFromUrl(
+          asset.download_url,
+          buildReferenceFilename(asset),
+          csrfToken,
+        );
+        return uploaded.item;
+      }),
+    );
+    const nextReferences = uploadedAssets.map(toStudioReferencePreview);
+    setSelectedReferences((current) =>
+      options.replace
+        ? addSelectedReferences([], nextReferences, selectedMaxReferenceImages)
+        : addSelectedReferences(current, nextReferences, selectedMaxReferenceImages),
+    );
+    return nextReferences;
+  }
+
+  async function handleReferenceBatch(batch: StudioCanvasBatch) {
+    const nextReferences = await convertResultAssetsToReferences(batch.task.result_assets);
+    if (nextReferences.length > 0) {
+      setMessage(
+        nextReferences.length > 1
+          ? `${nextReferences.length} 张结果图已加入参考图。`
+          : '结果图已加入参考图。',
+      );
+    }
+  }
+
+  async function handleEditBatch(batch: StudioCanvasBatch) {
+    const firstAsset = batch.task.result_assets[0];
+    if (!firstAsset) {
+      setError('当前任务暂无可编辑的结果图');
+      return;
+    }
+    const nextReferences = await convertResultAssetsToReferences([firstAsset], { replace: true });
+    if (nextReferences.length === 0) {
+      return;
+    }
+    setPrompt(batch.task.prompt_summary);
+    setParameterValues(normalizeSnapshotParameters(batch.task.sanitized_parameter_snapshot));
+    setMessage('已用第一张结果图创建参考图，并回填当前描述。');
+  }
+
+  async function handleRegenerateBatch(batch: StudioCanvasBatch) {
+    const created = await createTaskFromSnapshot(batch.task);
+    if (created) {
+      setMessage('已按当前描述再次生成。');
+    }
+  }
+
+  function handleDownloadBatch(batch: StudioCanvasBatch) {
+    if (batch.task.result_assets.length === 0) {
+      setError('当前任务暂无可下载的结果图');
+      return;
+    }
+    batch.task.result_assets.forEach((asset, index) => {
+      window.setTimeout(() => {
+        triggerAssetDownload(asset);
+      }, index * 120);
+    });
+    setMessage(
+      batch.task.result_assets.length > 1 ? '已开始下载全部结果图。' : '已开始下载结果图。',
+    );
+  }
+
+  async function handleDeleteBatch(batch: StudioCanvasBatch) {
+    if (!csrfToken) {
+      setError('登录状态已失效，请重新登录');
+      return;
+    }
+    await deleteImageTask(batch.task.id, csrfToken);
+    setModelTasks((current) => current.filter((task) => task.id !== batch.task.id));
+    setTaskTileCountHints((current) => {
+      const nextHints = { ...current };
+      delete nextHints[batch.task.id];
+      return nextHints;
+    });
+    setPreviewAsset(null);
+    setMessage('任务已删除。');
+  }
+
+  async function handleBatchAction(action: StudioBatchActionKey, batch: StudioCanvasBatch) {
+    if (activeBatchAction) {
+      return;
+    }
+    setActiveBatchAction(action);
+    setError(null);
+    setMessage(null);
+    try {
+      if (action === 'reference-all') {
+        await handleReferenceBatch(batch);
+      } else if (action === 'edit') {
+        await handleEditBatch(batch);
+      } else if (action === 'regenerate') {
+        await handleRegenerateBatch(batch);
+      } else if (action === 'download-all') {
+        handleDownloadBatch(batch);
+      } else if (action === 'delete') {
+        await handleDeleteBatch(batch);
+      }
+    } catch (requestError) {
+      setError(requestError instanceof ApiClientError ? requestError.message : batchActionError(action));
+    } finally {
+      setActiveBatchAction(null);
+    }
+  }
+
   async function uploadReference(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
@@ -549,13 +751,20 @@ function StudioContent() {
               tasks={modelTasks}
             />
             <StudioCanvas
+              activeAction={activeBatchAction}
               batch={latestCanvasBatch}
               error={error}
               message={message}
+              onBatchAction={handleBatchAction}
               onClosePreview={() => setPreviewAsset(null)}
               onOpenPreview={setPreviewAsset}
               previewAsset={previewAsset}
+              quickParameters={quickParameters}
+              referenceLimit={selectedMaxReferenceImages}
+              selectedReferenceCount={selectedReferences.length}
+              selectedReferences={selectedReferences}
               selectedModel={selectedModel}
+              supportsReferenceImage={selectedSupportsReferenceImage}
               showModelIntro={showModelIntro}
             />
           </section>
@@ -1241,6 +1450,85 @@ function inferTileCountFromTaskSnapshot(task: ImageTask, countField: ParameterSc
   return normalizeTileCountValue(countField, task.sanitized_parameter_snapshot[countField.key]);
 }
 
+function normalizeSnapshotParameters(snapshot: Record<string, unknown>) {
+  const parameters: Record<string, StudioParameterValue> = {};
+  for (const [key, value] of Object.entries(snapshot)) {
+    if (isParameterValue(value)) {
+      parameters[key] = value;
+    }
+  }
+  return parameters;
+}
+
+function resolveStudioBatchCover(
+  batch: StudioCanvasBatch,
+  selectedReferences: StudioReferencePreview[],
+) {
+  const firstResult = batch.task.result_assets[0];
+  if (firstResult) {
+    return {
+      download_url: firstResult.download_url,
+      filename: firstResult.filename,
+    };
+  }
+  return selectedReferences[0] ?? null;
+}
+
+function buildStudioBatchParameterPills(
+  batch: StudioCanvasBatch,
+  quickParameters: QuickParameterConfig[],
+) {
+  const snapshot = normalizeSnapshotParameters(batch.task.sanitized_parameter_snapshot);
+  return quickParameters
+    .map((config) => {
+      const value = formatQuickParameterValue(config.fields, snapshot);
+      if (!value || value === config.label) {
+        return null;
+      }
+      return {
+        key: config.kind,
+        label: config.label,
+        value,
+      };
+    })
+    .filter((item): item is { key: QuickParameterKind; label: string; value: string } =>
+      Boolean(item),
+    );
+}
+
+function buildReferenceFilename(asset: PublicTaskAsset) {
+  const normalizedName = asset.filename.trim();
+  if (!normalizedName) {
+    return `reference-${asset.id}.png`;
+  }
+  return normalizedName.replace(/^result[-_]?/i, 'reference-');
+}
+
+function triggerAssetDownload(asset: PublicTaskAsset) {
+  const link = document.createElement('a');
+  link.href = asset.download_url;
+  link.download = asset.filename;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function batchActionError(action: StudioBatchActionKey) {
+  switch (action) {
+    case 'reference-all':
+      return '结果图引用失败';
+    case 'edit':
+      return '重新编辑失败';
+    case 'regenerate':
+      return '再次生成失败';
+    case 'download-all':
+      return '下载结果图失败';
+    case 'delete':
+      return '删除任务失败';
+  }
+}
+
 function normalizeTileCountValue(field: ParameterSchemaField, value: unknown) {
   const normalizedValue = normalizeQuickParameterValue(field, value);
   const numericValue =
@@ -1651,22 +1939,36 @@ function getStudioUserInitial(user: AuthUser | null) {
 }
 
 function StudioCanvas({
+  activeAction,
   batch,
   error,
   message,
+  onBatchAction,
   onClosePreview,
   onOpenPreview,
   previewAsset,
+  quickParameters,
+  referenceLimit,
+  selectedReferenceCount,
+  selectedReferences,
   selectedModel,
+  supportsReferenceImage,
   showModelIntro,
 }: {
+  activeAction: StudioBatchActionKey | null;
   batch: StudioCanvasBatch | null;
   error: string | null;
   message: string | null;
+  onBatchAction: (action: StudioBatchActionKey, batch: StudioCanvasBatch) => void;
   onClosePreview: () => void;
   onOpenPreview: (asset: PublicTaskAsset) => void;
   previewAsset: PublicTaskAsset | null;
+  quickParameters: QuickParameterConfig[];
+  referenceLimit: number;
+  selectedReferenceCount: number;
+  selectedReferences: StudioReferencePreview[];
   selectedModel: PublicAiModel | null;
+  supportsReferenceImage: boolean;
   showModelIntro: boolean;
 }) {
   const shouldShowModelIntro = Boolean(showModelIntro && selectedModel && !batch);
@@ -1706,41 +2008,17 @@ function StudioCanvas({
         {shouldShowModelIntro && selectedModel ? (
           <ModelIntro model={selectedModel} />
         ) : batch ? (
-          <div className="studio-canvas-batch">
-            <div className="studio-canvas-batch-meta">
-              <div className="studio-canvas-batch-copy">
-                <span className={`studio-canvas-status is-${batch.task.status}`}>
-                  {taskStatusLabel(batch.task.status)}
-                </span>
-                <strong>{batch.task.prompt_summary}</strong>
-                <small>{formatStudioBatchSummary(batch)}</small>
-              </div>
-            </div>
-            <div className="studio-canvas-batch-grid">
-              {batch.tiles.map((tile, index) =>
-                tile.asset ? (
-                  <button
-                    className="studio-canvas-tile is-image"
-                    key={tile.id}
-                    onClick={() => onOpenPreview(tile.asset!)}
-                    type="button"
-                  >
-                    <img alt={tile.asset.filename} src={tile.asset.download_url} />
-                  </button>
-                ) : (
-                  <div
-                    className={`studio-canvas-tile is-status is-${tile.status}`}
-                    key={tile.id}
-                  >
-                    <div className="studio-canvas-tile-body">
-                      <span className="studio-canvas-tile-index">{index + 1}</span>
-                      <strong>{taskStatusLabel(tile.status)}</strong>
-                    </div>
-                  </div>
-                ),
-              )}
-            </div>
-          </div>
+          <StudioCanvasBatchView
+            activeAction={activeAction}
+            batch={batch}
+            onBatchAction={onBatchAction}
+            onOpenPreview={onOpenPreview}
+            quickParameters={quickParameters}
+            referenceLimit={referenceLimit}
+            selectedReferenceCount={selectedReferenceCount}
+            selectedReferences={selectedReferences}
+            supportsReferenceImage={supportsReferenceImage}
+          />
         ) : (
           <div className="studio-empty-canvas">
             <div className="studio-empty-mark">
@@ -1756,6 +2034,177 @@ function StudioCanvas({
         <StudioPreviewOverlay asset={previewAsset} onClose={onClosePreview} />
       ) : null}
     </>
+  );
+}
+
+function StudioCanvasBatchView({
+  activeAction,
+  batch,
+  onBatchAction,
+  onOpenPreview,
+  quickParameters,
+  referenceLimit,
+  selectedReferenceCount,
+  selectedReferences,
+  supportsReferenceImage,
+}: {
+  activeAction: StudioBatchActionKey | null;
+  batch: StudioCanvasBatch;
+  onBatchAction: (action: StudioBatchActionKey, batch: StudioCanvasBatch) => void;
+  onOpenPreview: (asset: PublicTaskAsset) => void;
+  quickParameters: QuickParameterConfig[];
+  referenceLimit: number;
+  selectedReferenceCount: number;
+  selectedReferences: StudioReferencePreview[];
+  supportsReferenceImage: boolean;
+}) {
+  const cover = resolveStudioBatchCover(batch, selectedReferences);
+  const parameterPills = buildStudioBatchParameterPills(batch, quickParameters);
+  const hasResultAssets = batch.task.result_assets.length > 0;
+  const canReferenceAll =
+    hasResultAssets &&
+    supportsReferenceImage &&
+    referenceLimit > 0 &&
+    selectedReferenceCount < referenceLimit;
+  const canEdit = hasResultAssets && supportsReferenceImage && referenceLimit > 0;
+  const referenceTitle = !hasResultAssets
+    ? '当前任务暂无结果图'
+    : !supportsReferenceImage || referenceLimit <= 0
+      ? '当前模型不支持参考图'
+      : selectedReferenceCount >= referenceLimit
+        ? `最多只能选择 ${referenceLimit} 张参考图`
+        : '全部引用';
+
+  return (
+    <div className="studio-canvas-batch">
+      <div className="studio-canvas-batch-meta">
+        {cover ? (
+          <div className="studio-canvas-batch-cover" aria-hidden="true">
+            <img alt="" src={cover.download_url} />
+          </div>
+        ) : null}
+        <div className="studio-canvas-batch-copy">
+          <div className="studio-canvas-batch-title-row">
+            <strong>{batch.task.prompt_summary}</strong>
+            <span className={`studio-canvas-status is-${batch.task.status}`}>
+              {taskStatusLabel(batch.task.status)}
+            </span>
+          </div>
+          <div className="studio-canvas-batch-pills" aria-label="任务参数">
+            <span>{formatStudioBatchSummary(batch)}</span>
+            {parameterPills.map((pill) => (
+              <span key={pill.key}>
+                {pill.label}: {pill.value}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="studio-canvas-batch-grid">
+        {batch.tiles.map((tile, index) =>
+          tile.asset ? (
+            <button
+              aria-label={`预览结果图 ${index + 1}`}
+              className="studio-canvas-tile is-image"
+              key={tile.id}
+              onClick={() => onOpenPreview(tile.asset!)}
+              type="button"
+            >
+              <img alt={tile.asset.filename} src={tile.asset.download_url} />
+            </button>
+          ) : (
+            <div className={`studio-canvas-tile is-status is-${tile.status}`} key={tile.id}>
+              <div className="studio-canvas-tile-body">
+                <span className="studio-canvas-tile-index">{index + 1}</span>
+                <strong>{taskStatusLabel(tile.status)}</strong>
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+
+      <div className="studio-canvas-batch-actions" aria-label="结果操作">
+        <StudioBatchActionButton
+          action="reference-all"
+          activeAction={activeAction}
+          disabled={!canReferenceAll}
+          icon={<ImagePlus aria-hidden="true" size={20} strokeWidth={2.2} />}
+          label="全部引用"
+          onClick={(action) => onBatchAction(action, batch)}
+          title={referenceTitle}
+        />
+        <StudioBatchActionButton
+          action="edit"
+          activeAction={activeAction}
+          disabled={!canEdit}
+          icon={<Pencil aria-hidden="true" size={20} strokeWidth={2.2} />}
+          label="重新编辑"
+          onClick={(action) => onBatchAction(action, batch)}
+          title={canEdit ? '重新编辑' : referenceTitle}
+        />
+        <StudioBatchActionButton
+          action="regenerate"
+          activeAction={activeAction}
+          icon={<RefreshCw aria-hidden="true" size={20} strokeWidth={2.2} />}
+          label="再次生成"
+          onClick={(action) => onBatchAction(action, batch)}
+          title="按当前描述再次生成"
+        />
+        <StudioBatchActionButton
+          action="download-all"
+          activeAction={activeAction}
+          disabled={!hasResultAssets}
+          icon={<Download aria-hidden="true" size={20} strokeWidth={2.2} />}
+          label="全部下载"
+          onClick={(action) => onBatchAction(action, batch)}
+          title={hasResultAssets ? '全部下载' : '当前任务暂无结果图'}
+        />
+        <StudioBatchActionButton
+          action="delete"
+          activeAction={activeAction}
+          icon={<Trash2 aria-hidden="true" size={20} strokeWidth={2.2} />}
+          label="删除"
+          onClick={(action) => onBatchAction(action, batch)}
+          title="删除当前任务"
+          variant="danger"
+        />
+      </div>
+    </div>
+  );
+}
+
+function StudioBatchActionButton({
+  action,
+  activeAction,
+  disabled = false,
+  icon,
+  label,
+  onClick,
+  title,
+  variant,
+}: {
+  action: StudioBatchActionKey;
+  activeAction: StudioBatchActionKey | null;
+  disabled?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: (action: StudioBatchActionKey) => void;
+  title: string;
+  variant?: 'danger';
+}) {
+  const isBusy = activeAction === action;
+  return (
+    <button
+      className={`studio-canvas-batch-action ${variant === 'danger' ? 'is-danger' : ''}`}
+      disabled={disabled || Boolean(activeAction)}
+      onClick={() => onClick(action)}
+      title={title}
+      type="button"
+    >
+      {icon}
+      <span>{isBusy ? '处理中' : label}</span>
+    </button>
   );
 }
 

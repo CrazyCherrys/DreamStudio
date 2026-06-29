@@ -96,6 +96,24 @@ export function uploadReferenceImage(file: File, csrfToken: string) {
   });
 }
 
+export async function uploadReferenceImageFromUrl(
+  sourceUrl: string,
+  filename: string,
+  csrfToken: string,
+) {
+  const response = await fetch(sourceUrl, {
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('读取结果图失败');
+  }
+  const blob = await response.blob();
+  const file = new File([blob], filename, {
+    type: blob.type || 'image/png',
+  });
+  return uploadReferenceImage(file, csrfToken);
+}
+
 export function deleteAsset(assetId: string, csrfToken: string) {
   return apiRequest<{ deleted: boolean; physical_deleted: boolean }>(`/api/v1/assets/${assetId}`, {
     method: 'DELETE',

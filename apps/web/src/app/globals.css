@@ -828,53 +828,95 @@ select option {
 
 .studio-canvas-batch {
   display: grid;
-  width: min(1120px, 100%);
-  gap: 16px;
+  width: min(1246px, 100%);
+  gap: 18px;
 }
 
 .studio-canvas-batch-meta {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   min-width: 0;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
+  align-items: center;
+  gap: 18px;
+}
+
+.studio-canvas-batch-cover {
+  width: 78px;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border: 2px solid rgba(244, 247, 242, 0.9);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.36);
+  transform: rotate(-7deg);
+}
+
+.studio-canvas-batch-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .studio-canvas-batch-copy {
   display: grid;
   min-width: 0;
+  gap: 10px;
+}
+
+.studio-canvas-batch-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.studio-canvas-batch-title-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #f4f7f2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.studio-canvas-batch-pills {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.studio-canvas-batch-copy strong,
-.studio-canvas-batch-copy small {
-  min-width: 0;
+.studio-canvas-batch-pills span {
+  display: inline-flex;
+  min-height: 34px;
+  max-width: 260px;
+  align-items: center;
   overflow: hidden;
+  border: 1px solid rgba(151, 176, 164, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--studio-muted);
+  padding: 0 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.studio-canvas-batch-copy strong {
-  color: #f5eadc;
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.studio-canvas-batch-copy small {
-  color: var(--studio-muted);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 .studio-canvas-status {
   display: inline-flex;
+  flex: 0 0 auto;
   width: fit-content;
+  min-height: 30px;
   align-items: center;
   border: 1px solid rgba(39, 198, 183, 0.32);
   border-radius: 999px;
-  background: rgba(39, 198, 183, 0.12);
+  background: rgba(39, 198, 183, 0.1);
   color: #a7fff3;
-  padding: 5px 10px;
+  padding: 0 12px;
   font-size: 12px;
   font-weight: 900;
 }
@@ -895,8 +937,8 @@ select option {
 
 .studio-canvas-batch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(104px, 144px));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 6px;
   align-items: start;
   justify-content: start;
 }
@@ -908,11 +950,11 @@ select option {
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border: 1px solid var(--studio-line);
-  border-radius: 20px;
+  border-radius: 8px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 100px),
     rgba(255, 255, 255, 0.035);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+  box-shadow: none;
 }
 
 .studio-canvas-tile.is-image {
@@ -930,6 +972,7 @@ select option {
 
 .studio-canvas-tile.is-image:hover {
   border-color: rgba(39, 198, 183, 0.42);
+  filter: brightness(1.05);
 }
 
 .studio-canvas-tile.is-status {
@@ -993,6 +1036,51 @@ select option {
   color: #f2f6f2;
   font-size: 14px;
   font-weight: 900;
+}
+
+.studio-canvas-batch-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.studio-canvas-batch-action {
+  display: inline-flex;
+  min-height: 62px;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(151, 176, 164, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #c9cfca;
+  padding: 0 22px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.studio-canvas-batch-action:hover:not(:disabled) {
+  border-color: rgba(151, 176, 164, 0.26);
+  background: rgba(255, 255, 255, 0.11);
+  color: #f4f7f2;
+  transform: translateY(-1px);
+}
+
+.studio-canvas-batch-action.is-danger:hover:not(:disabled) {
+  border-color: rgba(251, 113, 133, 0.34);
+  background: rgba(251, 113, 133, 0.12);
+  color: #fecdd3;
+}
+
+.studio-canvas-batch-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
 }
 
 .studio-preview-overlay {
@@ -1953,6 +2041,56 @@ select option {
 }
 
 @media (max-width: 720px) {
+  .studio-canvas-batch {
+    gap: 14px;
+  }
+
+  .studio-canvas-batch-meta {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 12px;
+  }
+
+  .studio-canvas-batch-cover {
+    width: 64px;
+  }
+
+  .studio-canvas-batch-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .studio-canvas-batch-title-row strong {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .studio-canvas-batch-pills span {
+    min-height: 30px;
+    max-width: 100%;
+    padding: 0 11px;
+    font-size: 12px;
+  }
+
+  .studio-canvas-batch-grid {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  }
+
+  .studio-canvas-batch-actions {
+    gap: 8px;
+  }
+
+  .studio-canvas-batch-action {
+    min-height: 48px;
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
   .studio-composer {
     bottom: 14px;
     --studio-composer-width: calc(100% - 28px);

@@ -674,6 +674,7 @@ Content-Type: multipart/form-data
 - 上传后立即保存到当前存储。
 - 参考图默认按配置过期清理。
 - 上传接口只创建参考图资产，不创建生图任务。
+- `/studio` 结果区的“全部引用”和“重新编辑”不直接把 `result_image` ID 传入 `reference_asset_ids`；前端需要先读取用户自己的结果图下载 URL，作为文件重新调用本接口创建 `reference_image`，再把返回的参考图 ID 加入后续任务。
 
 ### 7.2 获取资产列表
 
