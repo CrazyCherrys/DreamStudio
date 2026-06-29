@@ -25,6 +25,7 @@ import {
   type AdminAiModel,
   type AiModelPayload,
   type ExecutionProfileOperation,
+  type ExecutionProfileRoutingRole,
   type ExecutionProfilePayload,
   type ExecutionProfilePreviewResult,
   type ExecutionProfileRevisionPayload,
@@ -69,6 +70,11 @@ const EXECUTION_OPERATIONS: ExecutionProfileOperation[] = [
   'image_to_image',
   'image_edit',
   'conversational_image',
+];
+const EXECUTION_ROUTING_ROLES: Array<ExecutionProfileRoutingRole | ''> = [
+  '',
+  'primary_generation',
+  'reference_edit',
 ];
 const SOURCE_KINDS: ExecutionProfileSourceKind[] = [
   'manual',
@@ -226,7 +232,8 @@ const EXECUTION_TEMPLATE_PRESETS: Array<{
   {
     id: 'gemini-generate-content-image',
     label: 'Gemini generateContent image',
-    description: '适合当前通过 `/v1beta/models/{model}:generateContent` 接入的 Gemini 官方图片模型。',
+    description:
+      '适合当前通过 `/v1beta/models/{model}:generateContent` 接入的 Gemini 官方图片模型。',
     adapterKey: 'gemini_generate_content',
     profileDefaults: {
       name: 'Gemini generateContent image',
@@ -1521,6 +1528,9 @@ export function ExecutionProfileManager({
               <span className="ds-muted mt-1 block break-all text-xs">{profile.adapter_key}</span>
               <span className="mt-2 flex flex-wrap gap-1 text-xs font-black">
                 {profile.is_default ? <span>默认</span> : null}
+                {profile.routing_role ? (
+                  <span>{routingRoleLabel(profile.routing_role)}</span>
+                ) : null}
                 {profile.is_enabled ? <span>启用</span> : <span>禁用</span>}
                 <span>{profile.revisions?.length ?? 0} rev</span>
                 {(profile.revisions ?? []).some((revision) => revision.status === 'draft') ? (
@@ -1635,16 +1645,12 @@ export function ExecutionProfileManager({
               <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 md:grid-cols-3">
                 <InfoPill label="Adapter" value={profileDraft.adapter_key ?? '-'} />
                 <InfoPill
-                  label="Reference mode"
-                  value={profileDraft.reference_transfer_mode ?? '-'}
+                  label="Routing role"
+                  value={routingRoleLabel(profileDraft.routing_role ?? null)}
                 />
                 <InfoPill
-                  label="Quick params"
-                  value={String(
-                    (profileDraft.parameter_schema ?? []).filter(
-                      (field) => field.ui?.group === 'quick',
-                    ).length,
-                  )}
+                  label="Reference mode"
+                  value={profileDraft.reference_transfer_mode ?? '-'}
                 />
               </div>
               {showExpertProfileFields ? (
@@ -1678,6 +1684,26 @@ export function ExecutionProfileManager({
                     }
                     value={profileDraft.adapter_key ?? ''}
                   />
+                  <label className="grid gap-2 text-sm font-bold">
+                    <span>routing_role</span>
+                    <select
+                      className="ds-input"
+                      onChange={(event) =>
+                        setProfileDraft((current) => ({
+                          ...(current ?? {}),
+                          routing_role:
+                            (event.target.value as ExecutionProfileRoutingRole | '') || null,
+                        }))
+                      }
+                      value={profileDraft.routing_role ?? ''}
+                    >
+                      {EXECUTION_ROUTING_ROLES.map((role) => (
+                        <option key={role || 'none'} value={role}>
+                          {routingRoleLabel(role || null)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="grid gap-2 text-sm font-bold">
                     <span>reference_transfer_mode</span>
                     <select
@@ -1774,7 +1800,8 @@ export function ExecutionProfileManager({
                     <div className="grid gap-2 text-sm">
                       <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
                       <p className="break-all font-semibold">
-                        {selectedTemplate.adapter_key} · {selectedTemplate.source_url ?? 'no source'}
+                        {selectedTemplate.adapter_key} ·{' '}
+                        {selectedTemplate.source_url ?? 'no source'}
                       </p>
                       <p className="text-xs font-semibold">
                         Runtime {selectedTemplate.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
@@ -2218,6 +2245,17 @@ function InfoPill({ label, value }: { label: string; value: string }) {
   );
 }
 
+function routingRoleLabel(value: ExecutionProfileRoutingRole | null) {
+  switch (value) {
+    case 'primary_generation':
+      return 'Primary generation';
+    case 'reference_edit':
+      return 'Reference edit';
+    default:
+      return 'No routing role';
+  }
+}
+
 function renderParameterInput(
   field: ParameterSchemaField,
   value: string | number | boolean | null,
@@ -2446,6 +2484,12 @@ function createProfileFromTemplatePreset(
   return {
     name: preset.profileDefaults.name,
     operation: preset.profileDefaults.operation,
+    routing_role:
+      preset.profileDefaults.adapter_key === 'openai_images_generation'
+        ? 'primary_generation'
+        : preset.profileDefaults.adapter_key === 'openai_images_edit'
+          ? 'reference_edit'
+          : null,
     adapter_key: preset.profileDefaults.adapter_key,
     adapter_version: '1',
     transport_key: 'new_api_bearer',
@@ -2470,6 +2514,7 @@ function emptyProfilePayload(model: AdminAiModel): ExecutionProfilePayload {
   return {
     name: 'New execution profile',
     operation: 'text_to_image',
+    routing_role: null,
     adapter_key: 'openai_images_generation',
     adapter_version: '1',
     transport_key: 'new_api_bearer',
@@ -2500,6 +2545,7 @@ function profileToPayload(profile: AdminExecutionProfile): ExecutionProfilePaylo
   return {
     name: profile.name,
     operation: profile.operation,
+    routing_role: profile.routing_role,
     adapter_key: profile.adapter_key,
     adapter_version: profile.adapter_version,
     transport_key: profile.transport_key,
@@ -2528,6 +2574,7 @@ function revisionToPayload(
     source_url: revision.source_url,
     source_checked_at: revision.source_checked_at,
     source_summary: revision.source_summary,
+    routing_role: revision.routing_role,
     adapter_key: revision.adapter_key,
     adapter_version: revision.adapter_version,
     transport_key: revision.transport_key,

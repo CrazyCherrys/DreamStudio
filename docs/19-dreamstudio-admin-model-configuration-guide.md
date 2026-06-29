@@ -17,7 +17,7 @@
 结论：
 
 - `endpoint_types` 只用于目录展示和筛选提示，不决定实际协议。
-- 真正决定 Studio 调用协议的是 `default_execution_profile.adapter_key`。
+- 真正决定 Studio 调用协议的是默认主 profile、参考图编辑 companion profile，以及本次是否上传参考图。
 - 图片模型如果没有默认 active profile，普通用户不会在 `/studio` 看见它。
 - 参考图上传大小和结果图保存大小不在模型级配置里控制，统一由 `/admin/system-settings` 的全局图片大小上限控制。
 
@@ -76,7 +76,8 @@
 
 不是运行时真值，只是后台展示建议：
 
-- OpenAI GPT Image 2 文生图：勾 `openai_image_generations`
+- OpenAI GPT Image 2 文生图：勾 `OpenAI generation`
+- OpenAI GPT Image 2 参考图编辑：勾 `OpenAI edits`
 - OpenAI Responses 图片工具：勾 `openai_responses_image`
 - Gemini 官方图片模型：勾 `gemini_generate_content`
 - 同一模型未来可能切协议时，可以同时勾多个标签
@@ -97,7 +98,8 @@
 - `Revision`：该配置的版本
 - `Draft`：草稿，不会影响 Studio
 - `Active`：已发布版本，Studio 实际使用它
-- `Default`：该模型的默认 profile，普通用户只自动用这条
+- `Default`：该模型的主 profile，普通用户无参考图时自动用这条
+- `Reference edit companion`：该模型在存在参考图时自动切换到的编辑 profile
 
 标准操作顺序：
 
@@ -106,7 +108,7 @@
 3. 检查 `adapter_key`、`upstream_model_id`、`parameter_schema`、`request_mapping`
 4. 依次执行 `Lint`、`请求预览`、`Diff`、`Dry run`
 5. 确认无误后点击 `发布`
-6. 确认该 profile 同时是 `默认` 且 `启用`
+6. 确认主 profile 是 `默认` 且 `启用`；如果同一模型还要支持参考图编辑，再单独配置 `Reference edit companion`
 
 只要没有 `发布`，`/studio` 都不会切到新配置。
 
@@ -127,7 +129,7 @@
 
 ## 5. OpenAI 官方怎么配
 
-### 场景 A：`gpt-image-2` 文生图
+### 场景 A：`gpt-image-2` 单模型同时支持文生图和参考图编辑
 
 适用：
 
@@ -140,19 +142,26 @@
   - `模型 ID`：`gpt-image-2`
   - `展示名称`：`GPT Image 2`
   - `参考图传递`：`none`
-  - `端点标签`：勾 `openai_image_generations`
+  - `端点标签`：至少勾 `OpenAI generation`；如果要支持参考图编辑，再同时勾 `OpenAI edits`
 - 执行配置：
-  - 新建 profile，名称可用 `OpenAI Image generation`
-  - 模板导入：`openai-image-generation-gpt-image-2`
-  - `upstream_model_id`：保持 `gpt-image-2`，或改成未来兼容该接口的官方模型 ID
-  - 保持 `adapter_key=openai_images_generation`
-  - 发布后，把该 profile 设成 `默认` + `启用`
+  - 先创建主 profile，名称可用 `OpenAI Image generation`
+  - 主 profile 模板导入：`openai-image-generation-gpt-image-2`
+  - 主 profile 的 `routing_role` 设为 `Primary generation`
+  - 主 profile 的 `upstream_model_id`：保持 `gpt-image-2`
+  - 主 profile 保持 `adapter_key=openai_images_generation`
+  - 主 profile 发布后，设成 `默认` + `启用`
+  - 再创建 companion edit profile，名称可用 `OpenAI Image edit`
+  - edit profile 模板导入：`openai-image-edit-gpt-image-2`
+  - edit profile 的 `routing_role` 设为 `Reference edit`
+  - edit profile 的 `upstream_model_id`：保持 `gpt-image-2`
+  - edit profile 保持 `adapter_key=openai_images_edit`
+  - edit profile 发布后，保持 `启用`，但不要设成 `默认`
 
 这样配置后：
 
-- `/studio` 会按 Image API generation 协议提交
-- 快捷参数来自该 active revision 的 `parameter_schema`
-- 不支持参考图
+- `/studio` 无参考图时会自动走 `OpenAI generation`
+- `/studio` 上传参考图后会自动切到 `OpenAI edits`
+- generation 和 edit 各自使用自己的 `parameter_schema` 和 `default_params`
 
 ### 场景 B：OpenAI 官方 Responses 图片工具
 
@@ -185,7 +194,9 @@
 
 ### OpenAI 官方选择建议
 
-- 明确使用 `gpt-image-2` 时，优先 `openai_images_generation`
+- 明确使用 `gpt-image-2` 且希望单模型同时支持文生图和参考图编辑时，推荐同一模型下配一主一辅两条 profile：
+  - `openai_images_generation` 作为默认主 profile
+  - `openai_images_edit` 作为 `Reference edit companion`
 - 明确使用需要 Responses image tool 的新官方模型时，优先 `openai_responses_image`
 - 不要靠改 `endpoint_types` 来切协议，必须改默认 active profile
 

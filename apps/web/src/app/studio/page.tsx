@@ -241,18 +241,28 @@ function StudioContent() {
         .some((value) => String(value).toLowerCase().includes(query));
     });
   }, [models, modelSearchQuery, selectedFilter]);
-  const selectedExecutionProfile = selectedModel?.default_execution_profile ?? null;
+  const selectedGenerationExecutionProfile = selectedModel?.default_execution_profile ?? null;
+  const selectedReferenceEditExecutionProfile =
+    selectedModel?.reference_edit_execution_profile ?? null;
+  const shouldUseReferenceEditProfile = Boolean(
+    selectedReferences.length > 0 && selectedReferenceEditExecutionProfile,
+  );
+  const selectedExecutionProfile = shouldUseReferenceEditProfile
+    ? selectedReferenceEditExecutionProfile
+    : selectedGenerationExecutionProfile;
   const selectedParameterSchema =
     selectedExecutionProfile?.parameter_schema ?? selectedModel?.parameter_schema ?? [];
   const selectedDefaultParams =
     selectedExecutionProfile?.default_params ?? selectedModel?.default_params ?? {};
   const selectedSupportsReferenceImage =
+    selectedReferenceEditExecutionProfile?.supports_reference_image ??
     selectedExecutionProfile?.supports_reference_image ??
     selectedModel?.supports_reference_image ??
     false;
   const selectedMaxReferenceImages = Math.max(
     0,
-    selectedExecutionProfile?.max_reference_images ??
+    selectedReferenceEditExecutionProfile?.max_reference_images ??
+      selectedExecutionProfile?.max_reference_images ??
       (selectedSupportsReferenceImage ? MAX_SELECTED_REFERENCES : 0),
   );
   const quickParameters = useMemo(
@@ -275,9 +285,14 @@ function StudioContent() {
     () =>
       buildQuickParameterBucketKey(
         selectedModel?.model_id ?? null,
+        selectedExecutionProfile?.routing_role ?? null,
         selectedExecutionProfile?.revision_id ?? null,
       ),
-    [selectedExecutionProfile?.revision_id, selectedModel?.model_id],
+    [
+      selectedExecutionProfile?.revision_id,
+      selectedExecutionProfile?.routing_role,
+      selectedModel?.model_id,
+    ],
   );
   useEffect(() => {
     if (loading) {
@@ -503,7 +518,13 @@ function StudioContent() {
     const created = await createImageTask(
       {
         model_record_id: selectedModel.id,
-        execution_profile_id: selectedExecutionProfile?.id ?? task.execution_profile_id,
+        execution_profile_id:
+          selectedExecutionProfile?.id ??
+          resolveExecutionProfileIdForTaskReplay(
+            task,
+            selectedGenerationExecutionProfile,
+            selectedReferenceEditExecutionProfile,
+          ),
         prompt: promptSummary,
         negative_prompt: null,
         parameters,
@@ -1383,11 +1404,15 @@ function parseTimestamp(value: string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function buildQuickParameterBucketKey(modelId: string | null, revisionId: string | null) {
+function buildQuickParameterBucketKey(
+  modelId: string | null,
+  routingRole: string | null,
+  revisionId: string | null,
+) {
   if (!modelId) {
     return null;
   }
-  return `${modelId}:${revisionId ?? 'no-revision'}`;
+  return `${modelId}:${routingRole ?? 'default'}:${revisionId ?? 'no-revision'}`;
 }
 
 function loadQuickParameterMemory(bucketKey: string, fields: ParameterSchemaField[]) {
@@ -1576,21 +1601,20 @@ function buildStudioBatchParameterPills(
   quickParameters: QuickParameterConfig[],
 ) {
   const snapshot = normalizeSnapshotParameters(batch.task.sanitized_parameter_snapshot);
-  const pills = quickParameters
-    .map((config) => {
-      if (config.kind === 'count') {
-        return null;
-      }
-      const value = formatQuickParameterValue(config.fields, snapshot);
-      if (!value || value === config.label) {
-        return null;
-      }
-      return {
-        key: config.kind,
-        label: config.label,
-        value,
-      };
-    });
+  const pills = quickParameters.map((config) => {
+    if (config.kind === 'count') {
+      return null;
+    }
+    const value = formatQuickParameterValue(config.fields, snapshot);
+    if (!value || value === config.label) {
+      return null;
+    }
+    return {
+      key: config.kind,
+      label: config.label,
+      value,
+    };
+  });
   return pills.filter(Boolean) as Array<{ key: QuickParameterKind; label: string; value: string }>;
 }
 
@@ -1727,10 +1751,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getModelSupportsReferenceImage(model: PublicAiModel | null) {
   return (
+    model?.reference_edit_execution_profile?.supports_reference_image ??
     model?.default_execution_profile?.supports_reference_image ??
     model?.supports_reference_image ??
     false
   );
+}
+
+function resolveExecutionProfileIdForTaskReplay(
+  task: ImageTask,
+  generationProfile: PublicAiModel['default_execution_profile'],
+  referenceEditProfile: PublicAiModel['reference_edit_execution_profile'],
+) {
+  if (task.reference_asset_ids.length > 0 && referenceEditProfile?.id) {
+    return referenceEditProfile.id;
+  }
+  return generationProfile?.id ?? task.execution_profile_id;
 }
 
 function isParameterValue(value: unknown): value is string | number | boolean | null {

@@ -62,6 +62,13 @@ async function main() {
 
     const profile = defaultProfiles[0]!;
     validateProfile(model.modelId, profile, failures);
+    validateRoutingRole(
+      model.modelId,
+      profile.id,
+      profile.routingRole,
+      'default profile',
+      failures,
+    );
 
     const activeRevisions = profile.revisions.filter((revision) => revision.status === 'active');
     if (activeRevisions.length !== 1) {
@@ -75,6 +82,20 @@ async function main() {
     }
 
     validateRevision(model.modelId, profile.id, activeRevisions[0]!, failures);
+
+    const referenceEditProfiles = model.executionProfiles.filter(
+      (candidate) =>
+        candidate.routingRole === 'reference_edit' &&
+        candidate.isEnabled &&
+        candidate.deletedAt === null,
+    );
+    if (referenceEditProfiles.length > 1) {
+      failures.push({
+        model_id: model.modelId,
+        check: 'reference_edit_profile_count',
+        message: `同一模型最多只能有一个启用的 reference_edit profile，当前为 ${referenceEditProfiles.length} 个。`,
+      });
+    }
   }
 
   if (failures.length > 0) {
@@ -100,6 +121,7 @@ async function main() {
         'profile_has_adapter_key',
         'profile_has_parameter_schema',
         'profile_has_request_mapping',
+        'default_profile_has_primary_generation_role_or_null',
         'active_revision_has_adapter_key',
         'active_revision_has_parameter_schema',
         'active_revision_has_request_mapping',
@@ -121,6 +143,7 @@ function validateProfile(
   modelId: string,
   profile: {
     id: string;
+    routingRole: string | null;
     adapterKey: string;
     adapterVersion: string;
     parameterSchema: unknown;
@@ -149,6 +172,7 @@ function validateRevision(
   profileId: string,
   revision: {
     id: string;
+    routingRole: string | null;
     adapterKey: string;
     adapterVersion: string;
     parameterSchema: unknown;
@@ -159,6 +183,7 @@ function validateRevision(
   },
   failures: CheckFailure[],
 ) {
+  validateRoutingRole(modelId, profileId, revision.routingRole, 'active revision', failures);
   validateExecutionConfig(
     {
       modelId,
@@ -192,6 +217,28 @@ function validateRevision(
       message: 'active revision 必须记录 source_checked_at。',
     });
   }
+}
+
+function validateRoutingRole(
+  modelId: string,
+  profileId: string,
+  routingRole: string | null,
+  target: string,
+  failures: CheckFailure[],
+) {
+  if (
+    routingRole === null ||
+    routingRole === 'primary_generation' ||
+    routingRole === 'reference_edit'
+  ) {
+    return;
+  }
+  failures.push({
+    model_id: modelId,
+    profile_id: profileId,
+    check: 'routing_role',
+    message: `${target} routing_role 不合法：${routingRole}`,
+  });
 }
 
 function validateExecutionConfig(

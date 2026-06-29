@@ -2,7 +2,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { findImageAdapterManifest } from '@dreamstudio/config';
-import type { ExecutionProfileOperation, ExecutionProfileSourceKind } from '@prisma/client';
+import type {
+  ExecutionProfileOperation,
+  ExecutionProfileRoutingRole,
+  ExecutionProfileSourceKind,
+} from '@prisma/client';
 
 import type {
   ExecutionProfileRevisionBody,
@@ -27,6 +31,7 @@ interface ProfileTemplateRevision {
   source_url?: string | null;
   source_checked_at?: string | null;
   source_summary?: string | null;
+  routing_role?: ExecutionProfileRoutingRole | null;
   adapter_key: string;
   adapter_version: string;
   transport_key: string;
@@ -85,6 +90,7 @@ export function buildTemplateRevisionBody(
   },
 ): ExecutionProfileRevisionBody {
   const revision = structuredClone(template.revision);
+  revision.routing_role = revision.routing_role ?? routingRoleFromAdapterKey(revision.adapter_key);
   revision.upstream_model_id = options.upstreamModelId;
   if (options.mode === 'openai_compatible_copy') {
     revision.source_kind = 'third_party_docs';
@@ -255,6 +261,16 @@ function operationFromAdapterKey(adapterKey: string): ExecutionProfileOperation 
     return 'image_to_image';
   }
   return 'text_to_image';
+}
+
+function routingRoleFromAdapterKey(adapterKey: string): ExecutionProfileRoutingRole | null {
+  if (adapterKey === 'openai_images_generation') {
+    return 'primary_generation';
+  }
+  if (adapterKey === 'openai_images_edit') {
+    return 'reference_edit';
+  }
+  return null;
 }
 
 function readOptionalString(value: unknown): string | null {

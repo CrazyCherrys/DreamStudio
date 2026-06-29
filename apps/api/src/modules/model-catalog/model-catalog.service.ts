@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 import {
   ExecutionProfileOperation,
   ExecutionProfileRevisionStatus,
+  ExecutionProfileRoutingRole,
   ExecutionProfileSourceKind,
   ModelEndpointType,
   ModelModality,
@@ -1152,6 +1153,9 @@ export class ModelCatalogService {
     if (!options.partial || body.operation !== undefined) {
       input.operation = this.readExecutionProfileOperation(body.operation, details);
     }
+    if (!options.partial || body.routing_role !== undefined) {
+      input.routingRole = this.readExecutionProfileRoutingRole(body.routing_role, details);
+    }
     this.assignExecutionConfigInput(input, body, details, options.partial);
     if (!options.partial || body.is_default !== undefined) {
       input.isDefault = this.readBoolean(body.is_default, 'is_default', details, false);
@@ -1209,6 +1213,15 @@ export class ModelCatalogService {
         body.source_summary === undefined && !options.partial
           ? readNullableProfileSource(options.source, 'sourceSummary')
           : this.readNullableString(body.source_summary, 'source_summary', details, { max: 1200 });
+    }
+    if (!options.partial || body.routing_role !== undefined) {
+      input.routingRole =
+        body.routing_role === undefined && !options.partial
+          ? this.readExecutionProfileRoutingRole(
+              readNullableProfileSource(options.source, 'routingRole'),
+              details,
+            )
+          : this.readExecutionProfileRoutingRole(body.routing_role, details);
     }
     this.assignExecutionConfigInput(input, body, details, options.partial, options.source);
     if (!options.partial || body.change_summary !== undefined) {
@@ -1478,6 +1491,9 @@ export class ModelCatalogService {
     const defaultExecutionProfile = this.serializeDefaultExecutionProfile(
       this.findDefaultExecutionProfile(model),
     );
+    const referenceEditExecutionProfile = this.serializeDefaultExecutionProfile(
+      this.findReferenceEditExecutionProfile(model),
+    );
 
     return {
       id: model.id,
@@ -1495,6 +1511,7 @@ export class ModelCatalogService {
       default_params: model.defaultParams,
       parameter_schema: normalizeParameterSchema(model.parameterSchema),
       default_execution_profile: defaultExecutionProfile,
+      reference_edit_execution_profile: referenceEditExecutionProfile,
     };
   }
 
@@ -1555,6 +1572,7 @@ export class ModelCatalogService {
       ai_model_id: profile.aiModelId,
       name: profile.name,
       operation: profile.operation,
+      routing_role: profile.routingRole,
       adapter_key: profile.adapterKey,
       adapter_version: profile.adapterVersion,
       transport_key: profile.transportKey,
@@ -1597,6 +1615,7 @@ export class ModelCatalogService {
       source_url: revision.sourceUrl,
       source_checked_at: revision.sourceCheckedAt?.toISOString() ?? null,
       source_summary: revision.sourceSummary,
+      routing_role: revision.routingRole,
       adapter_key: revision.adapterKey,
       adapter_version: revision.adapterVersion,
       transport_key: revision.transportKey,
@@ -1782,6 +1801,22 @@ export class ModelCatalogService {
     );
   }
 
+  private findReferenceEditExecutionProfile(
+    model: Pick<FavoriteAwareModel, 'executionProfiles'>,
+  ): SerializableExecutionProfile | null {
+    return (
+      model.executionProfiles?.find(
+        (profile) =>
+          profile.routingRole === ExecutionProfileRoutingRole.reference_edit &&
+          profile.isEnabled &&
+          !profile.deletedAt &&
+          profile.revisions.some(
+            (revision) => revision.status === ExecutionProfileRevisionStatus.active,
+          ),
+      ) ?? null
+    );
+  }
+
   private serializeDefaultExecutionProfile(
     profile: SerializableExecutionProfile | null,
   ): PublicDefaultExecutionProfile | null {
@@ -1801,6 +1836,7 @@ export class ModelCatalogService {
       id: profile.id,
       revision_id: activeRevision.id,
       operation: profile.operation,
+      routing_role: activeRevision.routingRole ?? profile.routingRole,
       adapter_key: activeRevision.adapterKey,
       adapter_version: activeRevision.adapterVersion,
       reference_transfer_mode: activeRevision.referenceTransferMode,
@@ -1973,6 +2009,27 @@ export class ModelCatalogService {
       message: 'operation 不受支持',
     });
     return ExecutionProfileOperation.text_to_image;
+  }
+
+  private readExecutionProfileRoutingRole(
+    value: unknown,
+    details: ValidationDetail[],
+  ): ExecutionProfileRoutingRole | null {
+    if (
+      value === ExecutionProfileRoutingRole.primary_generation ||
+      value === ExecutionProfileRoutingRole.reference_edit
+    ) {
+      return value;
+    }
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+
+    details.push({
+      field: 'routing_role',
+      message: 'routing_role 不受支持',
+    });
+    return null;
   }
 
   private readSourceKind(value: unknown, details: ValidationDetail[]): ExecutionProfileSourceKind {

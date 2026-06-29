@@ -65,6 +65,13 @@ enum ExecutionProfileOperation {
   @@map("execution_profile_operation")
 }
 
+enum ExecutionProfileRoutingRole {
+  primary_generation
+  reference_edit
+
+  @@map("execution_profile_routing_role")
+}
+
 enum ExecutionProfileRevisionStatus {
   draft
   active
@@ -259,6 +266,7 @@ model AiModelExecutionProfile {
   aiModelId              String                            @map("ai_model_id") @db.Uuid
   name                   String                            @db.VarChar(160)
   operation              ExecutionProfileOperation
+  routingRole            ExecutionProfileRoutingRole?      @map("routing_role")
   adapterKey             String                            @map("adapter_key") @db.VarChar(120)
   adapterVersion         String                            @default("1") @map("adapter_version") @db.VarChar(40)
   transportKey           String                            @default("new_api_bearer") @map("transport_key") @db.VarChar(80)
@@ -286,6 +294,7 @@ model AiModelExecutionProfile {
 
   @@index([aiModelId])
   @@index([operation])
+  @@index([routingRole])
   @@index([adapterKey])
   @@index([isDefault])
   @@index([isEnabled])
@@ -303,6 +312,7 @@ model AiModelExecutionProfileRevision {
   sourceUrl              String?                        @map("source_url")
   sourceCheckedAt        DateTime?                      @map("source_checked_at") @db.Timestamptz(6)
   sourceSummary          String?                        @map("source_summary")
+  routingRole            ExecutionProfileRoutingRole?   @map("routing_role")
   adapterKey             String                         @map("adapter_key") @db.VarChar(120)
   adapterVersion         String                         @default("1") @map("adapter_version") @db.VarChar(40)
   transportKey           String                         @default("new_api_bearer") @map("transport_key") @db.VarChar(80)
@@ -333,6 +343,7 @@ model AiModelExecutionProfileRevision {
   @@index([executionProfileId])
   @@index([status])
   @@index([sourceKind])
+  @@index([routingRole])
   @@index([createdBy])
   @@index([activatedBy])
   @@index([createdAt])

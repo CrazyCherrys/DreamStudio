@@ -120,6 +120,7 @@ Studio UI 参数
 - 数据库中不保存任意 JS 表达式，只允许声明式 mapping 和后端白名单 transform。
 - 官方文档变化只更新 profile 草稿，不自动改变线上默认 profile。
 - 用户侧 Studio 只看到当前 profile 明确支持的参数；管理员侧才能编辑 profile、查看预览和测试。
+- 对 OpenAI `generation + edits` 这一对协议，允许同一模型下维护“默认主 profile + 参考图编辑 companion profile”；`/studio` 无参考图时走主 profile，有参考图时走 companion edit profile。
 - 开发阶段可以破坏旧数据兼容，但不能破坏新任务的快照和可复现性设计。
 
 ## 7. 概念拆分

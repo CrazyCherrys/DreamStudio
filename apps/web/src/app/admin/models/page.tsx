@@ -29,8 +29,8 @@ type ModelEditorStep = 'basic' | 'execution' | 'release';
 
 const ENDPOINT_FILTERS: Array<{ label: string; value: ModelEndpointType | '' }> = [
   { label: '全部端点', value: '' },
-  { label: 'OpenAI Image', value: 'openai_image_generations' },
-  { label: 'OpenAI Edit', value: 'openai_image_edits' },
+  { label: 'OpenAI generation', value: 'openai_image_generations' },
+  { label: 'OpenAI edits', value: 'openai_image_edits' },
   { label: 'OpenAI Responses', value: 'openai_responses_image' },
   { label: 'Gemini generateContent', value: 'gemini_generate_content' },
 ];

@@ -1,6 +1,7 @@
 import type {
   ExecutionProfileRevisionStatus,
   ExecutionProfileOperation,
+  ExecutionProfileRoutingRole,
   ExecutionProfileSourceKind,
   ModelEndpointType,
   ModelModality,
@@ -29,6 +30,7 @@ export interface AiModelBody {
 export interface ExecutionProfileBody {
   name?: unknown;
   operation?: unknown;
+  routing_role?: unknown;
   adapter_key?: unknown;
   adapter_version?: unknown;
   transport_key?: unknown;
@@ -53,6 +55,7 @@ export interface ExecutionProfileRevisionBody {
   source_url?: unknown;
   source_checked_at?: unknown;
   source_summary?: unknown;
+  routing_role?: unknown;
   adapter_key?: unknown;
   adapter_version?: unknown;
   transport_key?: unknown;
@@ -129,6 +132,7 @@ export interface PublicAiModel {
   default_params: unknown;
   parameter_schema: ParameterSchemaField[];
   default_execution_profile: PublicDefaultExecutionProfile | null;
+  reference_edit_execution_profile: PublicDefaultExecutionProfile | null;
 }
 
 export interface AdminAiModel extends PublicAiModel {
@@ -152,6 +156,7 @@ export interface AdminExecutionProfile {
   ai_model_id: string;
   name: string;
   operation: ExecutionProfileOperation;
+  routing_role: ExecutionProfileRoutingRole | null;
   adapter_key: string;
   adapter_version: string;
   transport_key: string;
@@ -184,6 +189,7 @@ export interface AdminExecutionProfileRevision {
   source_url: string | null;
   source_checked_at: string | null;
   source_summary: string | null;
+  routing_role: ExecutionProfileRoutingRole | null;
   adapter_key: string;
   adapter_version: string;
   transport_key: string;
@@ -236,6 +242,7 @@ export interface PublicDefaultExecutionProfile {
   id: string;
   revision_id: string;
   operation: ExecutionProfileOperation;
+  routing_role: ExecutionProfileRoutingRole | null;
   adapter_key: string;
   adapter_version: string;
   reference_transfer_mode: ReferenceTransferMode;

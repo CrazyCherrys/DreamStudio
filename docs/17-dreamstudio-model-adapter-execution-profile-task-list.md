@@ -2,6 +2,8 @@
 
 当前状态：阶段 12 已完成。
 
+补充说明：OpenAI `generation + edits` 现已允许在同一模型下通过“默认主 profile + 参考图编辑 companion profile”自动切换；`/studio` 无参考图时走 generation，有参考图时走 edits。
+
 本文档基于 `16-dreamstudio-model-adapter-execution-profile-plan.md`，用于把多模型生图适配层拆成可以逐阶段实现、验证、提交和回滚的任务包。
 
 ## 0. 实施边界

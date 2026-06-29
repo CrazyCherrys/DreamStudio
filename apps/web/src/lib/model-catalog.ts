@@ -54,6 +54,7 @@ export type ExecutionProfileOperation =
   | 'image_to_image'
   | 'image_edit'
   | 'conversational_image';
+export type ExecutionProfileRoutingRole = 'primary_generation' | 'reference_edit';
 
 export interface PublicExecutionProfileCapabilities {
   supports_reference_image: boolean;
@@ -65,6 +66,7 @@ export interface PublicDefaultExecutionProfile {
   id: string;
   revision_id: string;
   operation: ExecutionProfileOperation;
+  routing_role: ExecutionProfileRoutingRole | null;
   adapter_key: string;
   adapter_version: string;
   reference_transfer_mode: ReferenceTransferMode;
@@ -91,6 +93,7 @@ export interface PublicAiModel {
   default_params: Record<string, unknown>;
   parameter_schema: ParameterSchemaField[];
   default_execution_profile: PublicDefaultExecutionProfile | null;
+  reference_edit_execution_profile: PublicDefaultExecutionProfile | null;
 }
 
 export interface AdminAiModel extends PublicAiModel {
@@ -114,6 +117,7 @@ export interface AdminExecutionProfile {
   ai_model_id: string;
   name: string;
   operation: ExecutionProfileOperation;
+  routing_role: ExecutionProfileRoutingRole | null;
   adapter_key: string;
   adapter_version: string;
   transport_key: string;
@@ -146,6 +150,7 @@ export interface AdminExecutionProfileRevision {
   source_url: string | null;
   source_checked_at: string | null;
   source_summary: string | null;
+  routing_role: ExecutionProfileRoutingRole | null;
   adapter_key: string;
   adapter_version: string;
   transport_key: string;
@@ -188,6 +193,7 @@ export interface AiModelPayload {
 export interface ExecutionProfilePayload {
   name?: string;
   operation?: ExecutionProfileOperation;
+  routing_role?: ExecutionProfileRoutingRole | null;
   adapter_key?: string;
   adapter_version?: string;
   transport_key?: string;
@@ -212,6 +218,7 @@ export interface ExecutionProfileRevisionPayload {
   source_url?: string | null;
   source_checked_at?: string | null;
   source_summary?: string | null;
+  routing_role?: ExecutionProfileRoutingRole | null;
   adapter_key?: string;
   adapter_version?: string;
   transport_key?: string;
@@ -568,8 +575,10 @@ export function modalityLabel(value: ModelModality) {
 
 export function endpointTypeLabel(value: ModelEndpointType) {
   switch (value) {
+    case 'openai_image_generations':
+      return 'OpenAI generation';
     case 'openai_image_edits':
-      return '图片编辑';
+      return 'OpenAI edits';
     case 'openai_responses_image':
       return 'OpenAI Responses';
     case 'gemini_interactions_image':
@@ -577,14 +586,16 @@ export function endpointTypeLabel(value: ModelEndpointType) {
     case 'gemini_generate_content':
       return 'Gemini generateContent';
     default:
-      return '图片生成';
+      return 'OpenAI generation';
   }
 }
 
 export function endpointTypeShortLabel(value: ModelEndpointType) {
   switch (value) {
+    case 'openai_image_generations':
+      return 'Generation';
     case 'openai_image_edits':
-      return '编辑';
+      return 'Edits';
     case 'openai_responses_image':
       return 'Responses';
     case 'gemini_interactions_image':
@@ -592,7 +603,7 @@ export function endpointTypeShortLabel(value: ModelEndpointType) {
     case 'gemini_generate_content':
       return 'GenContent';
     default:
-      return '生成';
+      return 'Generation';
   }
 }
 

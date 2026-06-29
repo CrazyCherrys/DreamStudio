@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { HttpStatus, Injectable, OnModuleDestroy } from '@nestjs/common';
 import {
   ExecutionProfileRevisionStatus,
+  ExecutionProfileRoutingRole,
   ImageTaskStatus,
   ModelEndpointType,
   ModelModality,
@@ -43,6 +44,11 @@ type ActiveExecutionProfile = Prisma.AiModelExecutionProfileGetPayload<{
     revisions: true;
   };
 }>;
+
+interface ResolvedExecutionProfileSelection {
+  profile: ActiveExecutionProfile;
+  revision: ActiveExecutionProfile['revisions'][number];
+}
 
 type TaskWithAssets = ImageTask & {
   resultAssets?: Asset[];
@@ -271,8 +277,13 @@ export class ImageTasksService implements OnModuleDestroy {
       throw apiError(HttpStatus.NOT_FOUND, 'not_found', '模型不存在或已禁用');
     }
 
-    const profile = await this.resolveActiveExecutionProfile(model.id, requestedExecutionProfileId);
-    const activeRevision = profile.revisions[0];
+    const resolvedProfile = await this.resolveExecutionProfileSelection(
+      model.id,
+      requestedExecutionProfileId,
+      this.readReferenceAssetIds(body.reference_asset_ids),
+    );
+    const profile = resolvedProfile.profile;
+    const activeRevision = resolvedProfile.revision;
     if (!activeRevision) {
       throw apiError(HttpStatus.BAD_REQUEST, 'model_profile_missing', '模型没有可用执行配置');
     }
@@ -339,7 +350,11 @@ export class ImageTasksService implements OnModuleDestroy {
       }
     }
 
-    const endpointType = this.resolveImageEndpointTypeFromProfile(profile, referenceAssetIds);
+    const endpointType = this.resolveImageEndpointTypeFromProfile(
+      profile,
+      activeRevision,
+      referenceAssetIds,
+    );
     const executionProfileSnapshot = this.buildExecutionProfileSnapshot(profile, activeRevision);
     const requestMappingSnapshot = activeRevision.requestMapping as Prisma.InputJsonValue;
     const resolvedRequestSanitizedSnapshot = this.buildResolvedRequestSanitizedSnapshot({
@@ -433,20 +448,57 @@ export class ImageTasksService implements OnModuleDestroy {
     }
   }
 
-  private async resolveActiveExecutionProfile(
+  private async resolveExecutionProfileSelection(
     modelRecordId: string,
     requestedExecutionProfileId: string | undefined,
+    referenceAssetIds: string[],
+  ): Promise<ResolvedExecutionProfileSelection> {
+    if (requestedExecutionProfileId) {
+      const profile = await this.resolveActiveExecutionProfileById(
+        modelRecordId,
+        requestedExecutionProfileId,
+      );
+      return {
+        profile,
+        revision: profile.revisions[0]!,
+      };
+    }
+
+    if (referenceAssetIds.length > 0) {
+      const referenceEditProfile = await this.resolveActiveExecutionProfileByRole(
+        modelRecordId,
+        ExecutionProfileRoutingRole.reference_edit,
+      );
+      if (!referenceEditProfile) {
+        throw apiError(
+          HttpStatus.BAD_REQUEST,
+          'endpoint_not_supported',
+          '当前模型没有可用的参考图编辑执行配置',
+        );
+      }
+      return {
+        profile: referenceEditProfile,
+        revision: referenceEditProfile.revisions[0]!,
+      };
+    }
+
+    const defaultProfile = await this.resolveDefaultActiveExecutionProfile(modelRecordId);
+    return {
+      profile: defaultProfile,
+      revision: defaultProfile.revisions[0]!,
+    };
+  }
+
+  private async resolveActiveExecutionProfileById(
+    modelRecordId: string,
+    requestedExecutionProfileId: string,
   ): Promise<ActiveExecutionProfile> {
     const profile = await prisma.aiModelExecutionProfile.findFirst({
       where: {
         aiModelId: modelRecordId,
         deletedAt: null,
         isEnabled: true,
-        ...(requestedExecutionProfileId
-          ? { id: requestedExecutionProfileId }
-          : {
-              isDefault: true,
-            }),
+        id: requestedExecutionProfileId,
       },
       include: {
         revisions: {
@@ -469,15 +521,79 @@ export class ImageTasksService implements OnModuleDestroy {
     return profile;
   }
 
+  private async resolveDefaultActiveExecutionProfile(
+    modelRecordId: string,
+  ): Promise<ActiveExecutionProfile> {
+    const profile = await prisma.aiModelExecutionProfile.findFirst({
+      where: {
+        aiModelId: modelRecordId,
+        deletedAt: null,
+        isEnabled: true,
+        isDefault: true,
+      },
+      include: {
+        revisions: {
+          where: {
+            status: ExecutionProfileRevisionStatus.active,
+          },
+          orderBy: {
+            revisionNo: 'desc',
+          },
+          take: 1,
+        },
+      },
+      orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    if (!profile || profile.revisions.length !== 1) {
+      throw apiError(HttpStatus.BAD_REQUEST, 'model_profile_missing', '模型没有可用执行配置');
+    }
+
+    return profile;
+  }
+
+  private async resolveActiveExecutionProfileByRole(
+    modelRecordId: string,
+    routingRole: ExecutionProfileRoutingRole,
+  ): Promise<ActiveExecutionProfile | null> {
+    const profile = await prisma.aiModelExecutionProfile.findFirst({
+      where: {
+        aiModelId: modelRecordId,
+        deletedAt: null,
+        isEnabled: true,
+        routingRole,
+      },
+      include: {
+        revisions: {
+          where: {
+            status: ExecutionProfileRevisionStatus.active,
+          },
+          orderBy: {
+            revisionNo: 'desc',
+          },
+          take: 1,
+        },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    if (!profile || profile.revisions.length !== 1) {
+      return null;
+    }
+
+    return profile;
+  }
+
   private resolveImageEndpointTypeFromProfile(
     profile: ActiveExecutionProfile,
+    revision: ActiveExecutionProfile['revisions'][number],
     referenceAssetIds: string[],
   ): ModelEndpointType {
-    if (profile.adapterKey === 'openai_images_edit') {
+    if (revision.adapterKey === 'openai_images_edit') {
       return ModelEndpointType.openai_image_edits;
     }
 
-    if (profile.adapterKey === 'openai_images_generation') {
+    if (revision.adapterKey === 'openai_images_generation') {
       if (referenceAssetIds.length > 0) {
         throw apiError(
           HttpStatus.BAD_REQUEST,
@@ -488,11 +604,11 @@ export class ImageTasksService implements OnModuleDestroy {
       return ModelEndpointType.openai_image_generations;
     }
 
-    if (profile.adapterKey === 'openai_responses_image') {
+    if (revision.adapterKey === 'openai_responses_image') {
       return ModelEndpointType.openai_responses_image;
     }
 
-    if (profile.adapterKey === 'gemini_generate_content') {
+    if (revision.adapterKey === 'gemini_generate_content') {
       return ModelEndpointType.gemini_generate_content;
     }
 
@@ -513,6 +629,7 @@ export class ImageTasksService implements OnModuleDestroy {
       revision_no: revision.revisionNo,
       name: profile.name,
       operation: profile.operation,
+      routing_role: revision.routingRole ?? profile.routingRole ?? null,
       adapter_key: revision.adapterKey,
       adapter_version: revision.adapterVersion,
       transport_key: revision.transportKey,
@@ -642,9 +759,7 @@ export class ImageTasksService implements OnModuleDestroy {
 
   private async serializeTasks(tasks: TaskWithAssets[], userId: string) {
     const referenceAssetsByTask = await this.loadReferenceAssetsByTask(tasks, userId);
-    return tasks.map((task) =>
-      this.serializeTask(task, referenceAssetsByTask.get(task.id) ?? []),
-    );
+    return tasks.map((task) => this.serializeTask(task, referenceAssetsByTask.get(task.id) ?? []));
   }
 
   private async loadReferenceAssetsByTask(tasks: TaskWithAssets[], userId: string) {
@@ -689,10 +804,7 @@ export class ImageTasksService implements OnModuleDestroy {
     return referenceAssetsByTask;
   }
 
-  private serializeTask(
-    task: TaskWithAssets,
-    referenceAssets: Asset[],
-  ): PublicImageTask {
+  private serializeTask(task: TaskWithAssets, referenceAssets: Asset[]): PublicImageTask {
     const serializedReferenceAssets = referenceAssets.map((asset) => this.serializeAsset(asset));
     return {
       id: task.id,
