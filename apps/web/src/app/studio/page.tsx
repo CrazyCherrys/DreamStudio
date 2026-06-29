@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type RefObject,
 } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Crop, Images, Layers3, Plus, Send, Square } from 'lucide-react';
 
@@ -1683,88 +1684,112 @@ function StudioCanvas({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClosePreview, previewAsset]);
 
+  useEffect(() => {
+    if (!previewAsset) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [previewAsset]);
+
   return (
-    <div className="studio-canvas-content">
-      <div className="studio-alert-stack" aria-live="polite">
-        {error ? <p className="studio-alert studio-alert-error">{error}</p> : null}
-        {message ? <p className="studio-alert studio-alert-success">{message}</p> : null}
+    <>
+      <div className="studio-canvas-content">
+        <div className="studio-alert-stack" aria-live="polite">
+          {error ? <p className="studio-alert studio-alert-error">{error}</p> : null}
+          {message ? <p className="studio-alert studio-alert-success">{message}</p> : null}
+        </div>
+
+        {shouldShowModelIntro && selectedModel ? (
+          <ModelIntro model={selectedModel} />
+        ) : batch ? (
+          <div className="studio-canvas-batch">
+            <div className="studio-canvas-batch-meta">
+              <div className="studio-canvas-batch-copy">
+                <span className={`studio-canvas-status is-${batch.task.status}`}>
+                  {taskStatusLabel(batch.task.status)}
+                </span>
+                <strong>{batch.task.prompt_summary}</strong>
+                <small>{formatStudioBatchSummary(batch)}</small>
+              </div>
+            </div>
+            <div className="studio-canvas-batch-grid">
+              {batch.tiles.map((tile, index) =>
+                tile.asset ? (
+                  <button
+                    className="studio-canvas-tile is-image"
+                    key={tile.id}
+                    onClick={() => onOpenPreview(tile.asset!)}
+                    type="button"
+                  >
+                    <img alt={tile.asset.filename} src={tile.asset.download_url} />
+                  </button>
+                ) : (
+                  <div
+                    className={`studio-canvas-tile is-status is-${tile.status}`}
+                    key={tile.id}
+                  >
+                    <div className="studio-canvas-tile-body">
+                      <span className="studio-canvas-tile-index">{index + 1}</span>
+                      <strong>{taskStatusLabel(tile.status)}</strong>
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="studio-empty-canvas">
+            <div className="studio-empty-mark">
+              {selectedModel?.display_name.slice(0, 1) ?? 'D'}
+            </div>
+            <h2>等待第一张画面</h2>
+            <p>{selectedModel?.display_name ?? '选择一个图片模型'}</p>
+          </div>
+        )}
       </div>
 
-      {shouldShowModelIntro && selectedModel ? (
-        <ModelIntro model={selectedModel} />
-      ) : batch ? (
-        <div className="studio-canvas-batch">
-          <div className="studio-canvas-batch-meta">
-            <div className="studio-canvas-batch-copy">
-              <span className={`studio-canvas-status is-${batch.task.status}`}>
-                {taskStatusLabel(batch.task.status)}
-              </span>
-              <strong>{batch.task.prompt_summary}</strong>
-              <small>{formatStudioBatchSummary(batch)}</small>
-            </div>
-          </div>
-          <div className="studio-canvas-batch-grid">
-            {batch.tiles.map((tile, index) =>
-              tile.asset ? (
-                <button
-                  className="studio-canvas-tile is-image"
-                  key={tile.id}
-                  onClick={() => onOpenPreview(tile.asset!)}
-                  type="button"
-                >
-                  <img alt={tile.asset.filename} src={tile.asset.download_url} />
-                </button>
-              ) : (
-                <div
-                  className={`studio-canvas-tile is-status is-${tile.status}`}
-                  key={tile.id}
-                >
-                  <div className="studio-canvas-tile-body">
-                    <span className="studio-canvas-tile-index">{index + 1}</span>
-                    <strong>{taskStatusLabel(tile.status)}</strong>
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="studio-empty-canvas">
-          <div className="studio-empty-mark">{selectedModel?.display_name.slice(0, 1) ?? 'D'}</div>
-          <h2>等待第一张画面</h2>
-          <p>{selectedModel?.display_name ?? '选择一个图片模型'}</p>
-        </div>
-      )}
-
       {previewAsset ? (
-        <div
-          className="studio-preview-overlay"
-          onClick={() => onClosePreview()}
-          role="presentation"
-        >
-          <div
-            className="studio-preview-dialog"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={previewAsset.filename}
-          >
-            <div className="studio-preview-toolbar">
-              <a
-                className="studio-preview-download"
-                download={previewAsset.filename}
-                href={previewAsset.download_url}
-              >
-                下载
-              </a>
-            </div>
-            <div className="studio-preview-image-wrap">
-              <img alt={previewAsset.filename} src={previewAsset.download_url} />
-            </div>
-          </div>
-        </div>
+        <StudioPreviewOverlay asset={previewAsset} onClose={onClosePreview} />
       ) : null}
-    </div>
+    </>
+  );
+}
+
+function StudioPreviewOverlay({
+  asset,
+  onClose,
+}: {
+  asset: PublicTaskAsset;
+  onClose: () => void;
+}) {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
+    <div className="studio-preview-overlay" onClick={() => onClose()} role="presentation">
+      <div
+        className="studio-preview-dialog"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={asset.filename}
+      >
+        <div className="studio-preview-toolbar">
+          <a className="studio-preview-download" download={asset.filename} href={asset.download_url}>
+            下载
+          </a>
+        </div>
+        <div className="studio-preview-image-wrap">
+          <img alt={asset.filename} src={asset.download_url} />
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
