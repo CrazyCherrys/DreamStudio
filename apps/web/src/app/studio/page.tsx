@@ -82,6 +82,16 @@ interface StudioCanvasBatch {
 
 type StudioBatchActionKey = 'reference-all' | 'edit' | 'regenerate' | 'download-all' | 'delete';
 
+interface StudioBatchCoverAsset {
+  download_url: string;
+  filename: string;
+}
+
+interface StudioBatchCover {
+  assets: StudioBatchCoverAsset[];
+  canReuseReferences: boolean;
+}
+
 function createClientRequestId() {
   const cryptoObject = globalThis.crypto;
   if (cryptoObject?.randomUUID) {
@@ -270,6 +280,9 @@ function StudioContent() {
     [selectedExecutionProfile?.revision_id, selectedModel?.model_id],
   );
   useEffect(() => {
+    if (loading) {
+      return;
+    }
     if (selectedModel && filteredModels.some((model) => model.id === selectedModel.id)) {
       return;
     }
@@ -281,7 +294,13 @@ function StudioContent() {
       filteredModels[0] ??
       null;
     setSelectedModel(nextSelectedModel);
-    persistStudioSelectedModelId(nextSelectedModel?.id ?? null);
+    if (
+      !selectedModel &&
+      filteredModels.length > 0 &&
+      nextSelectedModel?.id !== rememberedModelId
+    ) {
+      persistStudioSelectedModelId(nextSelectedModel.id);
+    }
     setParameterValues({});
     setShowModelIntro(Boolean(nextSelectedModel));
     setPreviewAsset(null);
@@ -289,7 +308,7 @@ function StudioContent() {
     if (!getModelSupportsReferenceImage(nextSelectedModel)) {
       setSelectedReferences([]);
     }
-  }, [filteredModels, selectedModel]);
+  }, [filteredModels, loading, selectedModel]);
 
   useEffect(() => {
     if (!selectedModelId) {
@@ -578,6 +597,32 @@ function StudioContent() {
     setMessage('已用第一张结果图创建参考图，并回填当前描述。');
   }
 
+  function handleReuseBatchReferences(batch: StudioCanvasBatch) {
+    if (!selectedSupportsReferenceImage || selectedMaxReferenceImages <= 0) {
+      setError('当前模型不支持参考图');
+      setMessage(null);
+      return;
+    }
+    if (batch.task.reference_assets.length === 0) {
+      setError('当前任务没有可复用的参考图');
+      setMessage(null);
+      return;
+    }
+
+    const nextReferences = batch.task.reference_assets
+      .slice(0, selectedMaxReferenceImages)
+      .map(toTaskAssetReferencePreview);
+    setSelectedReferences(nextReferences);
+    setError(null);
+    setMessage(
+      batch.task.reference_assets.length > selectedMaxReferenceImages
+        ? `已复用前 ${selectedMaxReferenceImages} 张参考图，当前模型达到上限。`
+        : nextReferences.length > 1
+          ? `已复用这组 ${nextReferences.length} 张参考图。`
+          : '已复用这张参考图。',
+    );
+  }
+
   async function handleRegenerateBatch(batch: StudioCanvasBatch) {
     const created = await createTaskFromSnapshot(batch.task);
     if (created) {
@@ -768,6 +813,7 @@ function StudioContent() {
               onBatchAction={handleBatchAction}
               onClosePreview={() => setPreviewAsset(null)}
               onOpenPreview={setPreviewAsset}
+              onReuseBatchReferences={handleReuseBatchReferences}
               previewAsset={previewAsset}
               quickParameters={quickParameters}
               referenceLimit={selectedMaxReferenceImages}
@@ -1501,19 +1547,26 @@ function normalizeSnapshotParameters(snapshot: Record<string, unknown>) {
 }
 
 function resolveStudioBatchCover(batch: StudioCanvasBatch) {
-  const primaryReferenceAsset = batch.task.primary_reference_asset;
-  if (primaryReferenceAsset) {
+  if (batch.task.reference_assets.length > 0) {
     return {
-      download_url: primaryReferenceAsset.download_url,
-      filename: primaryReferenceAsset.filename,
-    };
+      assets: batch.task.reference_assets.slice(0, 3).map((asset) => ({
+        download_url: asset.download_url,
+        filename: asset.filename,
+      })),
+      canReuseReferences: true,
+    } satisfies StudioBatchCover;
   }
   const firstResult = batch.task.result_assets[0];
   if (firstResult) {
     return {
-      download_url: firstResult.download_url,
-      filename: firstResult.filename,
-    };
+      assets: [
+        {
+          download_url: firstResult.download_url,
+          filename: firstResult.filename,
+        },
+      ],
+      canReuseReferences: false,
+    } satisfies StudioBatchCover;
   }
   return null;
 }
@@ -1523,8 +1576,11 @@ function buildStudioBatchParameterPills(
   quickParameters: QuickParameterConfig[],
 ) {
   const snapshot = normalizeSnapshotParameters(batch.task.sanitized_parameter_snapshot);
-  return quickParameters
+  const pills = quickParameters
     .map((config) => {
+      if (config.kind === 'count') {
+        return null;
+      }
       const value = formatQuickParameterValue(config.fields, snapshot);
       if (!value || value === config.label) {
         return null;
@@ -1534,10 +1590,8 @@ function buildStudioBatchParameterPills(
         label: config.label,
         value,
       };
-    })
-    .filter((item): item is { key: QuickParameterKind; label: string; value: string } =>
-      Boolean(item),
-    );
+    });
+  return pills.filter(Boolean) as Array<{ key: QuickParameterKind; label: string; value: string }>;
 }
 
 function buildReferenceFilename(asset: PublicTaskAsset) {
@@ -1689,6 +1743,14 @@ function isParameterValue(value: unknown): value is string | number | boolean | 
 }
 
 function toStudioReferencePreview(asset: AssetItem): StudioReferencePreview {
+  return {
+    id: asset.id,
+    download_url: asset.download_url,
+    filename: asset.filename,
+  };
+}
+
+function toTaskAssetReferencePreview(asset: PublicTaskAsset): StudioReferencePreview {
   return {
     id: asset.id,
     download_url: asset.download_url,
@@ -1990,6 +2052,7 @@ function StudioCanvas({
   onBatchAction,
   onClosePreview,
   onOpenPreview,
+  onReuseBatchReferences,
   previewAsset,
   quickParameters,
   referenceLimit,
@@ -2005,6 +2068,7 @@ function StudioCanvas({
   onBatchAction: (action: StudioBatchActionKey, batch: StudioCanvasBatch) => void;
   onClosePreview: () => void;
   onOpenPreview: (asset: PublicTaskAsset) => void;
+  onReuseBatchReferences: (batch: StudioCanvasBatch) => void;
   previewAsset: PublicTaskAsset | null;
   quickParameters: QuickParameterConfig[];
   referenceLimit: number;
@@ -2055,6 +2119,7 @@ function StudioCanvas({
             batch={batch}
             onBatchAction={onBatchAction}
             onOpenPreview={onOpenPreview}
+            onReuseBatchReferences={onReuseBatchReferences}
             quickParameters={quickParameters}
             referenceLimit={referenceLimit}
             selectedReferenceCount={selectedReferenceCount}
@@ -2081,6 +2146,7 @@ function StudioCanvasBatchView({
   batch,
   onBatchAction,
   onOpenPreview,
+  onReuseBatchReferences,
   quickParameters,
   referenceLimit,
   selectedReferenceCount,
@@ -2090,6 +2156,7 @@ function StudioCanvasBatchView({
   batch: StudioCanvasBatch;
   onBatchAction: (action: StudioBatchActionKey, batch: StudioCanvasBatch) => void;
   onOpenPreview: (asset: PublicTaskAsset) => void;
+  onReuseBatchReferences: (batch: StudioCanvasBatch) => void;
   quickParameters: QuickParameterConfig[];
   referenceLimit: number;
   selectedReferenceCount: number;
@@ -2116,9 +2183,32 @@ function StudioCanvasBatchView({
     <div className="studio-canvas-batch">
       <div className="studio-canvas-batch-meta">
         {cover ? (
-          <div className="studio-canvas-batch-cover" aria-hidden="true">
-            <img alt="" src={cover.download_url} />
-          </div>
+          cover.canReuseReferences ? (
+            <button
+              aria-label="点击可复用照片"
+              className="studio-canvas-batch-cover is-reusable"
+              onClick={() => onReuseBatchReferences(batch)}
+              title="点击可复用照片"
+              type="button"
+            >
+              {cover.assets.map((asset, index) => (
+                <span
+                  aria-hidden="true"
+                  className={`studio-canvas-batch-cover-card is-layer-${index + 1}`}
+                  key={`${asset.filename}-${index}`}
+                >
+                  <img alt="" src={asset.download_url} />
+                </span>
+              ))}
+              <span className="studio-canvas-batch-cover-hint">点击可复用照片</span>
+            </button>
+          ) : (
+            <div className="studio-canvas-batch-cover" aria-hidden="true">
+              <span className="studio-canvas-batch-cover-card is-layer-1">
+                <img alt="" src={cover.assets[0]!.download_url} />
+              </span>
+            </div>
+          )
         ) : null}
         <div className="studio-canvas-batch-copy">
           <div className="studio-canvas-batch-title-row">
@@ -2282,9 +2372,9 @@ function formatStudioBatchSummary(batch: StudioCanvasBatch) {
       batch.task.status === 'canceled') &&
     batch.completedTileCount > 0
   ) {
-    return `${batch.completedTileCount}/${batch.tileCount} 已返回`;
+    return `结果 ${batch.completedTileCount}/${batch.tileCount} 张`;
   }
-  return `${batch.tileCount} 张`;
+  return `结果 ${batch.tileCount} 张`;
 }
 
 function StudioTaskHistoryPanel({

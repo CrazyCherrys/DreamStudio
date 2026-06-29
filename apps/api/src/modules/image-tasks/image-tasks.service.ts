@@ -641,27 +641,28 @@ export class ImageTasksService implements OnModuleDestroy {
   }
 
   private async serializeTasks(tasks: TaskWithAssets[], userId: string) {
-    const primaryReferenceAssetMap = await this.loadPrimaryReferenceAssetMap(tasks, userId);
+    const referenceAssetsByTask = await this.loadReferenceAssetsByTask(tasks, userId);
     return tasks.map((task) =>
-      this.serializeTask(task, primaryReferenceAssetMap.get(task.id) ?? null),
+      this.serializeTask(task, referenceAssetsByTask.get(task.id) ?? []),
     );
   }
 
-  private async loadPrimaryReferenceAssetMap(tasks: TaskWithAssets[], userId: string) {
-    const firstReferenceIdByTask = new Map<string, string>();
+  private async loadReferenceAssetsByTask(tasks: TaskWithAssets[], userId: string) {
+    const referenceIdsByTask = new Map<string, string[]>();
     const assetIds = new Set<string>();
 
     for (const task of tasks) {
-      const firstReferenceAssetId = task.referenceAssetIds[0];
-      if (!firstReferenceAssetId) {
+      if (task.referenceAssetIds.length === 0) {
         continue;
       }
-      firstReferenceIdByTask.set(task.id, firstReferenceAssetId);
-      assetIds.add(firstReferenceAssetId);
+      referenceIdsByTask.set(task.id, task.referenceAssetIds);
+      for (const assetId of task.referenceAssetIds) {
+        assetIds.add(assetId);
+      }
     }
 
     if (assetIds.size === 0) {
-      return new Map<string, Asset>();
+      return new Map<string, Asset[]>();
     }
 
     const assets = await prisma.asset.findMany({
@@ -676,22 +677,23 @@ export class ImageTasksService implements OnModuleDestroy {
       },
     });
     const assetById = new Map(assets.map((asset) => [asset.id, asset]));
-    const primaryReferenceAssetMap = new Map<string, Asset>();
+    const referenceAssetsByTask = new Map<string, Asset[]>();
 
-    for (const [taskId, assetId] of firstReferenceIdByTask) {
-      const asset = assetById.get(assetId);
-      if (asset) {
-        primaryReferenceAssetMap.set(taskId, asset);
-      }
+    for (const [taskId, referenceAssetIds] of referenceIdsByTask) {
+      const orderedAssets = referenceAssetIds
+        .map((assetId) => assetById.get(assetId) ?? null)
+        .filter((asset): asset is Asset => Boolean(asset));
+      referenceAssetsByTask.set(taskId, orderedAssets);
     }
 
-    return primaryReferenceAssetMap;
+    return referenceAssetsByTask;
   }
 
   private serializeTask(
     task: TaskWithAssets,
-    primaryReferenceAsset: Asset | null,
+    referenceAssets: Asset[],
   ): PublicImageTask {
+    const serializedReferenceAssets = referenceAssets.map((asset) => this.serializeAsset(asset));
     return {
       id: task.id,
       model_record_id: task.modelRecordId,
@@ -707,9 +709,8 @@ export class ImageTasksService implements OnModuleDestroy {
       sanitized_parameter_snapshot: task.sanitizedParameterSnapshot,
       resolved_request_sanitized_snapshot: task.resolvedRequestSanitizedSnapshot,
       reference_asset_ids: task.referenceAssetIds,
-      primary_reference_asset: primaryReferenceAsset
-        ? this.serializeAsset(primaryReferenceAsset)
-        : null,
+      reference_assets: serializedReferenceAssets,
+      primary_reference_asset: serializedReferenceAssets[0] ?? null,
       status: task.status,
       error_code: task.errorCode,
       error_message: task.errorMessage,

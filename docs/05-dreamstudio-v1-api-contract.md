@@ -812,6 +812,18 @@ POST /api/v1/image-tasks
       }
     },
     "reference_asset_ids": ["uuid"],
+    "reference_assets": [
+      {
+        "id": "uuid",
+        "kind": "reference_image",
+        "filename": "reference-fox.png",
+        "mime_type": "image/png",
+        "width": 1024,
+        "height": 1024,
+        "download_url": "/api/v1/assets/uuid/download",
+        "created_at": "2026-06-19T11:59:00.000Z"
+      }
+    ],
     "primary_reference_asset": {
       "id": "uuid",
       "kind": "reference_image",
@@ -847,7 +859,8 @@ POST /api/v1/image-tasks
 - 后端先合并 active revision 的 `default_params` 和用户提交参数，再保存 `parameter_snapshot` 和 `sanitized_parameter_snapshot`。
 - 参考图必须属于当前用户且状态为 `available`。
 - 不支持参考图的 profile 不能提交 `reference_asset_ids`，参考图数量不能超过 profile 的 `max_reference_images`。
-- 普通任务响应额外返回 `primary_reference_asset`，仅表示 `reference_asset_ids` 第一项对应的当前可用参考图预览；如果首参考图不可用或任务本就没有参考图，则返回 `null`。
+- 普通任务响应额外返回 `reference_assets`，表示按 `reference_asset_ids` 原顺序返回的当前可用参考图预览列表；其中缺失、已删除或不可用的参考图会被跳过，不阻塞整个任务响应。
+- 普通任务响应继续返回 `primary_reference_asset`，仅表示 `reference_assets` 第一项对应的首参考图预览；如果首参考图不可用或任务本就没有参考图，则返回 `null`。
 - 创建任务时保存模型、接口、服务地址、参数、profile/revision、adapter、request mapping 和最终脱敏请求快照。
 - prompt 和 negative prompt 完整内容加密保存。
 - 队列 payload 中只放任务 ID 等非敏感信息。
@@ -885,7 +898,7 @@ GET /api/v1/image-tasks/{task_id}
 - 任务基础信息。
 - 任务状态。
 - 失败摘要。
-- `primary_reference_asset` 形式的首参考图预览，以及原始 `reference_asset_ids`。
+- `reference_assets` 形式的整组参考图预览、`primary_reference_asset` 形式的首参考图预览，以及原始 `reference_asset_ids`。
 - 关联结果图资产。
 - 参数脱敏快照。
 
