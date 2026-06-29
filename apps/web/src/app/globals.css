@@ -895,7 +895,7 @@ select option {
 
 .studio-canvas-batch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(88px, 124px));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 144px));
   gap: 8px;
   align-items: start;
   justify-content: start;
