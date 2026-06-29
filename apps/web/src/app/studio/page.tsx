@@ -628,7 +628,9 @@ function StudioContent() {
         await handleDeleteBatch(batch);
       }
     } catch (requestError) {
-      setError(requestError instanceof ApiClientError ? requestError.message : batchActionError(action));
+      setError(
+        requestError instanceof ApiClientError ? requestError.message : batchActionError(action),
+      );
     } finally {
       setActiveBatchAction(null);
     }
@@ -888,7 +890,9 @@ function QuickParameterBar({
                       <CountQuickFieldControl
                         field={field}
                         onChange={(nextValue) =>
-                          updateParameterValues(setQuickParameterOverride(values, field.key, nextValue))
+                          updateParameterValues(
+                            setQuickParameterOverride(values, field.key, nextValue),
+                          )
                         }
                         onCommit={() => onOpenChange(null)}
                         value={resolvedValues[field.key] ?? field.default ?? null}
@@ -897,7 +901,9 @@ function QuickParameterBar({
                       <ParameterFieldControl
                         field={field}
                         onChange={(nextValue) =>
-                          updateParameterValues(setQuickParameterOverride(values, field.key, nextValue))
+                          updateParameterValues(
+                            setQuickParameterOverride(values, field.key, nextValue),
+                          )
                         }
                         onCommit={() => onOpenChange(null)}
                         value={resolvedValues[field.key] ?? field.default ?? null}
@@ -1424,7 +1430,7 @@ function buildStudioCanvasBatch(
   const inferredTileCount =
     hintedTileCount && hintedTileCount > 0
       ? hintedTileCount
-      : inferTileCountFromTaskSnapshot(task, countField) ?? 1;
+      : (inferTileCountFromTaskSnapshot(task, countField) ?? 1);
   const tileCount = Math.max(inferredTileCount, task.result_assets.length, 1);
   const tiles = Array.from({ length: tileCount }, (_, index) => {
     const asset = task.result_assets[index] ?? null;
@@ -1708,7 +1714,7 @@ function StudioReferenceUploader({
             htmlFor={inputId}
             title={disabled ? '当前模型不支持上传' : '上传参考图'}
           >
-            <Plus aria-hidden="true" className="studio-reference-plus-icon" size={26} />
+            <Plus aria-hidden="true" className="studio-reference-plus-icon" size={20} />
           </label>
         ) : (
           references.map((reference, index) => (
@@ -1718,11 +1724,11 @@ function StudioReferenceUploader({
               style={
                 {
                   '--reference-index': index,
-                  '--reference-stack-x': `${Math.min(index, 4) * 10}px`,
+                  '--reference-stack-x': `${Math.min(index, 4) * 8}px`,
                   '--reference-stack-y': `${Math.min(index, 4) * -4}px`,
                   '--reference-rotation': `${index % 2 === 0 ? -6 : 5}deg`,
-                  '--reference-focus-x': `${index * 96}px`,
-                  '--reference-expanded-x': `${index * 96}px`,
+                  '--reference-focus-x': `${index * 74}px`,
+                  '--reference-expanded-x': `${index * 74}px`,
                   '--reference-mobile-expanded-x': `${index * 86}px`,
                   '--reference-expanded-y': `${index % 2 === 0 ? 0 : 10}px`,
                   '--reference-expanded-rotation': `${index % 2 === 0 ? -3 : 3}deg`,
@@ -1749,11 +1755,11 @@ function StudioReferenceUploader({
             style={
               {
                 '--reference-index': references.length,
-                '--reference-stack-x': `${Math.min(references.length, 2) * 22 + 34}px`,
+                '--reference-stack-x': `${Math.min(references.length, 2) * 18 + 28}px`,
                 '--reference-stack-y': `${Math.min(references.length, 3) * -4}px`,
                 '--reference-rotation': `${references.length % 2 === 0 ? -5 : 4}deg`,
-                '--reference-focus-x': `${references.length * 96}px`,
-                '--reference-expanded-x': `${references.length * 96}px`,
+                '--reference-focus-x': `${references.length * 74}px`,
+                '--reference-expanded-x': `${references.length * 74}px`,
                 '--reference-mobile-expanded-x': `${references.length * 86}px`,
                 '--reference-expanded-y': `${references.length % 2 === 0 ? 0 : 10}px`,
                 '--reference-expanded-rotation': `${references.length % 2 === 0 ? -3 : 3}deg`,
@@ -1761,7 +1767,7 @@ function StudioReferenceUploader({
             }
             title={uploadDisabled ? (statusLabel ?? '无法继续上传参考图') : '继续上传参考图'}
           >
-            <Plus aria-hidden="true" className="studio-reference-plus-icon" size={24} />
+            <Plus aria-hidden="true" className="studio-reference-plus-icon" size={20} />
           </label>
         ) : null}
         {references.length > 0 ? (
@@ -2030,9 +2036,7 @@ function StudioCanvas({
         )}
       </div>
 
-      {previewAsset ? (
-        <StudioPreviewOverlay asset={previewAsset} onClose={onClosePreview} />
-      ) : null}
+      {previewAsset ? <StudioPreviewOverlay asset={previewAsset} onClose={onClosePreview} /> : null}
     </>
   );
 }
@@ -2129,7 +2133,7 @@ function StudioCanvasBatchView({
           action="reference-all"
           activeAction={activeAction}
           disabled={!canReferenceAll}
-          icon={<ImagePlus aria-hidden="true" size={20} strokeWidth={2.2} />}
+          icon={<ImagePlus aria-hidden="true" size={18} strokeWidth={2.2} />}
           label="全部引用"
           onClick={(action) => onBatchAction(action, batch)}
           title={referenceTitle}
@@ -2138,7 +2142,7 @@ function StudioCanvasBatchView({
           action="edit"
           activeAction={activeAction}
           disabled={!canEdit}
-          icon={<Pencil aria-hidden="true" size={20} strokeWidth={2.2} />}
+          icon={<Pencil aria-hidden="true" size={18} strokeWidth={2.2} />}
           label="重新编辑"
           onClick={(action) => onBatchAction(action, batch)}
           title={canEdit ? '重新编辑' : referenceTitle}
@@ -2146,7 +2150,7 @@ function StudioCanvasBatchView({
         <StudioBatchActionButton
           action="regenerate"
           activeAction={activeAction}
-          icon={<RefreshCw aria-hidden="true" size={20} strokeWidth={2.2} />}
+          icon={<RefreshCw aria-hidden="true" size={18} strokeWidth={2.2} />}
           label="再次生成"
           onClick={(action) => onBatchAction(action, batch)}
           title="按当前描述再次生成"
@@ -2155,7 +2159,7 @@ function StudioCanvasBatchView({
           action="download-all"
           activeAction={activeAction}
           disabled={!hasResultAssets}
-          icon={<Download aria-hidden="true" size={20} strokeWidth={2.2} />}
+          icon={<Download aria-hidden="true" size={18} strokeWidth={2.2} />}
           label="全部下载"
           onClick={(action) => onBatchAction(action, batch)}
           title={hasResultAssets ? '全部下载' : '当前任务暂无结果图'}
@@ -2163,7 +2167,7 @@ function StudioCanvasBatchView({
         <StudioBatchActionButton
           action="delete"
           activeAction={activeAction}
-          icon={<Trash2 aria-hidden="true" size={20} strokeWidth={2.2} />}
+          icon={<Trash2 aria-hidden="true" size={18} strokeWidth={2.2} />}
           label="删除"
           onClick={(action) => onBatchAction(action, batch)}
           title="删除当前任务"
@@ -2208,13 +2212,7 @@ function StudioBatchActionButton({
   );
 }
 
-function StudioPreviewOverlay({
-  asset,
-  onClose,
-}: {
-  asset: PublicTaskAsset;
-  onClose: () => void;
-}) {
+function StudioPreviewOverlay({ asset, onClose }: { asset: PublicTaskAsset; onClose: () => void }) {
   if (typeof document === 'undefined') {
     return null;
   }
@@ -2229,7 +2227,11 @@ function StudioPreviewOverlay({
         aria-label={asset.filename}
       >
         <div className="studio-preview-toolbar">
-          <a className="studio-preview-download" download={asset.filename} href={asset.download_url}>
+          <a
+            className="studio-preview-download"
+            download={asset.filename}
+            href={asset.download_url}
+          >
             下载
           </a>
         </div>
