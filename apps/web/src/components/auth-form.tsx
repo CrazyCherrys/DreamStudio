@@ -1,37 +1,54 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/components/auth-provider';
+import { AuthModeSwitchLink } from '@/components/public-auth-controls';
 import { DsButton, DsInput } from '@/components/ui';
 import { apiRequest, type AuthPayload, ApiClientError } from '@/lib/auth';
+import {
+  getSignedInDestination,
+  getSignedInDestinationFromPayload,
+  sanitizeNextPath,
+} from '@/lib/auth-routing';
 
 type AuthMode = 'login' | 'register';
 
-function destinationFor(payload: AuthPayload) {
-  if (payload.user.status === 'disabled') {
-    return '/disabled';
-  }
-
-  if (payload.user.role === 'super_admin') {
-    return '/admin';
-  }
-
-  return payload.new_api_config_status === 'valid' ? '/studio' : '/onboarding/new-api';
-}
-
-export function AuthForm({ mode }: { mode: AuthMode }) {
+export function AuthForm({ mode, nextPath }: { mode: AuthMode; nextPath?: string | null }) {
   const router = useRouter();
-  const { setAuth } = useAuth();
+  const { authProblem, loading, newApiConfigStatus, setAuth, user } = useAuth();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isRegister = mode === 'register';
+  const safeNextPath = useMemo(() => sanitizeNextPath(nextPath), [nextPath]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    if (authProblem === 'disabled') {
+      router.replace('/disabled' as Route);
+      return;
+    }
+
+    if (!user) {
+      return;
+    }
+
+    router.replace(
+      getSignedInDestination({
+        user,
+        newApiConfigStatus,
+        nextPath: safeNextPath,
+      }) as Route,
+    );
+  }, [authProblem, loading, newApiConfigStatus, router, safeNextPath, user]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,7 +68,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         },
       );
       setAuth(payload);
-      router.replace(destinationFor(payload) as Route);
+      router.replace(getSignedInDestinationFromPayload(payload, safeNextPath) as Route);
     } catch (requestError) {
       setError(
         requestError instanceof ApiClientError ? requestError.message : '请求失败，请稍后重试',
@@ -59,6 +76,22 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (loading || authProblem === 'disabled' || user) {
+    const message = loading
+      ? '正在确认登录状态...'
+      : authProblem === 'disabled'
+        ? '正在进入账号状态页...'
+        : '正在进入你的工作区...';
+
+    return (
+      <div className="grid gap-4 text-center">
+        <span className="ds-badge mx-auto">Session</span>
+        <h1 className="text-3xl font-black">请稍候</h1>
+        <p className="ds-muted">{message}</p>
+      </div>
+    );
   }
 
   return (
@@ -111,12 +144,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       </form>
       <p className="ds-muted mt-5 text-sm">
         {isRegister ? '已有账号？' : '还没有账号？'}{' '}
-        <Link
-          className="font-bold text-[var(--ds-brand)]"
-          href={isRegister ? '/auth/login' : '/auth/register'}
-        >
-          {isRegister ? '登录' : '注册'}
-        </Link>
+        <AuthModeSwitchLink mode={mode} nextPath={safeNextPath} />
       </p>
     </>
   );

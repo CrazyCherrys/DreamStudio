@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { PublicLayout } from '@/components/layouts';
+import { PublicPrimaryCta } from '@/components/public-auth-controls';
 
 const flowSteps = ['注册登录', '配置 new-api 密钥', '选择图片模型', '异步生成', '保存资产'];
 
@@ -18,9 +19,7 @@ export default function HomePage() {
             负责更清晰的创作界面、异步任务、结果保存和资产管理。
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link className="ds-button" href="/auth/login">
-              开始创作
-            </Link>
+            <PublicPrimaryCta />
             <Link className="ds-button ds-button-secondary" href="/m0/status">
               查看 M0 状态
             </Link>
