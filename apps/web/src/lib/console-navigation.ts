@@ -32,7 +32,7 @@ export const CONSOLE_NAV_ITEMS: ConsoleNavItem[] = [
   },
   {
     title: '管理后台',
-    href: '/admin' as Route,
+    href: '/admin/users' as Route,
     description: '进入管理员控制台。',
     requireRole: 'super_admin',
   },

@@ -60,7 +60,7 @@ export function getSignedInDestination({
   }
 
   if (user.role === 'super_admin') {
-    return '/admin';
+    return '/admin/users';
   }
 
   return newApiConfigStatus === 'valid' ? '/studio' : '/onboarding/new-api';

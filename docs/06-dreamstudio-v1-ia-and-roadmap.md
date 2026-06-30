@@ -204,7 +204,7 @@ app/
 - 如果带有安全的站内 `next` 参数，优先回到对应目标页。
 - 密钥有效：`/studio`。
 - 密钥未配置或异常：`/onboarding/new-api`。
-- 超级管理员主动访问后台入口：`/admin`。
+- 超级管理员主动访问后台入口时，默认进入 `/admin/users`。
 
 ### 4.3 注册页 `/auth/register`
 
