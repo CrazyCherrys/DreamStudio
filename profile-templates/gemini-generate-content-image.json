@@ -6,6 +6,12 @@
   "compatible_copy_allowed": false,
   "compatible_warning": "Gemini generateContent is not OpenAI-compatible. Enable this profile only when the configured new-api gateway supports the native Gemini path.",
   "tags": ["gemini", "generate-content", "image", "nano-banana"],
+  "bootstrap": {
+    "enabled": true,
+    "profile_name": "Gemini generateContent image",
+    "operation": "image_to_image",
+    "sort_order": 0
+  },
   "revision": {
     "source_kind": "gemini_official",
     "source_url": "https://ai.google.dev/gemini-api/docs/image-generation",

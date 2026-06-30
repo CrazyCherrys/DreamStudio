@@ -919,7 +919,7 @@ npm run build
   - `adapter_key`
   - `parameter_schema`
   - `request_mapping`
-- 模板导入只创建 draft revision。
+- 模板或 Team preset 导入都只创建 draft revision。
 - 支持 diff 和 preview。
 - 支持复制 OpenAI 模板为 OpenAI-compatible 草稿。
 - OpenAI-compatible 草稿默认提示管理员删掉未确认支持的字段。

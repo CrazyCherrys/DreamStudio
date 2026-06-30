@@ -81,6 +81,15 @@ export interface ExecutionProfilePreviewBody {
 
 export type ProfileTemplateCategory = 'gemini_official' | 'openai_official' | 'openai_compatible';
 export type ProfileTemplateImportMode = 'template' | 'openai_compatible_copy';
+export type ProfilePresetFamily = 'openai_official' | 'openai_compatible' | 'gemini_official';
+export type ProfilePresetOrigin = 'manual' | 'template_clone';
+
+export interface ProfileBootstrapConfig {
+  enabled: boolean;
+  profile_name: string;
+  operation: ExecutionProfileOperation;
+  sort_order: number;
+}
 
 export interface ProfileTemplateSummary {
   id: string;
@@ -98,11 +107,87 @@ export interface ProfileTemplateSummary {
   blocked_reason: string | null;
   compatible_copy_allowed: boolean;
   compatible_warning: string;
+  bootstrap: ProfileBootstrapConfig;
 }
 
 export interface ProfileTemplateImportBody {
   mode?: unknown;
   upstream_model_id?: unknown;
+}
+
+export interface ProfilePresetBody {
+  family?: unknown;
+  label?: unknown;
+  description?: unknown;
+  tags?: unknown;
+  sort_order?: unknown;
+  bootstrap_enabled?: unknown;
+  bootstrap_profile_name?: unknown;
+  bootstrap_operation?: unknown;
+  source_template_id?: unknown;
+  source_template_mode?: unknown;
+  revision_template?: unknown;
+}
+
+export interface ProfilePresetCloneBody {
+  label?: unknown;
+  description?: unknown;
+  tags?: unknown;
+  sort_order?: unknown;
+  bootstrap_enabled?: unknown;
+  bootstrap_profile_name?: unknown;
+  bootstrap_operation?: unknown;
+  mode?: unknown;
+}
+
+export interface ProfilePresetSummary {
+  id: string;
+  family: ProfilePresetFamily;
+  origin: ProfilePresetOrigin;
+  label: string;
+  description: string | null;
+  tags: string[];
+  sort_order: number;
+  bootstrap_enabled: boolean;
+  bootstrap_profile_name: string;
+  bootstrap_operation: ExecutionProfileOperation;
+  source_template_id: string | null;
+  source_template_mode: ProfileTemplateImportMode | null;
+  adapter_key: string;
+  operation: ExecutionProfileOperation;
+  runtime_supported: boolean;
+  publishable: boolean;
+  blocked_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ProfilePresetDetail extends ProfilePresetSummary {
+  revision_template: AdminExecutionProfileRevisionDraftTemplate;
+}
+
+export interface AdminExecutionProfileRevisionDraftTemplate {
+  source_kind: ExecutionProfileSourceKind;
+  source_url: string | null;
+  source_checked_at: string | null;
+  source_summary: string | null;
+  routing_role: ExecutionProfileRoutingRole | null;
+  adapter_key: string;
+  adapter_version: string;
+  transport_key: string;
+  upstream_model_id: string;
+  upstream_endpoint_path: string | null;
+  reference_transfer_mode: ReferenceTransferMode;
+  supports_reference_image: boolean;
+  max_reference_images: number;
+  parameter_schema: ParameterSchemaField[];
+  default_params: unknown;
+  request_mapping: unknown;
+  response_parser_key: string;
+  capabilities: unknown;
+  validation_rules: unknown;
+  change_summary: string | null;
 }
 
 export interface ExecutionProfileRevisionDiffResult {

@@ -1210,6 +1210,7 @@ Profile 请求核心字段：
 GET /api/v1/admin/execution-profiles/{profile_id}/revisions
 POST /api/v1/admin/execution-profiles/{profile_id}/revisions
 POST /api/v1/admin/execution-profiles/{profile_id}/revisions/import-template/{template_id}
+POST /api/v1/admin/execution-profiles/{profile_id}/revisions/import-preset/{preset_id}
 PATCH /api/v1/admin/execution-profile-revisions/{revision_id}
 POST /api/v1/admin/execution-profile-revisions/{revision_id}/lint
 POST /api/v1/admin/execution-profile-revisions/{revision_id}/preview-request
@@ -1217,6 +1218,12 @@ POST /api/v1/admin/execution-profile-revisions/{revision_id}/test
 GET /api/v1/admin/execution-profile-revisions/{revision_id}/diff
 POST /api/v1/admin/execution-profile-revisions/{revision_id}/activate
 GET /api/v1/admin/profile-templates
+GET /api/v1/admin/profile-presets
+GET /api/v1/admin/profile-presets/{preset_id}
+POST /api/v1/admin/profile-presets
+POST /api/v1/admin/profile-presets/from-template/{template_id}
+PATCH /api/v1/admin/profile-presets/{preset_id}
+DELETE /api/v1/admin/profile-presets/{preset_id}
 ```
 
 Revision 请求核心字段和 Admin UI 导出的 JSON 形态一致：
@@ -1251,7 +1258,9 @@ Revision 请求核心字段和 Admin UI 导出的 JSON 形态一致：
 规则：
 
 - 创建 revision 总是生成 `draft`，不会直接影响用户侧任务。
-- 模板导入只创建 draft revision；OpenAI-compatible copy 会把来源改为 `third_party_docs` 并要求管理员审阅字段。
+- 官方模板保持只读；模板导入只创建 draft revision；OpenAI-compatible copy 会把来源改为 `third_party_docs` 并要求管理员审阅字段。
+- Team preset 是全局可编辑模板库；preset 导入同样只创建 draft revision，不直接发布。
+- `POST /api/v1/admin/profile-presets/from-template/{template_id}` 用于把只读官方模板复制为团队 preset；不会修改原模板注册表。
 - Admin UI 支持导出当前 revision JSON，也支持粘贴 revision JSON 导入为新的 draft revision。
 - 发布 revision 前应先运行 lint、请求预览、dry-run test 和 diff。
 - Activate 会把同 profile 的旧 active revision 归档，并把目标 revision 发布为 active。

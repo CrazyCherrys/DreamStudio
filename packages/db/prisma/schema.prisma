@@ -90,6 +90,21 @@ enum ExecutionProfileSourceKind {
   @@map("execution_profile_source_kind")
 }
 
+enum ProfilePresetFamily {
+  openai_official
+  openai_compatible
+  gemini_official
+
+  @@map("profile_preset_family")
+}
+
+enum ProfilePresetOrigin {
+  manual
+  template_clone
+
+  @@map("profile_preset_origin")
+}
+
 enum ImageTaskStatus {
   pending
   running
@@ -349,6 +364,32 @@ model AiModelExecutionProfileRevision {
   @@index([createdAt])
   @@index([activatedAt])
   @@map("ai_model_execution_profile_revisions")
+}
+
+model ProfilePreset {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  family               ProfilePresetFamily
+  origin               ProfilePresetOrigin    @default(manual)
+  label                String                  @db.VarChar(160)
+  description          String?                 @db.VarChar(1200)
+  tags                 String[]                @default([])
+  sortOrder            Int                     @default(0) @map("sort_order")
+  bootstrapEnabled     Boolean                 @default(false) @map("bootstrap_enabled")
+  bootstrapProfileName String                  @map("bootstrap_profile_name") @db.VarChar(160)
+  bootstrapOperation   ExecutionProfileOperation @map("bootstrap_operation")
+  sourceTemplateId     String?                 @map("source_template_id") @db.VarChar(120)
+  sourceTemplateMode   String?                 @map("source_template_mode") @db.VarChar(80)
+  revisionTemplate     Json                    @map("revision_template")
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?               @map("deleted_at") @db.Timestamptz(6)
+
+  @@index([family])
+  @@index([origin])
+  @@index([sortOrder])
+  @@index([bootstrapEnabled])
+  @@index([deletedAt])
+  @@map("profile_presets")
 }
 
 model AuditLog {

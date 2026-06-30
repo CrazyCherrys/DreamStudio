@@ -31,6 +31,8 @@ import type {
   ExecutionProfileBody,
   ExecutionProfilePreviewBody,
   ExecutionProfileRevisionBody,
+  ProfilePresetBody,
+  ProfilePresetCloneBody,
   ProfileTemplateImportBody,
 } from './model-catalog.types';
 
@@ -199,6 +201,24 @@ export class AdminExecutionProfilesController {
       request,
     );
   }
+
+  @Post(':profileId/revisions/import-preset/:presetId')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  importProfilePresetRevision(
+    @Param('profileId') profileId: string,
+    @Param('presetId') presetId: string,
+    @Body() body: ProfileTemplateImportBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.importProfilePresetRevision(
+      profileId,
+      presetId,
+      body,
+      request.auth!,
+      request,
+    );
+  }
 }
 
 @Controller('admin/execution-profile-revisions')
@@ -286,6 +306,67 @@ export class AdminProfileTemplatesController {
   @Get()
   listProfileTemplates() {
     return this.modelCatalogService.listProfileTemplates();
+  }
+}
+
+@Controller('admin/profile-presets')
+@UseGuards(SessionAuthGuard, SuperAdminGuard)
+export class AdminProfilePresetsController {
+  constructor(private readonly modelCatalogService: ModelCatalogService) {}
+
+  @Get()
+  listProfilePresets() {
+    return this.modelCatalogService.listProfilePresets();
+  }
+
+  @Get(':presetId')
+  getProfilePreset(@Param('presetId') presetId: string) {
+    return this.modelCatalogService.getProfilePreset(presetId);
+  }
+
+  @Post()
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  createProfilePreset(
+    @Body() body: ProfilePresetBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.createProfilePreset(body, request.auth!, request);
+  }
+
+  @Post('from-template/:templateId')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  cloneProfilePresetFromTemplate(
+    @Param('templateId') templateId: string,
+    @Body() body: ProfilePresetCloneBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.cloneProfilePresetFromTemplate(
+      templateId,
+      body,
+      request.auth!,
+      request,
+    );
+  }
+
+  @Patch(':presetId')
+  @UseGuards(CsrfGuard)
+  updateProfilePreset(
+    @Param('presetId') presetId: string,
+    @Body() body: ProfilePresetBody,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.updateProfilePreset(presetId, body, request.auth!, request);
+  }
+
+  @Delete(':presetId')
+  @UseGuards(CsrfGuard)
+  deleteProfilePreset(
+    @Param('presetId') presetId: string,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.deleteProfilePreset(presetId, request.auth!, request);
   }
 }
 

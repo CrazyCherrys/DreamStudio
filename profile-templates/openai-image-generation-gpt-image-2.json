@@ -6,6 +6,12 @@
   "compatible_copy_allowed": true,
   "compatible_warning": "OpenAI-compatible channels are not OpenAI-full-compatible. Delete every parameter that is not explicitly confirmed by the target channel before publishing.",
   "tags": ["openai", "image-api", "generation", "gpt-image-2"],
+  "bootstrap": {
+    "enabled": true,
+    "profile_name": "OpenAI Image generation",
+    "operation": "text_to_image",
+    "sort_order": 0
+  },
   "revision": {
     "source_kind": "openai_official",
     "source_url": "https://developers.openai.com/api/docs/guides/image-generation",

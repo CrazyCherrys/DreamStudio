@@ -6,6 +6,12 @@
   "compatible_copy_allowed": true,
   "compatible_warning": "OpenAI-compatible edit endpoints vary widely. Confirm multi-image, mask and output fields in the target channel before publishing.",
   "tags": ["openai", "image-api", "edit", "gpt-image-2"],
+  "bootstrap": {
+    "enabled": false,
+    "profile_name": "OpenAI Image edit",
+    "operation": "image_edit",
+    "sort_order": 10
+  },
   "revision": {
     "source_kind": "openai_official",
     "source_url": "https://developers.openai.com/api/docs/guides/image-generation",

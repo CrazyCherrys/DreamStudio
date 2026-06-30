@@ -1,8 +1,20 @@
+import { readFileSync } from 'node:fs';
+
 import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
 
 import { ModelCatalogService } from '../apps/api/src/modules/model-catalog/model-catalog.service';
 import { AuditLogService } from '../apps/api/src/modules/new-api-config/audit-log.service';
 import { SystemSettingsService } from '../apps/api/src/modules/new-api-config/system-settings.service';
+
+if (!process.env.DATABASE_URL) {
+  const envExample = readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
+  const databaseUrlLine = envExample
+    .split('\n')
+    .find((line) => line.trim().startsWith('DATABASE_URL='));
+  if (databaseUrlLine) {
+    process.env.DATABASE_URL = databaseUrlLine.split('=', 2)[1]?.replace(/^"|"$/g, '') ?? '';
+  }
+}
 
 const prisma = new PrismaClient();
 
@@ -86,6 +98,33 @@ async function main() {
   );
   assert(responsesTemplate?.runtime_supported === true, 'Responses template should be runnable');
   assert(responsesTemplate.publishable === true, 'Responses template should be publishable');
+  assert(
+    templates.items.some((template) => template.bootstrap.enabled),
+    'at least one template should be bootstrap-enabled',
+  );
+
+  const presetClone = await service.cloneProfilePresetFromTemplate(
+    'openai-image-generation-gpt-image-2',
+    {
+      label: 'Verify preset clone',
+      mode: 'template',
+    },
+    session,
+    request,
+  );
+  assert(
+    presetClone.item.origin === 'template_clone',
+    'cloned preset should record template_clone origin',
+  );
+  assert(
+    presetClone.item.source_template_id === 'openai-image-generation-gpt-image-2',
+    'cloned preset should keep source template id',
+  );
+  const presetList = await service.listProfilePresets();
+  assert(
+    presetList.items.some((preset) => preset.id === presetClone.item.id),
+    'cloned preset should appear in preset list',
+  );
 
   const model = await prisma.aiModel.findFirstOrThrow({
     where: {
@@ -243,6 +282,21 @@ async function main() {
     'compatible copy warning missing',
   );
 
+  const presetImported = await service.importProfilePresetRevision(
+    profile.id,
+    presetClone.item.id,
+    {
+      upstream_model_id: model.modelId,
+    },
+    session,
+    request,
+  );
+  assert(presetImported.item.status === 'draft', 'preset import should create a draft');
+  assert(
+    presetImported.item.source_kind === 'openai_official',
+    'preset import should preserve template source_kind',
+  );
+
   const minimalDraft = await service.importProfileTemplateRevision(
     profile.id,
     'openai-compatible-image-generation-minimal',
@@ -290,10 +344,13 @@ async function main() {
         ok: true,
         checks: [
           'profile_templates_listed',
+          'template_bootstrap_flags_are_exposed',
           'official_templates_include_source_metadata',
           'runtime_publish_status_is_declared',
+          'team_preset_can_be_cloned_from_template',
           'compatible_template_is_minimal',
           'template_import_creates_draft',
+          'preset_import_creates_draft',
           'draft_import_does_not_change_public_profile',
           'imported_template_lints_and_previews',
           'revision_diff_reports_active_changes',
@@ -304,6 +361,8 @@ async function main() {
         profile_id: profile.id,
         active_before_revision_id: originalActive.id,
         imported_revision_id: imported.item.id,
+        preset_id: presetClone.item.id,
+        preset_import_revision_id: presetImported.item.id,
         compatible_copy_revision_id: compatibleCopy.item.id,
         minimal_compatible_revision_id: minimalDraft.item.id,
       },

@@ -109,7 +109,9 @@
 标准操作顺序：
 
 1. 如果模型还没有默认 Profile，优先使用 `一键生成默认 Profile`
-2. 选择合适模板并生成首个 Draft revision
+2. 选择合适来源并生成首个 Draft revision：
+   - 官方模板：代码内只读基线
+   - Team Preset：后台可编辑团队预设
 3. 检查 `adapter_key`、`upstream_model_id`、`parameter_schema`、`request_mapping`
 4. 依次执行 `Lint`、`请求预览`、`Diff`、`Dry run`
 5. 确认无误后点击 `发布`
@@ -144,10 +146,26 @@
   - 请求预览会直接显示 `runtime_supported / publishable / parser / publish_blockers`
 - `模板导入`：
   - 默认折叠
-  - 只有需要按模板重建 Draft 或导入 compatible 草稿时再展开
+  - 现在是“模板 / Preset 导入”
+  - 只有需要按官方模板重建 Draft、复制 Team Preset，或从 Team Preset 导入草稿时再展开
 - `专家字段`：
   - `Profile 专家字段`、`Revision JSON`、`request_mapping`、`capabilities`、`validation_rules`、原始 revision 字段默认折叠
   - 只在需要协议级自定义、JSON 导入导出或排障时展开
+
+### Team Preset 怎么理解
+
+- 官方模板：
+  - 仍然是代码内只读基线
+  - 用来代表“官方模板当前真值”
+  - 适合直接导入 Draft，或复制出一个 Team Preset 再继续维护
+- Team Preset：
+  - 是后台全局可编辑模板库
+  - 适合团队把常用 Draft 配置沉淀成可复用来源
+  - 导入时同样只会创建 Draft revision，不会直接发布
+- 当前版本里：
+  - 一键生成默认 Profile
+  - 模板 / Preset 导入
+  - 都已经统一读取“官方模板 + Team Preset”这同一套来源
 
 ### Draft / Active / 历史怎么处理
 

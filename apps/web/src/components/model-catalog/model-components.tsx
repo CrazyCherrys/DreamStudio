@@ -6,20 +6,26 @@ import { AdminConfirmDialog } from '@/components/admin-dialog';
 import { DsButton, DsInput } from '@/components/ui';
 import {
   activateExecutionProfileRevision,
+  cloneProfilePresetFromTemplate,
   createExecutionProfile,
   createExecutionProfileRevision,
+  deleteProfilePreset,
   deleteExecutionProfileRevision,
   diffExecutionProfileRevision,
   emptySchemaField,
   endpointTypeLabel,
   fetchExecutionProfiles,
+  fetchProfilePreset,
+  fetchProfilePresets,
   fetchProfileTemplates,
+  importProfilePresetRevision,
   importProfileTemplateRevision,
   lintExecutionProfileRevision,
   modalityLabel,
   previewExecutionProfileRevision,
   testExecutionProfileRevision,
   transferModeLabel,
+  updateProfilePreset,
   updateExecutionProfile,
   updateExecutionProfileRevision,
   type AdminExecutionProfile,
@@ -38,6 +44,10 @@ import {
   type ParameterFieldType,
   type ParameterSchemaOption,
   type ParameterSchemaField,
+  type ProfilePresetClonePayload,
+  type ProfilePresetFamily,
+  type ProfilePresetPayload,
+  type ProfilePresetSummary,
   type ProfileTemplateImportMode,
   type ProfileTemplateSummary,
   type ReferenceTransferMode,
@@ -87,10 +97,28 @@ const SOURCE_KINDS: ExecutionProfileSourceKind[] = [
 ];
 type ExecutionProfileManagerMode = 'configure' | 'release';
 type StudioQuickParameterKind = 'count' | 'ratio' | 'resolution';
-type ExecutionTemplatePreset =
-  | 'openai-image-generation-gpt-image-2'
-  | 'openai-responses-image-tool'
-  | 'gemini-generate-content-image';
+type ProfileSourceKind = 'template' | 'preset';
+
+interface ProfileSourceOption {
+  id: string;
+  kind: ProfileSourceKind;
+  label: string;
+  description: string;
+  adapter_key: string;
+  operation: ExecutionProfileOperation;
+  runtime_supported: boolean;
+  publishable: boolean;
+  blocked_reason: string | null;
+  source_url?: string | null;
+  compatible_copy_allowed: boolean;
+  compatible_warning: string | null;
+  bootstrap_enabled: boolean;
+  bootstrap_profile_name: string;
+  bootstrap_operation: ExecutionProfileOperation;
+  bootstrap_sort_order: number;
+  preset?: ProfilePresetSummary;
+  template?: ProfileTemplateSummary;
+}
 
 interface StudioQuickParameterConfig {
   defaultField: ParameterSchemaField;
@@ -183,69 +211,6 @@ const STUDIO_QUICK_PARAMETER_CONFIGS: StudioQuickParameterConfig[] = [
     kind: 'resolution',
     slot: 'resolution',
     title: '分辨率',
-  },
-];
-
-const EXECUTION_TEMPLATE_PRESETS: Array<{
-  adapterKey: string;
-  description: string;
-  id: ExecutionTemplatePreset;
-  label: string;
-  profileDefaults: Pick<
-    ExecutionProfilePayload,
-    | 'adapter_key'
-    | 'operation'
-    | 'reference_transfer_mode'
-    | 'supports_reference_image'
-    | 'max_reference_images'
-    | 'upstream_endpoint_path'
-  > & { name: string };
-}> = [
-  {
-    id: 'openai-image-generation-gpt-image-2',
-    label: 'OpenAI Image generation',
-    description: '适合 `gpt-image-2` 与兼容 OpenAI Image API generation 的官方模型。',
-    adapterKey: 'openai_images_generation',
-    profileDefaults: {
-      name: 'OpenAI Image generation',
-      adapter_key: 'openai_images_generation',
-      operation: 'text_to_image',
-      reference_transfer_mode: 'none',
-      supports_reference_image: false,
-      max_reference_images: 0,
-      upstream_endpoint_path: '/v1/images/generations',
-    },
-  },
-  {
-    id: 'openai-responses-image-tool',
-    label: 'OpenAI Responses image',
-    description: '适合通过 `/v1/responses` + image tool 提交的官方图片模型。',
-    adapterKey: 'openai_responses_image',
-    profileDefaults: {
-      name: 'OpenAI Responses image',
-      adapter_key: 'openai_responses_image',
-      operation: 'text_to_image',
-      reference_transfer_mode: 'url',
-      supports_reference_image: true,
-      max_reference_images: 8,
-      upstream_endpoint_path: '/v1/responses',
-    },
-  },
-  {
-    id: 'gemini-generate-content-image',
-    label: 'Gemini generateContent image',
-    description:
-      '适合当前通过 `/v1beta/models/{model}:generateContent` 接入的 Gemini 官方图片模型。',
-    adapterKey: 'gemini_generate_content',
-    profileDefaults: {
-      name: 'Gemini generateContent image',
-      adapter_key: 'gemini_generate_content',
-      operation: 'image_to_image',
-      reference_transfer_mode: 'url',
-      supports_reference_image: true,
-      max_reference_images: 8,
-      upstream_endpoint_path: '/v1beta/models/{model}:generateContent',
-    },
   },
 ];
 
@@ -977,8 +942,8 @@ export function ModelForm({
         <div>
           <h3 className="text-lg font-black">展示与兼容信息</h3>
           <p className="ds-muted mt-1 text-sm leading-6">
-            这些字段主要用于目录展示、筛选和兼容回退。真正决定 Studio 行为的是默认启用
-            Profile 的 Active revision。
+            这些字段主要用于目录展示、筛选和兼容回退。真正决定 Studio 行为的是默认启用 Profile 的
+            Active revision。
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
@@ -1098,7 +1063,9 @@ export function ExecutionProfileManager({
   const [profileDraft, setProfileDraft] = useState<ExecutionProfilePayload | null>(null);
   const [revisionDraft, setRevisionDraft] = useState<ExecutionProfileRevisionPayload | null>(null);
   const [templates, setTemplates] = useState<ProfileTemplateSummary[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [presets, setPresets] = useState<ProfilePresetSummary[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState('');
+  const [selectedSourceKind, setSelectedSourceKind] = useState<ProfileSourceKind>('template');
   const [templateImportMode, setTemplateImportMode] =
     useState<ProfileTemplateImportMode>('template');
   const [templateUpstreamModelId, setTemplateUpstreamModelId] = useState(model.model_id);
@@ -1109,12 +1076,10 @@ export function ExecutionProfileManager({
   const [profileError, setProfileError] = useState<string | null>(null);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState<ExecutionTemplatePreset>(
-    'openai-image-generation-gpt-image-2',
-  );
   const [showExpertProfileFields, setShowExpertProfileFields] = useState(false);
   const [showTemplateImport, setShowTemplateImport] = useState(false);
   const [showRevisionJson, setShowRevisionJson] = useState(false);
+  const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId) ?? null;
   const selectedRevision =
@@ -1123,32 +1088,85 @@ export function ExecutionProfileManager({
     selectedProfile?.revisions?.find((revision) => revision.status === 'draft') ?? null;
   const activeRevision =
     selectedProfile?.revisions?.find((revision) => revision.status === 'active') ?? null;
-  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
-  const selectedPreset =
-    EXECUTION_TEMPLATE_PRESETS.find((preset) => preset.id === selectedPresetId) ??
-    EXECUTION_TEMPLATE_PRESETS[0];
+  const sourceOptions = useMemo(() => {
+    const templateOptions: ProfileSourceOption[] = templates.map((template) => ({
+      id: template.id,
+      kind: 'template',
+      label: template.label,
+      description: template.description,
+      adapter_key: template.adapter_key,
+      operation: template.operation,
+      runtime_supported: template.runtime_supported,
+      publishable: template.publishable,
+      blocked_reason: template.blocked_reason,
+      source_url: template.source_url,
+      compatible_copy_allowed: template.compatible_copy_allowed,
+      compatible_warning: template.compatible_warning,
+      bootstrap_enabled: template.bootstrap.enabled,
+      bootstrap_profile_name: template.bootstrap.profile_name,
+      bootstrap_operation: template.bootstrap.operation,
+      bootstrap_sort_order: template.bootstrap.sort_order,
+      template,
+    }));
+    const presetOptions: ProfileSourceOption[] = presets.map((preset) => ({
+      id: preset.id,
+      kind: 'preset',
+      label: preset.label,
+      description: preset.description ?? 'Team preset',
+      adapter_key: preset.adapter_key,
+      operation: preset.operation,
+      runtime_supported: preset.runtime_supported,
+      publishable: preset.publishable,
+      blocked_reason: preset.blocked_reason,
+      compatible_copy_allowed: false,
+      compatible_warning: null,
+      bootstrap_enabled: preset.bootstrap_enabled,
+      bootstrap_profile_name: preset.bootstrap_profile_name,
+      bootstrap_operation: preset.bootstrap_operation,
+      bootstrap_sort_order: preset.sort_order,
+      preset,
+    }));
+    return [...templateOptions, ...presetOptions];
+  }, [presets, templates]);
+  const bootstrapSources = useMemo(() => {
+    const presetBootstraps = sourceOptions.filter(
+      (source) => source.kind === 'preset' && source.bootstrap_enabled,
+    );
+    if (presetBootstraps.length > 0) {
+      return presetBootstraps;
+    }
+    return sourceOptions.filter((source) => source.kind === 'template' && source.bootstrap_enabled);
+  }, [sourceOptions]);
+  const selectedSource =
+    sourceOptions.find(
+      (source) => source.kind === selectedSourceKind && source.id === selectedSourceId,
+    ) ?? null;
   const hasUsableConfiguration = model.management_summary.has_default_active_profile;
 
   useEffect(() => {
     void loadProfiles();
-    void loadTemplates();
+    void loadSources();
   }, [model.id]);
 
   useEffect(() => {
     if (
       templateImportMode === 'openai_compatible_copy' &&
-      !selectedTemplate?.compatible_copy_allowed
+      !selectedSource?.compatible_copy_allowed
     ) {
       setTemplateImportMode('template');
     }
-  }, [selectedTemplate, templateImportMode]);
+  }, [selectedSource, templateImportMode]);
 
   useEffect(() => {
-    if (selectedTemplateId) {
+    if (selectedSourceId) {
       return;
     }
-    setSelectedTemplateId(selectedPresetId);
-  }, [selectedPresetId, selectedTemplateId]);
+    const preferredBootstrap = bootstrapSources[0] ?? sourceOptions[0] ?? null;
+    if (preferredBootstrap) {
+      setSelectedSourceId(preferredBootstrap.id);
+      setSelectedSourceKind(preferredBootstrap.kind);
+    }
+  }, [bootstrapSources, selectedSourceId, sourceOptions]);
 
   async function loadProfiles(preferredProfileId = selectedProfileId) {
     setLoadingProfiles(true);
@@ -1211,13 +1229,16 @@ export function ExecutionProfileManager({
     setShowRevisionJson(false);
   }
 
-  async function loadTemplates() {
+  async function loadSources() {
     try {
-      const response = await fetchProfileTemplates();
-      setTemplates(response.items);
-      setSelectedTemplateId((current) => current || response.items[0]?.id || selectedPresetId);
+      const [templateResponse, presetResponse] = await Promise.all([
+        fetchProfileTemplates(),
+        fetchProfilePresets(),
+      ]);
+      setTemplates(templateResponse.items);
+      setPresets(presetResponse.items);
     } catch (error) {
-      setProfileError(error instanceof Error ? error.message : '读取 Profile 模板失败');
+      setProfileError(error instanceof Error ? error.message : '读取模板 / Preset 失败');
     }
   }
 
@@ -1257,78 +1278,130 @@ export function ExecutionProfileManager({
     if (!selectedProfile) {
       return;
     }
-    await withProfileAction(async () => {
-      const created = await createExecutionProfileRevision(
-        selectedProfile.id,
-        revisionDraft ?? {},
-        csrfToken!,
-      );
-      setSelectedRevisionId(created.item.id);
-    }, activeRevision ? '已基于当前 Active 创建新的 Draft revision。' : 'Draft revision 已创建。');
+    await withProfileAction(
+      async () => {
+        const created = await createExecutionProfileRevision(
+          selectedProfile.id,
+          revisionDraft ?? {},
+          csrfToken!,
+        );
+        setSelectedRevisionId(created.item.id);
+      },
+      activeRevision ? '已基于当前 Active 创建新的 Draft revision。' : 'Draft revision 已创建。',
+    );
   }
 
-  async function importSelectedTemplate() {
-    if (!selectedProfile || !selectedTemplateId) {
-      setProfileError('请选择 Profile 和模板');
+  async function importSelectedSource() {
+    if (!selectedProfile || !selectedSource) {
+      setProfileError('请选择 Profile 和来源');
       return;
     }
-    await withProfileAction(async () => {
-      const created = await importProfileTemplateRevision(
-        selectedProfile.id,
-        selectedTemplateId,
-        {
-          mode: templateImportMode,
-          upstream_model_id: templateUpstreamModelId.trim() || undefined,
-        },
-        csrfToken!,
-      );
-      setSelectedRevisionId(created.item.id);
-      setRevisionDraft(revisionToPayload(created.item));
-      setRevisionDiff(null);
-      setShowRevisionJson(false);
-    }, '模板已导入为 Draft revision。');
+    await withProfileAction(
+      async () => {
+        const created =
+          selectedSource.kind === 'template'
+            ? await importProfileTemplateRevision(
+                selectedProfile.id,
+                selectedSource.id,
+                {
+                  mode: templateImportMode,
+                  upstream_model_id: templateUpstreamModelId.trim() || undefined,
+                },
+                csrfToken!,
+              )
+            : await importProfilePresetRevision(
+                selectedProfile.id,
+                selectedSource.id,
+                {
+                  upstream_model_id: templateUpstreamModelId.trim() || undefined,
+                },
+                csrfToken!,
+              );
+        setSelectedRevisionId(created.item.id);
+        setRevisionDraft(revisionToPayload(created.item));
+        setRevisionDiff(null);
+        setShowRevisionJson(false);
+      },
+      selectedSource.kind === 'template'
+        ? '模板已导入为 Draft revision。'
+        : 'Preset 已导入为 Draft revision。',
+    );
   }
 
-  async function createProfileFromPreset() {
-    if (!csrfToken) {
+  async function createProfileFromBootstrapSource() {
+    if (!csrfToken || !selectedSource) {
       setProfileError('登录状态已失效，请重新登录');
       return;
     }
-    const template = templates.find((item) => item.id === selectedPreset.id);
-    if (!template) {
-      setProfileError('模板列表尚未加载完成，请稍后重试');
-      return;
-    }
-
-    const profilePayload = createProfileFromTemplatePreset(model, selectedPreset);
+    const profilePayload = createProfileFromSourceBootstrap(model, selectedSource);
     setSavingProfile(true);
     setProfileMessage(null);
     setProfileError(null);
     try {
       const createdProfile = await createExecutionProfile(model.id, profilePayload, csrfToken);
-      const createdRevision = await importProfileTemplateRevision(
-        createdProfile.item.id,
-        selectedPreset.id,
-        {
-          mode: 'template',
-          upstream_model_id: profilePayload.upstream_model_id,
-        },
-        csrfToken,
-      );
+      const createdRevision =
+        selectedSource.kind === 'template'
+          ? await importProfileTemplateRevision(
+              createdProfile.item.id,
+              selectedSource.id,
+              {
+                mode: 'template',
+                upstream_model_id: profilePayload.upstream_model_id,
+              },
+              csrfToken,
+            )
+          : await importProfilePresetRevision(
+              createdProfile.item.id,
+              selectedSource.id,
+              {
+                upstream_model_id: profilePayload.upstream_model_id,
+              },
+              csrfToken,
+            );
       setSelectedProfileId(createdProfile.item.id);
       setSelectedRevisionId(createdRevision.item.id);
-      setSelectedTemplateId(selectedPreset.id);
+      setSelectedSourceId(selectedSource.id);
+      setSelectedSourceKind(selectedSource.kind);
       setProfileDraft(profileToPayload(createdProfile.item));
       setRevisionDraft(revisionToPayload(createdRevision.item));
       setRevisionJsonText(formatRevisionExport(createdRevision.item));
       setTemplateUpstreamModelId(profilePayload.upstream_model_id ?? model.model_id);
       setPreview(null);
       setRevisionDiff(null);
-      setProfileMessage('已按模板创建默认 Profile，并生成首个 Draft revision。');
+      setProfileMessage('已按所选来源创建默认 Profile，并生成首个 Draft revision。');
       await onChanged();
       await loadProfiles(createdProfile.item.id);
     } catch (error) {
-      setProfileError(error instanceof Error ? error.message : '模板向导创建失败');
+      setProfileError(error instanceof Error ? error.message : '默认 Profile 向导创建失败');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function cloneSelectedTemplateToPreset() {
+    if (!csrfToken || !selectedSource || selectedSource.kind !== 'template') {
+      setProfileError('请选择官方模板后再复制');
+      return;
+    }
+    setSavingProfile(true);
+    setProfileMessage(null);
+    setProfileError(null);
+    try {
+      const created = await cloneProfilePresetFromTemplate(
+        selectedSource.id,
+        {
+          label: `${selectedSource.label} preset`,
+          mode: templateImportMode,
+        },
+        csrfToken,
+      );
+      await loadSources();
+      setSelectedSourceKind('preset');
+      setSelectedSourceId(created.item.id);
+      setProfileMessage('官方模板已复制为 Team Preset。');
+      setPresetManagerOpen(true);
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : '复制 Team Preset 失败');
     } finally {
       setSavingProfile(false);
     }
@@ -1465,8 +1538,8 @@ export function ExecutionProfileManager({
           <div>
             <h3 className="text-lg font-black">当前配置工作区</h3>
             <p className="ds-muted mt-1 text-sm leading-6">
-              Studio 运行时以“默认启用 Profile 的 Active revision”为准。Draft 可修改或删除；
-              Active / Archived 只保留历史，修错请新建或继续编辑 Draft 后重新发布。
+              Studio 运行时以“默认启用 Profile 的 Active revision”为准。Draft 可修改或删除； Active
+              / Archived 只保留历史，修错请新建或继续编辑 Draft 后重新发布。
             </p>
           </div>
           <DsButton onClick={() => void loadProfiles()} type="button" variant="secondary">
@@ -1490,25 +1563,34 @@ export function ExecutionProfileManager({
             <div>
               <h4 className="font-black">当前模型还没有可用默认 Profile</h4>
               <p className="ds-muted mt-1 text-sm leading-6">
-                先选择一个官方模板，系统会自动创建默认 Profile 并导入首个 Draft revision。
-                完成后再检查和发布。
+                先选择一个官方模板或 Team Preset，系统会自动创建默认 Profile 并导入首个 Draft
+                revision。 完成后再检查和发布。
               </p>
             </div>
             <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
               <label className="grid gap-2 text-sm font-bold">
-                <span>推荐模板</span>
+                <span>推荐来源</span>
                 <select
                   className="ds-input"
                   onChange={(event) => {
-                    const nextPresetId = event.target.value as ExecutionTemplatePreset;
-                    setSelectedPresetId(nextPresetId);
-                    setSelectedTemplateId(nextPresetId);
+                    const nextSource = bootstrapSources.find(
+                      (source) => `${source.kind}:${source.id}` === event.target.value,
+                    );
+                    if (nextSource) {
+                      setSelectedSourceKind(nextSource.kind);
+                      setSelectedSourceId(nextSource.id);
+                    }
                   }}
-                  value={selectedPresetId}
+                  value={selectedSource ? `${selectedSource.kind}:${selectedSource.id}` : ''}
                 >
-                  {EXECUTION_TEMPLATE_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.label}
+                  {bootstrapSources.map((source) => (
+                    <option
+                      key={`${source.kind}:${source.id}`}
+                      value={`${source.kind}:${source.id}`}
+                    >
+                      {source.kind === 'preset'
+                        ? `Preset · ${source.label}`
+                        : `模板 · ${source.label}`}
                     </option>
                   ))}
                 </select>
@@ -1519,21 +1601,30 @@ export function ExecutionProfileManager({
                 value={templateUpstreamModelId}
               />
             </div>
-            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
-              <p className="font-black">{selectedPreset.label}</p>
-              <p className="ds-muted mt-2 leading-6">{selectedPreset.description}</p>
-              <p className="mt-3 text-xs font-semibold">
-                将创建：`{selectedPreset.profileDefaults.name}` / adapter `{selectedPreset.adapterKey}
-                `
-              </p>
-            </div>
+            {selectedSource ? (
+              <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
+                <p className="font-black">{selectedSource.label}</p>
+                <p className="ds-muted mt-2 leading-6">{selectedSource.description}</p>
+                <p className="mt-3 text-xs font-semibold">
+                  将创建：`{selectedSource.bootstrap_profile_name}` / adapter `
+                  {selectedSource.adapter_key}`
+                </p>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <DsButton
-                disabled={savingProfile}
-                onClick={() => void createProfileFromPreset()}
+                disabled={savingProfile || !selectedSource}
+                onClick={() => void createProfileFromBootstrapSource()}
                 type="button"
               >
                 {savingProfile ? '创建中...' : '一键生成默认 Profile'}
+              </DsButton>
+              <DsButton
+                onClick={() => setPresetManagerOpen(true)}
+                type="button"
+                variant="secondary"
+              >
+                管理 Preset
               </DsButton>
               <DsButton
                 disabled={savingProfile}
@@ -1596,10 +1687,14 @@ export function ExecutionProfileManager({
                   type="button"
                 >
                   <strong>{profile.name}</strong>
-                  <span className="ds-muted mt-1 block break-all text-xs">{profile.adapter_key}</span>
+                  <span className="ds-muted mt-1 block break-all text-xs">
+                    {profile.adapter_key}
+                  </span>
                   <span className="mt-2 flex flex-wrap gap-1 text-xs font-black">
                     {profile.is_default ? <span>默认</span> : null}
-                    {profile.routing_role ? <span>{routingRoleLabel(profile.routing_role)}</span> : null}
+                    {profile.routing_role ? (
+                      <span>{routingRoleLabel(profile.routing_role)}</span>
+                    ) : null}
                     {profile.is_enabled ? <span>启用</span> : <span>禁用</span>}
                     <span>
                       {profileActiveRevision
@@ -1607,7 +1702,9 @@ export function ExecutionProfileManager({
                         : '未发布'}
                     </span>
                     <span>
-                      {profileDraftRevision ? `Draft r${profileDraftRevision.revision_no}` : '无 Draft'}
+                      {profileDraftRevision
+                        ? `Draft r${profileDraftRevision.revision_no}`
+                        : '无 Draft'}
                     </span>
                   </span>
                 </button>
@@ -1656,7 +1753,10 @@ export function ExecutionProfileManager({
                   <DsInput
                     label="名称"
                     onChange={(event) =>
-                      setProfileDraft((current) => ({ ...(current ?? {}), name: event.target.value }))
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        name: event.target.value,
+                      }))
                     }
                     value={profileDraft.name ?? ''}
                   />
@@ -1823,34 +1923,63 @@ export function ExecutionProfileManager({
               <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h4 className="font-black">模板导入</h4>
+                    <h4 className="font-black">模板 / Preset 导入</h4>
                     <p className="ds-muted mt-1 text-sm">
-                      低频操作。只在需要按官方模板重建 Draft 或导入 compatible 草稿时使用。
+                      低频操作。只在需要按官方模板重建 Draft、复制 Team Preset，或从 Team Preset
+                      导入草稿时使用。
                     </p>
                   </div>
-                  <DsButton
-                    onClick={() => setShowTemplateImport((current) => !current)}
-                    type="button"
-                    variant="secondary"
-                  >
-                    {showTemplateImport ? '收起模板导入' : '展开模板导入'}
-                  </DsButton>
+                  <div className="flex flex-wrap gap-2">
+                    <DsButton
+                      onClick={() => setShowTemplateImport((current) => !current)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      {showTemplateImport ? '收起导入区' : '展开导入区'}
+                    </DsButton>
+                    <DsButton
+                      onClick={() => setPresetManagerOpen(true)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      管理 Preset
+                    </DsButton>
+                  </div>
                 </div>
                 {showTemplateImport ? (
                   <>
-                    <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_1fr]">
+                    <div className="grid gap-3 xl:grid-cols-[0.7fr_1.4fr_0.8fr_1fr]">
                       <label className="grid gap-2 text-sm font-bold">
-                        <span>Profile template</span>
+                        <span>来源类型</span>
                         <select
                           className="ds-input"
-                          onChange={(event) => setSelectedTemplateId(event.target.value)}
-                          value={selectedTemplateId}
+                          onChange={(event) =>
+                            setSelectedSourceKind(event.target.value as ProfileSourceKind)
+                          }
+                          value={selectedSourceKind}
                         >
-                          {templates.map((template) => (
-                            <option key={template.id} value={template.id}>
-                              {template.label}
-                            </option>
-                          ))}
+                          <option value="template">官方模板</option>
+                          <option value="preset">Team Preset</option>
+                        </select>
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        <span>
+                          {selectedSourceKind === 'template' ? 'Profile template' : 'Team preset'}
+                        </span>
+                        <select
+                          className="ds-input"
+                          onChange={(event) => setSelectedSourceId(event.target.value)}
+                          value={
+                            selectedSourceKind === selectedSource?.kind ? selectedSourceId : ''
+                          }
+                        >
+                          {sourceOptions
+                            .filter((source) => source.kind === selectedSourceKind)
+                            .map((source) => (
+                              <option key={source.id} value={source.id}>
+                                {source.label}
+                              </option>
+                            ))}
                         </select>
                       </label>
                       <label className="grid gap-2 text-sm font-bold">
@@ -1861,10 +1990,14 @@ export function ExecutionProfileManager({
                             setTemplateImportMode(event.target.value as ProfileTemplateImportMode)
                           }
                           value={templateImportMode}
+                          disabled={selectedSourceKind !== 'template'}
                         >
                           <option value="template">按模板来源导入</option>
                           <option
-                            disabled={!selectedTemplate?.compatible_copy_allowed}
+                            disabled={
+                              selectedSourceKind !== 'template' ||
+                              !selectedSource?.compatible_copy_allowed
+                            }
                             value="openai_compatible_copy"
                           >
                             复制为 compatible 草稿
@@ -1877,37 +2010,54 @@ export function ExecutionProfileManager({
                         value={templateUpstreamModelId}
                       />
                     </div>
-                    {selectedTemplate ? (
+                    {selectedSource ? (
                       <div className="grid gap-2 text-sm">
-                        <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
+                        <p className="ds-muted font-semibold">{selectedSource.description}</p>
                         <p className="break-all font-semibold">
-                          {selectedTemplate.adapter_key} · {selectedTemplate.source_url ?? 'no source'}
+                          {selectedSource.adapter_key} · {selectedSource.source_url ?? 'no source'}
                         </p>
                         <p className="text-xs font-semibold">
-                          Runtime {selectedTemplate.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
-                          {selectedTemplate.publishable ? 'publishable' : 'blocked'}
-                          {selectedTemplate.blocked_reason
-                            ? ` · ${selectedTemplate.blocked_reason}`
+                          Runtime {selectedSource.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
+                          {selectedSource.publishable ? 'publishable' : 'blocked'}
+                          {selectedSource.blocked_reason
+                            ? ` · ${selectedSource.blocked_reason}`
                             : ''}
                         </p>
-                        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
-                          {selectedTemplate.compatible_warning}
-                        </p>
+                        {selectedSource.compatible_warning ? (
+                          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
+                            {selectedSource.compatible_warning}
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
-                    <DsButton
-                      className="w-fit"
-                      disabled={savingProfile || !selectedTemplateId}
-                      onClick={importSelectedTemplate}
-                      type="button"
-                      variant="secondary"
-                    >
-                      从模板导入 Draft
-                    </DsButton>
+                    <div className="flex flex-wrap gap-2">
+                      <DsButton
+                        className="w-fit"
+                        disabled={savingProfile || !selectedSourceId}
+                        onClick={importSelectedSource}
+                        type="button"
+                        variant="secondary"
+                      >
+                        {selectedSourceKind === 'template'
+                          ? '从模板导入 Draft'
+                          : '从 Preset 导入 Draft'}
+                      </DsButton>
+                      {selectedSourceKind === 'template' ? (
+                        <DsButton
+                          className="w-fit"
+                          disabled={savingProfile || !selectedSourceId}
+                          onClick={cloneSelectedTemplateToPreset}
+                          type="button"
+                          variant="secondary"
+                        >
+                          复制为 Team Preset
+                        </DsButton>
+                      ) : null}
+                    </div>
                   </>
                 ) : (
                   <p className="rounded-[var(--ds-radius-sm)] border border-dashed border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
-                    选择现有 Profile 后，可按官方模板或 compatible copy 生成新的 Draft revision。
+                    选择现有 Profile 后，可按官方模板或 Team Preset 生成新的 Draft revision。
                   </p>
                 )}
               </div>
@@ -1996,7 +2146,9 @@ export function ExecutionProfileManager({
                 onAction={runRevisionAction}
                 onChange={setRevisionDraft}
                 onDeleteDraft={() =>
-                  setDeleteDraftTarget(selectedRevision.status === 'draft' ? selectedRevision : null)
+                  setDeleteDraftTarget(
+                    selectedRevision.status === 'draft' ? selectedRevision : null,
+                  )
                 }
                 onSave={saveRevision}
                 preview={preview}
@@ -2025,7 +2177,338 @@ export function ExecutionProfileManager({
           variant="danger"
         />
       ) : null}
+
+      {presetManagerOpen ? (
+        <PresetManagerDialog
+          csrfToken={csrfToken}
+          onClose={() => {
+            if (!savingProfile) {
+              setPresetManagerOpen(false);
+            }
+          }}
+          onImported={async (presetId) => {
+            await loadSources();
+            setSelectedSourceKind('preset');
+            setSelectedSourceId(presetId);
+          }}
+          presets={presets}
+          templates={templates}
+        />
+      ) : null}
     </>
+  );
+}
+
+function PresetManagerDialog({
+  csrfToken,
+  onClose,
+  onImported,
+  presets,
+  templates,
+}: {
+  csrfToken: string | null;
+  onClose: () => void;
+  onImported: (presetId: string) => Promise<void>;
+  presets: ProfilePresetSummary[];
+  templates: ProfileTemplateSummary[];
+}) {
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(presets[0]?.id ?? null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(templates[0]?.id ?? '');
+  const [loadingPreset, setLoadingPreset] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [presetDraft, setPresetDraft] = useState<ProfilePresetPayload | null>(null);
+
+  useEffect(() => {
+    if (selectedPresetId) {
+      void loadPreset(selectedPresetId);
+      return;
+    }
+    setPresetDraft(null);
+  }, [selectedPresetId]);
+
+  async function loadPreset(presetId: string) {
+    setLoadingPreset(true);
+    setError(null);
+    try {
+      const response = await fetchProfilePreset(presetId);
+      setPresetDraft({
+        family: response.item.family,
+        label: response.item.label,
+        description: response.item.description,
+        tags: response.item.tags,
+        sort_order: response.item.sort_order,
+        bootstrap_enabled: response.item.bootstrap_enabled,
+        bootstrap_profile_name: response.item.bootstrap_profile_name,
+        bootstrap_operation: response.item.bootstrap_operation,
+        source_template_id: response.item.source_template_id,
+        source_template_mode: response.item.source_template_mode,
+        revision_template: response.item.revision_template,
+      });
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '读取 Preset 失败');
+    } finally {
+      setLoadingPreset(false);
+    }
+  }
+
+  function patchPreset(patch: Partial<ProfilePresetPayload>) {
+    setPresetDraft((current) => ({
+      ...(current ?? {
+        family: 'openai_official',
+        label: '',
+        description: null,
+        tags: [],
+        sort_order: 0,
+        bootstrap_enabled: true,
+        bootstrap_profile_name: '',
+        bootstrap_operation: 'text_to_image',
+        revision_template: {},
+      }),
+      ...patch,
+    }));
+  }
+
+  async function savePreset() {
+    if (!csrfToken || !presetDraft || !selectedPresetId) {
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+    try {
+      await updateProfilePreset(selectedPresetId, presetDraft, csrfToken);
+      setMessage('Preset 已保存。');
+      await onImported(selectedPresetId);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : '保存 Preset 失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createFromTemplate() {
+    if (!csrfToken || !selectedTemplateId) {
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const created = await cloneProfilePresetFromTemplate(
+        selectedTemplateId,
+        {
+          label: `${templates.find((item) => item.id === selectedTemplateId)?.label ?? 'Template'} preset`,
+        } satisfies ProfilePresetClonePayload,
+        csrfToken,
+      );
+      setSelectedPresetId(created.item.id);
+      setMessage('已从官方模板创建 Team Preset。');
+      await onImported(created.item.id);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : '从模板创建 Preset 失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removePreset() {
+    if (!csrfToken || !selectedPresetId) {
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+    try {
+      await deleteProfilePreset(selectedPresetId, csrfToken);
+      setMessage('Preset 已删除。');
+      setSelectedPresetId(null);
+      setPresetDraft(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : '删除 Preset 失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 px-4 py-6 backdrop-blur-sm">
+      <div className="ds-card mx-auto flex max-h-[calc(100vh-48px)] w-full max-w-6xl flex-col overflow-hidden">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--ds-border)] p-5">
+          <div>
+            <span className="ds-badge">Presets</span>
+            <h2 className="mt-3 text-2xl font-black">Team Preset 管理</h2>
+            <p className="ds-muted mt-2 text-sm leading-6">
+              官方模板保持只读。这里维护团队可编辑的全局 preset，供 `/admin/models` 复用。
+            </p>
+          </div>
+          <DsButton disabled={saving} onClick={onClose} type="button" variant="secondary">
+            关闭
+          </DsButton>
+        </div>
+        <div className="min-h-0 overflow-y-auto p-5">
+          {message ? (
+            <p className="mb-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+              {message}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="mb-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
+            <div className="grid content-start gap-3">
+              <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+                <p className="font-black">从官方模板复制</p>
+                <div className="mt-3 grid gap-3">
+                  <label className="grid gap-2 text-sm font-bold">
+                    <span>官方模板</span>
+                    <select
+                      className="ds-input"
+                      onChange={(event) => setSelectedTemplateId(event.target.value)}
+                      value={selectedTemplateId}
+                    >
+                      {templates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <DsButton
+                    disabled={saving || !selectedTemplateId}
+                    onClick={createFromTemplate}
+                    type="button"
+                  >
+                    从模板创建 Preset
+                  </DsButton>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                {presets.map((preset) => (
+                  <button
+                    className={`rounded-[var(--ds-radius-sm)] border p-3 text-left text-sm ${
+                      preset.id === selectedPresetId
+                        ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
+                        : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
+                    }`}
+                    key={preset.id}
+                    onClick={() => setSelectedPresetId(preset.id)}
+                    type="button"
+                  >
+                    <strong>{preset.label}</strong>
+                    <span className="ds-muted mt-1 block text-xs">{preset.adapter_key}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {loadingPreset ? (
+                <p className="ds-muted text-sm font-semibold">正在读取 Preset...</p>
+              ) : null}
+              {presetDraft ? (
+                <>
+                  <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 md:grid-cols-2">
+                    <DsInput
+                      label="Preset 名称"
+                      onChange={(event) => patchPreset({ label: event.target.value })}
+                      value={presetDraft.label}
+                    />
+                    <label className="grid gap-2 text-sm font-bold">
+                      <span>Family</span>
+                      <select
+                        className="ds-input"
+                        onChange={(event) =>
+                          patchPreset({ family: event.target.value as ProfilePresetFamily })
+                        }
+                        value={presetDraft.family}
+                      >
+                        <option value="openai_official">openai_official</option>
+                        <option value="openai_compatible">openai_compatible</option>
+                        <option value="gemini_official">gemini_official</option>
+                      </select>
+                    </label>
+                    <DsInput
+                      label="Bootstrap Profile 名称"
+                      onChange={(event) =>
+                        patchPreset({ bootstrap_profile_name: event.target.value })
+                      }
+                      value={presetDraft.bootstrap_profile_name}
+                    />
+                    <label className="grid gap-2 text-sm font-bold">
+                      <span>Bootstrap Operation</span>
+                      <select
+                        className="ds-input"
+                        onChange={(event) =>
+                          patchPreset({
+                            bootstrap_operation: event.target.value as ExecutionProfileOperation,
+                          })
+                        }
+                        value={presetDraft.bootstrap_operation}
+                      >
+                        {EXECUTION_OPERATIONS.map((operation) => (
+                          <option key={operation} value={operation}>
+                            {operation}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <DsInput
+                      label="Tags"
+                      onChange={(event) =>
+                        patchPreset({
+                          tags: event.target.value
+                            .split(',')
+                            .map((item) => item.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                      value={presetDraft.tags.join(', ')}
+                    />
+                    <DsInput
+                      label="Sort Order"
+                      onChange={(event) => patchPreset({ sort_order: Number(event.target.value) })}
+                      type="number"
+                      value={presetDraft.sort_order}
+                    />
+                  </div>
+                  <label className="grid gap-2 text-sm font-bold">
+                    <span>描述</span>
+                    <textarea
+                      className="ds-input min-h-24 py-3"
+                      onChange={(event) => patchPreset({ description: event.target.value || null })}
+                      value={presetDraft.description ?? ''}
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <DsButton disabled={saving} onClick={savePreset} type="button">
+                      保存 Preset
+                    </DsButton>
+                    <DsButton
+                      disabled={saving}
+                      onClick={removePreset}
+                      type="button"
+                      variant="danger"
+                    >
+                      删除 Preset
+                    </DsButton>
+                  </div>
+                </>
+              ) : (
+                <p className="rounded-[var(--ds-radius-sm)] border border-dashed border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
+                  先从左侧选择一个已有 Preset，或从官方模板复制一个新 Preset。
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2126,12 +2609,7 @@ function RevisionEditor({
             发布
           </DsButton>
           {revision.status === 'draft' ? (
-            <DsButton
-              disabled={disabled}
-              onClick={onDeleteDraft}
-              type="button"
-              variant="danger"
-            >
+            <DsButton disabled={disabled} onClick={onDeleteDraft} type="button" variant="danger">
               删除 Draft
             </DsButton>
           ) : null}
@@ -2592,43 +3070,55 @@ function parseSchemaOptionLines(rawValue: string): ParameterSchemaOption[] {
     });
 }
 
-function createProfileFromTemplatePreset(
+function createProfileFromSourceBootstrap(
   model: AdminAiModel,
-  preset: (typeof EXECUTION_TEMPLATE_PRESETS)[number],
+  source: ProfileSourceOption,
 ): ExecutionProfilePayload {
-  const responseParserKey =
-    preset.id === 'openai-responses-image-tool'
-      ? 'openai_responses_image_generation_call'
-      : preset.id === 'gemini-generate-content-image'
-        ? 'gemini_inline_data'
-        : 'openai_image_data';
-
   return {
-    name: preset.profileDefaults.name,
-    operation: preset.profileDefaults.operation,
+    name: source.bootstrap_profile_name,
+    operation: source.bootstrap_operation,
     routing_role:
-      preset.profileDefaults.adapter_key === 'openai_images_generation'
+      source.adapter_key === 'openai_images_generation'
         ? 'primary_generation'
-        : preset.profileDefaults.adapter_key === 'openai_images_edit'
+        : source.adapter_key === 'openai_images_edit'
           ? 'reference_edit'
           : null,
-    adapter_key: preset.profileDefaults.adapter_key,
+    adapter_key: source.adapter_key,
     adapter_version: '1',
     transport_key: 'new_api_bearer',
     upstream_model_id: model.model_id,
-    upstream_endpoint_path: preset.profileDefaults.upstream_endpoint_path,
-    reference_transfer_mode: preset.profileDefaults.reference_transfer_mode,
-    supports_reference_image: preset.profileDefaults.supports_reference_image,
-    max_reference_images: preset.profileDefaults.max_reference_images,
+    upstream_endpoint_path:
+      source.adapter_key === 'openai_images_generation'
+        ? '/v1/images/generations'
+        : source.adapter_key === 'openai_images_edit'
+          ? '/v1/images/edits'
+          : source.adapter_key === 'openai_responses_image'
+            ? '/v1/responses'
+            : source.adapter_key === 'gemini_generate_content'
+              ? '/v1beta/models/{model}:generateContent'
+              : null,
+    reference_transfer_mode:
+      source.adapter_key === 'openai_images_generation'
+        ? 'none'
+        : source.adapter_key === 'openai_images_edit'
+          ? 'multipart'
+          : 'url',
+    supports_reference_image: source.adapter_key !== 'openai_images_generation',
+    max_reference_images: source.adapter_key === 'openai_images_generation' ? 0 : 8,
     parameter_schema: [],
     default_params: {},
     request_mapping: {},
-    response_parser_key: responseParserKey,
+    response_parser_key:
+      source.adapter_key === 'openai_responses_image'
+        ? 'openai_responses_image_generation_call'
+        : source.adapter_key === 'gemini_generate_content'
+          ? 'gemini_inline_data'
+          : 'openai_image_data',
     capabilities: {},
     validation_rules: {},
     is_default: true,
     is_enabled: true,
-    sort_order: 0,
+    sort_order: source.bootstrap_sort_order,
   };
 }
 

@@ -10,6 +10,8 @@ import type {
 
 import type {
   ExecutionProfileRevisionBody,
+  ExecutionProfileBody,
+  ProfileBootstrapConfig,
   ProfileTemplateCategory,
   ProfileTemplateImportMode,
   ProfileTemplateSummary,
@@ -23,6 +25,7 @@ export interface ProfileTemplateDefinition {
   tags: string[];
   compatible_copy_allowed: boolean;
   compatible_warning: string;
+  bootstrap: ProfileBootstrapConfig;
   revision: ProfileTemplateRevision;
 }
 
@@ -57,6 +60,7 @@ interface ProfileTemplateJson {
   tags: string[];
   compatible_copy_allowed: boolean;
   compatible_warning: string;
+  bootstrap: ProfileBootstrapConfig;
   revision: ProfileTemplateRevision;
 }
 
@@ -120,6 +124,38 @@ export function buildTemplateRevisionBody(
       'Copied OpenAI official template into an OpenAI-compatible draft; remove unconfirmed fields before publishing.';
   }
   return revision;
+}
+
+export function buildExecutionProfileBodyFromTemplate(
+  template: ProfileTemplateDefinition,
+  options: {
+    upstreamModelId: string;
+  },
+): ExecutionProfileBody {
+  const routingRole =
+    template.revision.routing_role ?? routingRoleFromAdapterKey(template.revision.adapter_key);
+  return {
+    name: template.bootstrap.profile_name,
+    operation: template.bootstrap.operation,
+    routing_role: routingRole,
+    adapter_key: template.revision.adapter_key,
+    adapter_version: template.revision.adapter_version,
+    transport_key: template.revision.transport_key,
+    upstream_model_id: options.upstreamModelId,
+    upstream_endpoint_path: template.revision.upstream_endpoint_path ?? null,
+    reference_transfer_mode: template.revision.reference_transfer_mode,
+    supports_reference_image: template.revision.supports_reference_image,
+    max_reference_images: template.revision.max_reference_images,
+    parameter_schema: template.revision.parameter_schema,
+    default_params: template.revision.default_params,
+    request_mapping: template.revision.request_mapping,
+    response_parser_key: template.revision.response_parser_key,
+    capabilities: template.revision.capabilities,
+    validation_rules: template.revision.validation_rules,
+    is_default: true,
+    is_enabled: true,
+    sort_order: template.bootstrap.sort_order,
+  };
 }
 
 function markSchemaFieldsForCompatibleReview(schema: unknown) {
@@ -189,6 +225,7 @@ function serializeTemplateSummary(template: ProfileTemplateDefinition): ProfileT
         : '该模板使用未知 adapter',
     compatible_copy_allowed: template.compatible_copy_allowed,
     compatible_warning: template.compatible_warning,
+    bootstrap: template.bootstrap,
   };
 }
 
@@ -214,6 +251,17 @@ function readProfileTemplate(path: string): ProfileTemplateDefinition {
   }
   if (typeof parsed.compatible_copy_allowed !== 'boolean') {
     throw new Error(`Invalid profile template compatible_copy_allowed: ${path}`);
+  }
+  if (!isRecord(parsed.bootstrap)) {
+    throw new Error(`Invalid profile template bootstrap: ${path}`);
+  }
+  if (typeof parsed.bootstrap.enabled !== 'boolean') {
+    throw new Error(`Invalid profile template bootstrap.enabled: ${path}`);
+  }
+  assertString(parsed.bootstrap.profile_name, path, 'bootstrap.profile_name');
+  assertString(parsed.bootstrap.operation, path, 'bootstrap.operation');
+  if (typeof parsed.bootstrap.sort_order !== 'number') {
+    throw new Error(`Invalid profile template bootstrap.sort_order: ${path}`);
   }
   if (!isRecord(parsed.revision)) {
     throw new Error(`Invalid profile template revision: ${path}`);

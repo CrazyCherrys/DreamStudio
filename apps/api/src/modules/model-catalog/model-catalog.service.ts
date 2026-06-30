@@ -37,6 +37,7 @@ import {
   type ParameterSchemaField,
 } from './parameter-schema';
 import type {
+  AdminExecutionProfileRevisionDraftTemplate,
   AdminAiModel,
   AdminExecutionProfile,
   AdminExecutionProfileRevision,
@@ -47,8 +48,14 @@ import type {
   ExecutionProfilePreviewBody,
   ExecutionProfilePreviewResult,
   ExecutionProfileRevisionBody,
+  ProfilePresetBody,
+  ProfilePresetCloneBody,
+  ProfilePresetDetail,
+  ProfilePresetFamily,
+  ProfilePresetSummary,
   PublicDefaultExecutionProfile,
   PublicAiModel,
+  ProfileTemplateSummary,
   ProfileTemplateImportBody,
   ProfileTemplateImportMode,
 } from './model-catalog.types';
@@ -97,6 +104,7 @@ type ExecutionProfileWithRevisions = Prisma.AiModelExecutionProfileGetPayload<{
   };
 }>;
 type ExecutionProfileRevisionRecord = Prisma.AiModelExecutionProfileRevisionGetPayload<object>;
+type ProfilePresetRecord = Awaited<ReturnType<typeof prisma.profilePreset.findFirstOrThrow>>;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_DESCRIPTION_LENGTH = 1200;
@@ -685,6 +693,192 @@ export class ModelCatalogService {
     };
   }
 
+  async listProfilePresets(): Promise<{ items: ProfilePresetSummary[] }> {
+    const presets = await prisma.profilePreset.findMany({
+      where: {
+        deletedAt: null,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return {
+      items: presets.map((preset) => this.serializeProfilePresetSummary(preset)),
+    };
+  }
+
+  async getProfilePreset(presetId: string): Promise<{ item: ProfilePresetDetail }> {
+    const preset = await this.findProfilePresetOrThrow(presetId);
+    return {
+      item: this.serializeProfilePresetDetail(preset),
+    };
+  }
+
+  async createProfilePreset(
+    body: ProfilePresetBody,
+    session: SessionContext,
+    request: Request,
+  ): Promise<{ item: ProfilePresetDetail }> {
+    const data = this.validateProfilePresetCreateBody(body);
+    const preset = await prisma.profilePreset.create({
+      data,
+    });
+    await this.auditLogService.write({
+      action: 'admin_create_profile_preset',
+      targetType: 'profile_preset',
+      targetId: preset.id,
+      session,
+      request,
+      metadata: {
+        family: preset.family,
+        bootstrap_enabled: preset.bootstrapEnabled,
+      },
+    });
+    return {
+      item: this.serializeProfilePresetDetail(preset),
+    };
+  }
+
+  async updateProfilePreset(
+    presetId: string,
+    body: ProfilePresetBody,
+    session: SessionContext,
+    request: Request,
+  ): Promise<{ item: ProfilePresetDetail }> {
+    const existing = await this.findProfilePresetOrThrow(presetId);
+    const data = this.validateProfilePresetUpdateBody(body, existing);
+    const preset = await prisma.profilePreset.update({
+      where: {
+        id: existing.id,
+      },
+      data,
+    });
+    await this.auditLogService.write({
+      action: 'admin_update_profile_preset',
+      targetType: 'profile_preset',
+      targetId: preset.id,
+      session,
+      request,
+      metadata: {
+        changed_fields: Object.keys(data),
+      },
+    });
+    return {
+      item: this.serializeProfilePresetDetail(preset),
+    };
+  }
+
+  async deleteProfilePreset(
+    presetId: string,
+    session: SessionContext,
+    request: Request,
+  ): Promise<{ deleted: boolean; item: ProfilePresetDetail }> {
+    const existing = await this.findProfilePresetOrThrow(presetId);
+    const preset = await prisma.profilePreset.update({
+      where: {
+        id: existing.id,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+    await this.auditLogService.write({
+      action: 'admin_delete_profile_preset',
+      targetType: 'profile_preset',
+      targetId: preset.id,
+      session,
+      request,
+      metadata: {},
+    });
+    return {
+      deleted: true,
+      item: this.serializeProfilePresetDetail(preset),
+    };
+  }
+
+  async cloneProfilePresetFromTemplate(
+    templateId: string,
+    body: ProfilePresetCloneBody,
+    session: SessionContext,
+    request: Request,
+  ): Promise<{ item: ProfilePresetDetail; template: ProfileTemplateSummary }> {
+    const template = findProfileTemplate(templateId);
+    if (!template) {
+      throw apiError(HttpStatus.NOT_FOUND, 'not_found', 'Profile template 不存在');
+    }
+    const mode = this.readTemplateImportMode(body?.mode);
+    if (mode === 'openai_compatible_copy' && !template.compatible_copy_allowed) {
+      throw validationFailed([
+        {
+          field: 'mode',
+          message: '该模板不能复制为 OpenAI-compatible 草稿',
+        },
+      ]);
+    }
+    const revisionTemplate = buildTemplateRevisionBody(template, {
+      mode,
+      upstreamModelId: template.revision.upstream_model_id,
+    });
+    const payload = {
+      family: body?.mode === 'openai_compatible_copy' ? 'openai_compatible' : template.category,
+      label: body?.label ?? `${template.label} preset`,
+      description: body?.description ?? template.description,
+      tags: body?.tags ?? template.tags,
+      sort_order: body?.sort_order ?? template.bootstrap.sort_order,
+      bootstrap_enabled: body?.bootstrap_enabled ?? template.bootstrap.enabled,
+      bootstrap_profile_name: body?.bootstrap_profile_name ?? template.bootstrap.profile_name,
+      bootstrap_operation: body?.bootstrap_operation ?? template.bootstrap.operation,
+      source_template_id: template.id,
+      source_template_mode: mode,
+      revision_template: revisionTemplate,
+    } satisfies ProfilePresetBody;
+    const created = await this.createProfilePreset(payload, session, request);
+    const preset = await prisma.profilePreset.update({
+      where: { id: created.item.id },
+      data: {
+        origin: 'template_clone',
+      },
+    });
+    return {
+      item: this.serializeProfilePresetDetail(preset),
+      template: listProfileTemplates().find((item) => item.id === template.id)!,
+    };
+  }
+
+  async importProfilePresetRevision(
+    profileId: string,
+    presetId: string,
+    body: ProfileTemplateImportBody,
+    session: SessionContext,
+    request: Request,
+  ) {
+    const profile = await this.findExecutionProfileOrThrow(profileId, true);
+    const preset = await this.findProfilePresetOrThrow(presetId);
+    const upstreamModelId =
+      this.readOptionalTemplateUpstreamModelId(body?.upstream_model_id) ?? profile.upstreamModelId;
+    const revisionBody = this.buildRevisionBodyFromPreset(preset, upstreamModelId);
+    const created = await this.createExecutionProfileRevision(
+      profile.id,
+      revisionBody,
+      session,
+      request,
+    );
+    await this.auditLogService.write({
+      action: 'admin_import_execution_profile_preset',
+      targetType: 'ai_model_execution_profile_revision',
+      targetId: created.item.id,
+      session,
+      request,
+      metadata: {
+        execution_profile_id: profile.id,
+        profile_preset_id: preset.id,
+        revision_no: created.item.revision_no,
+      },
+    });
+    return {
+      item: created.item,
+      preset: this.serializeProfilePresetSummary(preset),
+    };
+  }
+
   async importProfileTemplateRevision(
     profileId: string,
     templateId: string,
@@ -1209,6 +1403,123 @@ export class ModelCatalogService {
         min: -100000,
         max: 100000,
       });
+    }
+
+    if (details.length > 0) {
+      throw validationFailed(details);
+    }
+
+    return input;
+  }
+
+  private validateProfilePresetCreateBody(
+    body: ProfilePresetBody,
+  ): Prisma.ProfilePresetCreateInput {
+    return this.validateProfilePresetBody(body, {
+      partial: false,
+    }) as Prisma.ProfilePresetCreateInput;
+  }
+
+  private validateProfilePresetUpdateBody(
+    body: ProfilePresetBody,
+    source: ProfilePresetRecord,
+  ): Prisma.ProfilePresetUpdateInput {
+    return this.validateProfilePresetBody(body, {
+      partial: true,
+      source,
+    }) as Prisma.ProfilePresetUpdateInput;
+  }
+
+  private validateProfilePresetBody(
+    body: ProfilePresetBody,
+    options: { partial: boolean; source?: ProfilePresetRecord },
+  ): Prisma.ProfilePresetUpdateInput {
+    const details: ValidationDetail[] = [];
+    const input: Prisma.ProfilePresetUpdateInput = {};
+
+    if (!options.partial || body.family !== undefined) {
+      input.family =
+        body.family === undefined && options.source
+          ? options.source.family
+          : this.readProfilePresetFamily(body.family, details);
+    }
+    if (!options.partial || body.label !== undefined) {
+      const label =
+        body.label === undefined && options.source
+          ? options.source.label
+          : this.readString(body.label, 'label', details, { min: 1, max: 160 });
+      if (label !== null) {
+        input.label = label;
+      }
+    }
+    if (!options.partial || body.description !== undefined) {
+      input.description =
+        body.description === undefined && options.source
+          ? options.source.description
+          : this.readNullableString(body.description, 'description', details, {
+              max: MAX_DESCRIPTION_LENGTH,
+            });
+    }
+    if (!options.partial || body.tags !== undefined) {
+      input.tags =
+        body.tags === undefined && options.source
+          ? options.source.tags
+          : this.readStringArray(body.tags, 'tags', details, { maxItems: 20, maxLength: 40 });
+    }
+    if (!options.partial || body.sort_order !== undefined) {
+      input.sortOrder =
+        body.sort_order === undefined && options.source
+          ? options.source.sortOrder
+          : this.readInteger(body.sort_order, 'sort_order', details, {
+              fallback: 0,
+              min: -100000,
+              max: 100000,
+            });
+    }
+    if (!options.partial || body.bootstrap_enabled !== undefined) {
+      input.bootstrapEnabled =
+        body.bootstrap_enabled === undefined && options.source
+          ? options.source.bootstrapEnabled
+          : this.readBoolean(body.bootstrap_enabled, 'bootstrap_enabled', details, false);
+    }
+    if (!options.partial || body.bootstrap_profile_name !== undefined) {
+      const bootstrapProfileName =
+        body.bootstrap_profile_name === undefined && options.source
+          ? options.source.bootstrapProfileName
+          : this.readString(body.bootstrap_profile_name, 'bootstrap_profile_name', details, {
+              min: 1,
+              max: 160,
+            });
+      if (bootstrapProfileName !== null) {
+        input.bootstrapProfileName = bootstrapProfileName;
+      }
+    }
+    if (!options.partial || body.bootstrap_operation !== undefined) {
+      input.bootstrapOperation =
+        body.bootstrap_operation === undefined && options.source
+          ? options.source.bootstrapOperation
+          : this.readExecutionProfileOperation(body.bootstrap_operation, details);
+    }
+    if (!options.partial || body.source_template_id !== undefined) {
+      input.sourceTemplateId =
+        body.source_template_id === undefined && options.source
+          ? options.source.sourceTemplateId
+          : this.readNullableString(body.source_template_id, 'source_template_id', details, {
+              max: 120,
+            });
+    }
+    if (!options.partial || body.source_template_mode !== undefined) {
+      input.sourceTemplateMode =
+        body.source_template_mode === undefined && options.source
+          ? options.source.sourceTemplateMode
+          : this.readNullableTemplateImportMode(body.source_template_mode, details);
+    }
+    if (!options.partial || body.revision_template !== undefined) {
+      const revisionTemplateSource =
+        body.revision_template !== undefined
+          ? body.revision_template
+          : (options.source?.revisionTemplate ?? {});
+      input.revisionTemplate = this.readRevisionTemplatePreset(revisionTemplateSource, details);
     }
 
     if (details.length > 0) {
@@ -1752,6 +2063,118 @@ export class ModelCatalogService {
     };
   }
 
+  private serializeRevisionTemplate(
+    revision: ExecutionProfileRevisionRecord | Prisma.JsonObject | Record<string, unknown>,
+  ): AdminExecutionProfileRevisionDraftTemplate {
+    const value = revision as Record<string, unknown>;
+    return {
+      source_kind: String(
+        value.sourceKind ?? value.source_kind ?? 'manual',
+      ) as ExecutionProfileSourceKind,
+      source_url:
+        typeof value.sourceUrl === 'string'
+          ? value.sourceUrl
+          : typeof value.source_url === 'string'
+            ? value.source_url
+            : null,
+      source_checked_at:
+        value.sourceCheckedAt instanceof Date
+          ? value.sourceCheckedAt.toISOString()
+          : typeof value.source_checked_at === 'string'
+            ? value.source_checked_at
+            : typeof value.sourceCheckedAt === 'string'
+              ? value.sourceCheckedAt
+              : null,
+      source_summary:
+        typeof value.sourceSummary === 'string'
+          ? value.sourceSummary
+          : typeof value.source_summary === 'string'
+            ? value.source_summary
+            : null,
+      routing_role: (value.routingRole ??
+        value.routing_role ??
+        null) as ExecutionProfileRoutingRole | null,
+      adapter_key: String(value.adapterKey ?? value.adapter_key ?? ''),
+      adapter_version: String(value.adapterVersion ?? value.adapter_version ?? '1'),
+      transport_key: String(value.transportKey ?? value.transport_key ?? 'new_api_bearer'),
+      upstream_model_id: String(value.upstreamModelId ?? value.upstream_model_id ?? ''),
+      upstream_endpoint_path:
+        typeof value.upstreamEndpointPath === 'string'
+          ? value.upstreamEndpointPath
+          : typeof value.upstream_endpoint_path === 'string'
+            ? value.upstream_endpoint_path
+            : null,
+      reference_transfer_mode: String(
+        value.referenceTransferMode ?? value.reference_transfer_mode ?? 'none',
+      ) as ReferenceTransferMode,
+      supports_reference_image: Boolean(
+        value.supportsReferenceImage ?? value.supports_reference_image,
+      ),
+      max_reference_images: Number(value.maxReferenceImages ?? value.max_reference_images ?? 0),
+      parameter_schema: normalizeParameterSchema(
+        value.parameterSchema ?? value.parameter_schema ?? [],
+      ),
+      default_params: value.defaultParams ?? value.default_params ?? {},
+      request_mapping: value.requestMapping ?? value.request_mapping ?? {},
+      response_parser_key: String(value.responseParserKey ?? value.response_parser_key ?? ''),
+      capabilities: value.capabilities ?? {},
+      validation_rules: value.validationRules ?? value.validation_rules ?? {},
+      change_summary:
+        typeof value.changeSummary === 'string'
+          ? value.changeSummary
+          : typeof value.change_summary === 'string'
+            ? value.change_summary
+            : null,
+    };
+  }
+
+  private serializeProfilePresetSummary(preset: ProfilePresetRecord): ProfilePresetSummary {
+    const template = this.serializeRevisionTemplate(
+      preset.revisionTemplate as unknown as Record<string, unknown>,
+    );
+    const manifest = findImageAdapterManifest(template.adapter_key);
+    const capabilityRecord = asJsonObject(template.capabilities);
+    const runtimeSupported =
+      manifest?.runtimeSupported === true &&
+      (capabilityRecord?.runtime_supported as unknown) !== false;
+    const publishable = runtimeSupported && manifest?.publishable === true;
+    return {
+      id: preset.id,
+      family: preset.family,
+      origin: preset.origin,
+      label: preset.label,
+      description: preset.description,
+      tags: preset.tags,
+      sort_order: preset.sortOrder,
+      bootstrap_enabled: preset.bootstrapEnabled,
+      bootstrap_profile_name: preset.bootstrapProfileName,
+      bootstrap_operation: preset.bootstrapOperation,
+      source_template_id: preset.sourceTemplateId,
+      source_template_mode: this.readStoredTemplateImportMode(preset.sourceTemplateMode),
+      adapter_key: template.adapter_key,
+      operation: preset.bootstrapOperation,
+      runtime_supported: runtimeSupported,
+      publishable,
+      blocked_reason: publishable
+        ? null
+        : manifest
+          ? '该 preset 对应的 runtime adapter 当前不可发布'
+          : '该 preset 使用未知 adapter',
+      created_at: preset.createdAt.toISOString(),
+      updated_at: preset.updatedAt.toISOString(),
+      deleted_at: preset.deletedAt?.toISOString() ?? null,
+    };
+  }
+
+  private serializeProfilePresetDetail(preset: ProfilePresetRecord): ProfilePresetDetail {
+    return {
+      ...this.serializeProfilePresetSummary(preset),
+      revision_template: this.serializeRevisionTemplate(
+        preset.revisionTemplate as unknown as Record<string, unknown>,
+      ),
+    };
+  }
+
   private lintRevision(revision: ExecutionProfileRevisionRecord): ExecutionProfileLintResult {
     const errors: ValidationDetail[] = [];
     const warnings: ValidationDetail[] = [];
@@ -1883,6 +2306,23 @@ export class ModelCatalogService {
     throw validationFailed([{ field: 'mode', message: 'mode 不合法' }]);
   }
 
+  private readNullableTemplateImportMode(
+    value: unknown,
+    details: ValidationDetail[],
+  ): ProfileTemplateImportMode | null {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+    if (value === 'template' || value === 'openai_compatible_copy') {
+      return value;
+    }
+    details.push({
+      field: 'source_template_mode',
+      message: 'source_template_mode 不合法',
+    });
+    return null;
+  }
+
   private readOptionalTemplateUpstreamModelId(value: unknown): string | null {
     if (value === undefined || value === null || value === '') {
       return null;
@@ -1896,6 +2336,128 @@ export class ModelCatalogService {
       ]);
     }
     return value.trim();
+  }
+
+  private readProfilePresetFamily(
+    value: unknown,
+    details: ValidationDetail[],
+  ): ProfilePresetFamily {
+    if (
+      value === 'openai_official' ||
+      value === 'openai_compatible' ||
+      value === 'gemini_official'
+    ) {
+      return value;
+    }
+    if (value === undefined || value === null || value === '') {
+      return 'openai_official';
+    }
+    details.push({
+      field: 'family',
+      message: 'family 不受支持',
+    });
+    return 'openai_official';
+  }
+
+  private readStringArray(
+    value: unknown,
+    field: string,
+    details: ValidationDetail[],
+    options: { maxItems: number; maxLength: number },
+  ): string[] {
+    if (value === undefined || value === null) {
+      return [];
+    }
+    if (!Array.isArray(value)) {
+      details.push({
+        field,
+        message: `${field} 必须是字符串数组`,
+      });
+      return [];
+    }
+    const next = value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean)
+      .slice(0, options.maxItems);
+    if (next.some((item) => item.length > options.maxLength)) {
+      details.push({
+        field,
+        message: `${field} 每项长度不能超过 ${options.maxLength}`,
+      });
+    }
+    return next.filter((item) => item.length <= options.maxLength);
+  }
+
+  private readRevisionTemplatePreset(
+    value: unknown,
+    details: ValidationDetail[],
+  ): Prisma.InputJsonValue {
+    const defaultRevisionSource = {
+      sourceKind: 'manual',
+      sourceUrl: null,
+      sourceCheckedAt: null,
+      sourceSummary: null,
+      routingRole: null,
+      adapterKey: 'openai_images_generation',
+      adapterVersion: '1',
+      transportKey: 'new_api_bearer',
+      upstreamModelId: 'preset-model',
+      upstreamEndpointPath: null,
+      referenceTransferMode: ReferenceTransferMode.none,
+      supportsReferenceImage: false,
+      maxReferenceImages: 0,
+      parameterSchema: [],
+      defaultParams: {},
+      requestMapping: {},
+      responseParserKey: 'openai_image_data',
+      capabilities: {},
+      validationRules: {},
+    } as unknown as ExecutionProfileRevisionRecord;
+    const body = this.validateExecutionProfileRevisionBody(
+      (value ?? {}) as ExecutionProfileRevisionBody,
+      {
+        partial: false,
+        source: defaultRevisionSource,
+      },
+    );
+    if (details.length > 0) {
+      return {} as Prisma.InputJsonValue;
+    }
+    return body as Prisma.InputJsonValue;
+  }
+
+  private buildRevisionBodyFromPreset(
+    preset: ProfilePresetRecord,
+    upstreamModelId: string,
+  ): ExecutionProfileRevisionBody {
+    const template = this.serializeRevisionTemplate(
+      preset.revisionTemplate as unknown as Record<string, unknown>,
+    );
+    return {
+      ...template,
+      upstream_model_id: upstreamModelId,
+    };
+  }
+
+  private readStoredTemplateImportMode(value: string | null): ProfileTemplateImportMode | null {
+    if (value === 'template' || value === 'openai_compatible_copy') {
+      return value;
+    }
+    return null;
+  }
+
+  private async findProfilePresetOrThrow(presetId: string) {
+    this.assertUuid(presetId, 'profile_preset_id');
+    const preset = await prisma.profilePreset.findFirst({
+      where: {
+        id: presetId,
+        deletedAt: null,
+      },
+    });
+    if (!preset) {
+      throw apiError(HttpStatus.NOT_FOUND, 'not_found', 'Profile preset 不存在');
+    }
+    return preset;
   }
 
   private findDefaultExecutionProfile(

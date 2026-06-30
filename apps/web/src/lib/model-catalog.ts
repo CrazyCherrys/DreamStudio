@@ -20,6 +20,8 @@ export type ExecutionProfileSourceKind =
   | 'imported_json';
 export type ProfileTemplateCategory = 'gemini_official' | 'openai_official' | 'openai_compatible';
 export type ProfileTemplateImportMode = 'template' | 'openai_compatible_copy';
+export type ProfilePresetFamily = 'openai_official' | 'openai_compatible' | 'gemini_official';
+export type ProfilePresetOrigin = 'manual' | 'template_clone';
 
 export interface ParameterSchemaOption {
   label: string;
@@ -274,6 +276,64 @@ export interface ProfileTemplateSummary {
   blocked_reason: string | null;
   compatible_copy_allowed: boolean;
   compatible_warning: string;
+  bootstrap: {
+    enabled: boolean;
+    profile_name: string;
+    operation: ExecutionProfileOperation;
+    sort_order: number;
+  };
+}
+
+export interface ProfilePresetSummary {
+  id: string;
+  family: ProfilePresetFamily;
+  origin: ProfilePresetOrigin;
+  label: string;
+  description: string | null;
+  tags: string[];
+  sort_order: number;
+  bootstrap_enabled: boolean;
+  bootstrap_profile_name: string;
+  bootstrap_operation: ExecutionProfileOperation;
+  source_template_id: string | null;
+  source_template_mode: ProfileTemplateImportMode | null;
+  adapter_key: string;
+  operation: ExecutionProfileOperation;
+  runtime_supported: boolean;
+  publishable: boolean;
+  blocked_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ProfilePresetDetail extends ProfilePresetSummary {
+  revision_template: ExecutionProfileRevisionPayload;
+}
+
+export interface ProfilePresetPayload {
+  family: ProfilePresetFamily;
+  label: string;
+  description: string | null;
+  tags: string[];
+  sort_order: number;
+  bootstrap_enabled: boolean;
+  bootstrap_profile_name: string;
+  bootstrap_operation: ExecutionProfileOperation;
+  source_template_id?: string | null;
+  source_template_mode?: ProfileTemplateImportMode | null;
+  revision_template: ExecutionProfileRevisionPayload;
+}
+
+export interface ProfilePresetClonePayload {
+  label?: string;
+  description?: string | null;
+  tags?: string[];
+  sort_order?: number;
+  bootstrap_enabled?: boolean;
+  bootstrap_profile_name?: string;
+  bootstrap_operation?: ExecutionProfileOperation;
+  mode?: ProfileTemplateImportMode;
 }
 
 export interface ExecutionProfileRevisionDiffResult {
@@ -460,6 +520,63 @@ export function fetchProfileTemplates() {
   });
 }
 
+export function fetchProfilePresets() {
+  return apiRequest<{ items: ProfilePresetSummary[] }>('/api/v1/admin/profile-presets', {
+    cache: 'no-store',
+  });
+}
+
+export function fetchProfilePreset(presetId: string) {
+  return apiRequest<{ item: ProfilePresetDetail }>(`/api/v1/admin/profile-presets/${presetId}`, {
+    cache: 'no-store',
+  });
+}
+
+export function createProfilePreset(payload: ProfilePresetPayload, csrfToken: string) {
+  return apiRequest<{ item: ProfilePresetDetail }>('/api/v1/admin/profile-presets', {
+    method: 'POST',
+    csrfToken,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateProfilePreset(
+  presetId: string,
+  payload: Partial<ProfilePresetPayload>,
+  csrfToken: string,
+) {
+  return apiRequest<{ item: ProfilePresetDetail }>(`/api/v1/admin/profile-presets/${presetId}`, {
+    method: 'PATCH',
+    csrfToken,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteProfilePreset(presetId: string, csrfToken: string) {
+  return apiRequest<{ deleted: boolean; item: ProfilePresetDetail }>(
+    `/api/v1/admin/profile-presets/${presetId}`,
+    {
+      method: 'DELETE',
+      csrfToken,
+    },
+  );
+}
+
+export function cloneProfilePresetFromTemplate(
+  templateId: string,
+  payload: ProfilePresetClonePayload,
+  csrfToken: string,
+) {
+  return apiRequest<{ item: ProfilePresetDetail; template: ProfileTemplateSummary }>(
+    `/api/v1/admin/profile-presets/from-template/${templateId}`,
+    {
+      method: 'POST',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 export function importProfileTemplateRevision(
   profileId: string,
   templateId: string,
@@ -471,6 +588,24 @@ export function importProfileTemplateRevision(
 ) {
   return apiRequest<{ item: AdminExecutionProfileRevision; template: ProfileTemplateSummary }>(
     `/api/v1/admin/execution-profiles/${profileId}/revisions/import-template/${templateId}`,
+    {
+      method: 'POST',
+      csrfToken,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function importProfilePresetRevision(
+  profileId: string,
+  presetId: string,
+  payload: {
+    upstream_model_id?: string;
+  },
+  csrfToken: string,
+) {
+  return apiRequest<{ item: AdminExecutionProfileRevision; preset: ProfilePresetSummary }>(
+    `/api/v1/admin/execution-profiles/${profileId}/revisions/import-preset/${presetId}`,
     {
       method: 'POST',
       csrfToken,

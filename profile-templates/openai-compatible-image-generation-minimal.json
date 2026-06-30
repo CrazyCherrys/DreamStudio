@@ -6,6 +6,12 @@
   "compatible_copy_allowed": false,
   "compatible_warning": "Confirm every field against the target channel. This minimal template is a starting point, not proof of provider support.",
   "tags": ["openai-compatible", "new-api", "generation", "minimal"],
+  "bootstrap": {
+    "enabled": true,
+    "profile_name": "OpenAI-compatible image generation",
+    "operation": "text_to_image",
+    "sort_order": 0
+  },
   "revision": {
     "source_kind": "third_party_docs",
     "source_url": "https://github.com/QuantumNous/new-api-docs/blob/main/docs/en/api/openai-image.md",

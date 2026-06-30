@@ -90,9 +90,9 @@ Studio UI 参数
 - Studio 快捷参数当前按 Schema v2 的 `ui.group=quick` 和 `ui.slot` 渲染“张数、比例、分辨率”，不再依赖 key/label/description 猜测。
 - `profile-templates/` 已内置 OpenAI Image generation、OpenAI Image edit、OpenAI Responses image tool 和 OpenAI-compatible 最小文生图模板。
 - `profile-templates/` 已内置 Gemini `generateContent` 图片模板，映射 `contents.parts`、`generationConfig.responseModalities` 和 `generationConfig.imageConfig.*`；Gemini Interactions 图片模板仅作为 draft-only 占位，直到网关确认支持 `/v1beta/interactions`。
-- Admin API 已支持列出模板、把模板导入为 draft revision、复制 OpenAI 官方模板为 OpenAI-compatible 草稿，以及比较 draft revision 与当前 active revision。
-- Admin 模型详情页的执行配置区域已支持模板导入、OpenAI-compatible copy 警告、导入后选择 draft、Revision JSON 导出、Revision JSON 导入为 draft、查看 active/draft diff。
-- `scripts/verify-profile-templates.ts` 验证模板可列出、导入只创建 draft、draft 不影响 public profile、发布后 public profile 才变化、runtime/publish 状态准确，以及 OpenAI-compatible copy 的未确认字段会阻断发布。
+- Admin API 已支持列出只读官方模板、维护全局 Team preset、把模板或 preset 导入为 draft revision、复制 OpenAI 官方模板为 OpenAI-compatible 草稿，以及比较 draft revision 与当前 active revision。
+- Admin 模型详情页的执行配置区域已支持模板 / preset 导入、OpenAI-compatible copy 警告、复制官方模板为 Team preset、导入后选择 draft、Revision JSON 导出、Revision JSON 导入为 draft、查看 active/draft diff。
+- `scripts/verify-profile-templates.ts` 验证模板可列出、Team preset 可从模板复制、模板或 preset 导入只创建 draft、draft 不影响 public profile、发布后 public profile 才变化、runtime/publish 状态准确，以及 OpenAI-compatible copy 的未确认字段会阻断发布。
 - `packages/config/src/image-adapter-manifest.ts` 集中声明 adapter allowed target path、runtime 支持、publishable 状态和 parser 白名单；API lint、Admin preview 和 Worker adapter registry 共享该边界。
 - `scripts/init-m0.ts` 已创建开发用 Gemini `generateContent` 非默认 profile 和 active revision；默认保持 disabled，直到管理员确认 new-api 网关支持 `/v1beta/models/{model}:generateContent` 后再启用。
 - Worker 已新增 `gemini_generate_content` adapter，通过 snapped request mapping 构造 Gemini JSON 请求，把参考图作为 `inlineData` parts 追加，并使用 `gemini_inline_data` parser 解析生成图。
