@@ -2,11 +2,13 @@
 
 import { useEffect, useId, useMemo, useState } from 'react';
 
+import { AdminConfirmDialog } from '@/components/admin-dialog';
 import { DsButton, DsInput } from '@/components/ui';
 import {
   activateExecutionProfileRevision,
   createExecutionProfile,
   createExecutionProfileRevision,
+  deleteExecutionProfileRevision,
   diffExecutionProfileRevision,
   emptySchemaField,
   endpointTypeLabel,
@@ -971,32 +973,41 @@ export function ModelForm({
         </div>
       </fieldset>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
-          <input
-            checked={form.supports_reference_image}
-            onChange={(event) => patchForm({ supports_reference_image: event.target.checked })}
-            type="checkbox"
-          />
-          支持参考图
-        </label>
-        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
-          <input
-            checked={form.is_enabled}
-            onChange={(event) => patchForm({ is_enabled: event.target.checked })}
-            type="checkbox"
-          />
-          启用
-        </label>
-        <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
-          <input
-            checked={form.is_recommended}
-            onChange={(event) => patchForm({ is_recommended: event.target.checked })}
-            type="checkbox"
-          />
-          推荐
-        </label>
-      </div>
+      <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+        <div>
+          <h3 className="text-lg font-black">展示与兼容信息</h3>
+          <p className="ds-muted mt-1 text-sm leading-6">
+            这些字段主要用于目录展示、筛选和兼容回退。真正决定 Studio 行为的是默认启用
+            Profile 的 Active revision。
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
+            <input
+              checked={form.supports_reference_image}
+              onChange={(event) => patchForm({ supports_reference_image: event.target.checked })}
+              type="checkbox"
+            />
+            支持参考图
+          </label>
+          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
+            <input
+              checked={form.is_enabled}
+              onChange={(event) => patchForm({ is_enabled: event.target.checked })}
+              type="checkbox"
+            />
+            启用
+          </label>
+          <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 font-bold">
+            <input
+              checked={form.is_recommended}
+              onChange={(event) => patchForm({ is_recommended: event.target.checked })}
+              type="checkbox"
+            />
+            推荐
+          </label>
+        </div>
+      </section>
 
       <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1081,6 +1092,9 @@ export function ExecutionProfileManager({
   const [profiles, setProfiles] = useState<AdminExecutionProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
+  const [deleteDraftTarget, setDeleteDraftTarget] = useState<AdminExecutionProfileRevision | null>(
+    null,
+  );
   const [profileDraft, setProfileDraft] = useState<ExecutionProfilePayload | null>(null);
   const [revisionDraft, setRevisionDraft] = useState<ExecutionProfileRevisionPayload | null>(null);
   const [templates, setTemplates] = useState<ProfileTemplateSummary[]>([]);
@@ -1105,6 +1119,10 @@ export function ExecutionProfileManager({
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId) ?? null;
   const selectedRevision =
     selectedProfile?.revisions?.find((revision) => revision.id === selectedRevisionId) ?? null;
+  const draftRevision =
+    selectedProfile?.revisions?.find((revision) => revision.status === 'draft') ?? null;
+  const activeRevision =
+    selectedProfile?.revisions?.find((revision) => revision.status === 'active') ?? null;
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
   const selectedPreset =
     EXECUTION_TEMPLATE_PRESETS.find((preset) => preset.id === selectedPresetId) ??
@@ -1156,6 +1174,7 @@ export function ExecutionProfileManager({
       setTemplateUpstreamModelId(nextProfile?.upstream_model_id ?? model.model_id);
       setShowTemplateImport(false);
       setShowRevisionJson(false);
+      setDeleteDraftTarget(null);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : '读取执行配置失败');
     } finally {
@@ -1180,6 +1199,7 @@ export function ExecutionProfileManager({
     setShowTemplateImport(false);
     setShowRevisionJson(false);
     setShowExpertProfileFields(false);
+    setDeleteDraftTarget(null);
   }
 
   function selectRevision(revision: AdminExecutionProfileRevision) {
@@ -1244,7 +1264,7 @@ export function ExecutionProfileManager({
         csrfToken!,
       );
       setSelectedRevisionId(created.item.id);
-    }, 'Draft revision 已创建。');
+    }, activeRevision ? '已基于当前 Active 创建新的 Draft revision。' : 'Draft revision 已创建。');
   }
 
   async function importSelectedTemplate() {
@@ -1417,505 +1437,595 @@ export function ExecutionProfileManager({
     }
   }
 
+  async function removeDraftRevision(revision: AdminExecutionProfileRevision) {
+    if (!csrfToken) {
+      setProfileError('登录状态已失效，请重新登录');
+      return;
+    }
+    setSavingProfile(true);
+    setProfileMessage(null);
+    setProfileError(null);
+    try {
+      await deleteExecutionProfileRevision(revision.id, csrfToken);
+      setDeleteDraftTarget(null);
+      setProfileMessage('Draft revision 已删除。');
+      await onChanged();
+      await loadProfiles(selectedProfileId);
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : '删除 Draft revision 失败');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
   return (
-    <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-black">执行配置</h3>
-          <p className="ds-muted mt-1 text-sm">
-            Profile 和 revision 发布后才会影响用户侧 Studio。默认生图参数以默认 active revision
-            为准。
-          </p>
-        </div>
-        <DsButton onClick={() => void loadProfiles()} type="button" variant="secondary">
-          刷新配置
-        </DsButton>
-      </div>
-
-      {profileMessage ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
-          {profileMessage}
-        </p>
-      ) : null}
-      {profileError ? (
-        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
-          {profileError}
-        </p>
-      ) : null}
-
-      {!hasUsableConfiguration ? (
-        <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface-raised)] p-4">
+    <>
+      <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h4 className="font-black">当前模型还没有可用默认 Profile</h4>
+            <h3 className="text-lg font-black">当前配置工作区</h3>
             <p className="ds-muted mt-1 text-sm leading-6">
-              先选择一个官方模板，系统会自动创建默认 Profile 并导入首个 Draft
-              revision。之后再在下方继续检查和发布。
+              Studio 运行时以“默认启用 Profile 的 Active revision”为准。Draft 可修改或删除；
+              Active / Archived 只保留历史，修错请新建或继续编辑 Draft 后重新发布。
             </p>
           </div>
-          <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-            <label className="grid gap-2 text-sm font-bold">
-              <span>推荐模板</span>
-              <select
-                className="ds-input"
-                onChange={(event) => {
-                  const nextPresetId = event.target.value as ExecutionTemplatePreset;
-                  setSelectedPresetId(nextPresetId);
-                  setSelectedTemplateId(nextPresetId);
-                }}
-                value={selectedPresetId}
+          <DsButton onClick={() => void loadProfiles()} type="button" variant="secondary">
+            刷新配置
+          </DsButton>
+        </div>
+
+        {profileMessage ? (
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-success)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-success)]">
+            {profileMessage}
+          </p>
+        ) : null}
+        {profileError ? (
+          <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger)]/30 bg-[var(--ds-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ds-danger)]">
+            {profileError}
+          </p>
+        ) : null}
+
+        {!hasUsableConfiguration ? (
+          <section className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface-raised)] p-4">
+            <div>
+              <h4 className="font-black">当前模型还没有可用默认 Profile</h4>
+              <p className="ds-muted mt-1 text-sm leading-6">
+                先选择一个官方模板，系统会自动创建默认 Profile 并导入首个 Draft revision。
+                完成后再检查和发布。
+              </p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+              <label className="grid gap-2 text-sm font-bold">
+                <span>推荐模板</span>
+                <select
+                  className="ds-input"
+                  onChange={(event) => {
+                    const nextPresetId = event.target.value as ExecutionTemplatePreset;
+                    setSelectedPresetId(nextPresetId);
+                    setSelectedTemplateId(nextPresetId);
+                  }}
+                  value={selectedPresetId}
+                >
+                  {EXECUTION_TEMPLATE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <DsInput
+                label="upstream_model_id"
+                onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
+                value={templateUpstreamModelId}
+              />
+            </div>
+            <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
+              <p className="font-black">{selectedPreset.label}</p>
+              <p className="ds-muted mt-2 leading-6">{selectedPreset.description}</p>
+              <p className="mt-3 text-xs font-semibold">
+                将创建：`{selectedPreset.profileDefaults.name}` / adapter `{selectedPreset.adapterKey}
+                `
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <DsButton
+                disabled={savingProfile}
+                onClick={() => void createProfileFromPreset()}
+                type="button"
               >
-                {EXECUTION_TEMPLATE_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <DsInput
-              label="upstream_model_id"
-              onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
-              value={templateUpstreamModelId}
-            />
-          </div>
-          <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
-            <p className="font-black">{selectedPreset.label}</p>
-            <p className="ds-muted mt-2 leading-6">{selectedPreset.description}</p>
-            <p className="mt-3 text-xs font-semibold">
-              将创建：`{selectedPreset.profileDefaults.name}` / adapter `{selectedPreset.adapterKey}
-              `
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+                {savingProfile ? '创建中...' : '一键生成默认 Profile'}
+              </DsButton>
+              <DsButton
+                disabled={savingProfile}
+                onClick={() => {
+                  setSelectedProfileId(null);
+                  setSelectedRevisionId(null);
+                  setProfileDraft(emptyProfilePayload(model));
+                  setRevisionDraft(null);
+                }}
+                type="button"
+                variant="secondary"
+              >
+                改为手动创建
+              </DsButton>
+            </div>
+          </section>
+        ) : null}
+
+        <div className="grid gap-4 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4 lg:grid-cols-4">
+          <InfoPill label="默认可用" value={hasUsableConfiguration ? '是' : '否'} />
+          <InfoPill
+            label="当前 Draft"
+            value={draftRevision ? `r${draftRevision.revision_no}` : '无 Draft'}
+          />
+          <InfoPill
+            label="当前 Active"
+            value={activeRevision ? `r${activeRevision.revision_no}` : '未发布'}
+          />
+          <InfoPill
+            label="下一步"
+            value={
+              !selectedProfile
+                ? '先选择或新建 Profile'
+                : draftRevision
+                  ? '继续编辑 Draft'
+                  : activeRevision
+                    ? '基于 Active 新建 Draft'
+                    : '创建首个 Draft'
+            }
+          />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
+          <div className="grid content-start gap-2">
+            {loadingProfiles ? <p className="ds-muted text-sm font-semibold">正在读取...</p> : null}
+            {profiles.map((profile) => {
+              const profileDraftRevision =
+                profile.revisions?.find((revision) => revision.status === 'draft') ?? null;
+              const profileActiveRevision =
+                profile.revisions?.find((revision) => revision.status === 'active') ?? null;
+              return (
+                <button
+                  className={`rounded-[var(--ds-radius-sm)] border p-3 text-left text-sm ${
+                    profile.id === selectedProfileId
+                      ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
+                      : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
+                  }`}
+                  key={profile.id}
+                  onClick={() => selectProfile(profile)}
+                  type="button"
+                >
+                  <strong>{profile.name}</strong>
+                  <span className="ds-muted mt-1 block break-all text-xs">{profile.adapter_key}</span>
+                  <span className="mt-2 flex flex-wrap gap-1 text-xs font-black">
+                    {profile.is_default ? <span>默认</span> : null}
+                    {profile.routing_role ? <span>{routingRoleLabel(profile.routing_role)}</span> : null}
+                    {profile.is_enabled ? <span>启用</span> : <span>禁用</span>}
+                    <span>
+                      {profileActiveRevision
+                        ? `Active r${profileActiveRevision.revision_no}`
+                        : '未发布'}
+                    </span>
+                    <span>
+                      {profileDraftRevision ? `Draft r${profileDraftRevision.revision_no}` : '无 Draft'}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
             <DsButton
-              disabled={savingProfile}
-              onClick={() => void createProfileFromPreset()}
-              type="button"
-            >
-              {savingProfile ? '创建中...' : '一键生成默认 Profile'}
-            </DsButton>
-            <DsButton
-              disabled={savingProfile}
               onClick={() => {
                 setSelectedProfileId(null);
                 setSelectedRevisionId(null);
                 setProfileDraft(emptyProfilePayload(model));
                 setRevisionDraft(null);
+                setRevisionJsonText('');
+                setPreview(null);
+                setShowTemplateImport(false);
+                setShowRevisionJson(false);
+                setShowExpertProfileFields(false);
+                setDeleteDraftTarget(null);
               }}
               type="button"
               variant="secondary"
             >
-              改为手动创建
+              新建 Profile
             </DsButton>
           </div>
-        </section>
-      ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
-        <div className="grid content-start gap-2">
-          {loadingProfiles ? <p className="ds-muted text-sm font-semibold">正在读取...</p> : null}
-          {profiles.map((profile) => (
-            <button
-              className={`rounded-[var(--ds-radius-sm)] border p-3 text-left text-sm ${
-                profile.id === selectedProfileId
-                  ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
-                  : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
-              }`}
-              key={profile.id}
-              onClick={() => selectProfile(profile)}
-              type="button"
-            >
-              <strong>{profile.name}</strong>
-              <span className="ds-muted mt-1 block break-all text-xs">{profile.adapter_key}</span>
-              <span className="mt-2 flex flex-wrap gap-1 text-xs font-black">
-                {profile.is_default ? <span>默认</span> : null}
-                {profile.routing_role ? (
-                  <span>{routingRoleLabel(profile.routing_role)}</span>
-                ) : null}
-                {profile.is_enabled ? <span>启用</span> : <span>禁用</span>}
-                <span>{profile.revisions?.length ?? 0} rev</span>
-                {(profile.revisions ?? []).some((revision) => revision.status === 'draft') ? (
-                  <span>有 Draft</span>
-                ) : null}
-              </span>
-            </button>
-          ))}
-          <DsButton
-            onClick={() => {
-              setSelectedProfileId(null);
-              setSelectedRevisionId(null);
-              setProfileDraft(emptyProfilePayload(model));
-              setRevisionDraft(null);
-              setRevisionJsonText('');
-              setPreview(null);
-              setShowTemplateImport(false);
-              setShowRevisionJson(false);
-              setShowExpertProfileFields(false);
-            }}
-            type="button"
-            variant="secondary"
-          >
-            新建 Profile
-          </DsButton>
-        </div>
-
-        <div className="grid gap-4">
-          {profileDraft ? (
-            <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h4 className="font-black">Profile</h4>
-                  <p className="ds-muted mt-1 text-sm">
-                    定义这条执行配置的默认 adapter、默认模型与参考图能力。
-                  </p>
-                </div>
-                <DsButton
-                  onClick={() => setShowExpertProfileFields((current) => !current)}
-                  type="button"
-                  variant="secondary"
-                >
-                  {showExpertProfileFields ? '收起专家字段' : '展开专家字段'}
-                </DsButton>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DsInput
-                  label="名称"
-                  onChange={(event) =>
-                    setProfileDraft((current) => ({ ...(current ?? {}), name: event.target.value }))
-                  }
-                  value={profileDraft.name ?? ''}
-                />
-                <DsInput
-                  label="upstream_model_id"
-                  onChange={(event) =>
-                    setProfileDraft((current) => ({
-                      ...(current ?? {}),
-                      upstream_model_id: event.target.value,
-                    }))
-                  }
-                  value={profileDraft.upstream_model_id ?? ''}
-                />
-                <DsInput
-                  label="endpoint_path"
-                  onChange={(event) =>
-                    setProfileDraft((current) => ({
-                      ...(current ?? {}),
-                      upstream_endpoint_path: event.target.value || null,
-                    }))
-                  }
-                  value={profileDraft.upstream_endpoint_path ?? ''}
-                />
-                <DsInput
-                  label="sort_order"
-                  onChange={(event) =>
-                    setProfileDraft((current) => ({
-                      ...(current ?? {}),
-                      sort_order: Number(event.target.value),
-                    }))
-                  }
-                  type="number"
-                  value={profileDraft.sort_order ?? 0}
-                />
-                <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 text-sm font-black">
-                  <input
-                    checked={profileDraft.is_default === true}
-                    onChange={(event) =>
-                      setProfileDraft((current) => ({
-                        ...(current ?? {}),
-                        is_default: event.target.checked,
-                      }))
-                    }
-                    type="checkbox"
-                  />
-                  默认
-                </label>
-                <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 text-sm font-black">
-                  <input
-                    checked={profileDraft.is_enabled !== false}
-                    onChange={(event) =>
-                      setProfileDraft((current) => ({
-                        ...(current ?? {}),
-                        is_enabled: event.target.checked,
-                      }))
-                    }
-                    type="checkbox"
-                  />
-                  启用
-                </label>
-              </div>
-              <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 md:grid-cols-3">
-                <InfoPill label="Adapter" value={profileDraft.adapter_key ?? '-'} />
-                <InfoPill
-                  label="Routing role"
-                  value={routingRoleLabel(profileDraft.routing_role ?? null)}
-                />
-                <InfoPill
-                  label="Reference mode"
-                  value={profileDraft.reference_transfer_mode ?? '-'}
-                />
-              </div>
-              {showExpertProfileFields ? (
-                <div className="grid gap-3 md:grid-cols-3">
-                  <label className="grid gap-2 text-sm font-bold">
-                    <span>operation</span>
-                    <select
-                      className="ds-input"
-                      onChange={(event) =>
-                        setProfileDraft((current) => ({
-                          ...(current ?? {}),
-                          operation: event.target.value as ExecutionProfileOperation,
-                        }))
-                      }
-                      value={profileDraft.operation ?? 'text_to_image'}
-                    >
-                      {EXECUTION_OPERATIONS.map((operation) => (
-                        <option key={operation} value={operation}>
-                          {operation}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <DsInput
-                    label="adapter_key"
-                    onChange={(event) =>
-                      setProfileDraft((current) => ({
-                        ...(current ?? {}),
-                        adapter_key: event.target.value,
-                      }))
-                    }
-                    value={profileDraft.adapter_key ?? ''}
-                  />
-                  <label className="grid gap-2 text-sm font-bold">
-                    <span>routing_role</span>
-                    <select
-                      className="ds-input"
-                      onChange={(event) =>
-                        setProfileDraft((current) => ({
-                          ...(current ?? {}),
-                          routing_role:
-                            (event.target.value as ExecutionProfileRoutingRole | '') || null,
-                        }))
-                      }
-                      value={profileDraft.routing_role ?? ''}
-                    >
-                      {EXECUTION_ROUTING_ROLES.map((role) => (
-                        <option key={role || 'none'} value={role}>
-                          {routingRoleLabel(role || null)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-2 text-sm font-bold">
-                    <span>reference_transfer_mode</span>
-                    <select
-                      className="ds-input"
-                      onChange={(event) =>
-                        setProfileDraft((current) => ({
-                          ...(current ?? {}),
-                          reference_transfer_mode: event.target.value as ReferenceTransferMode,
-                        }))
-                      }
-                      value={profileDraft.reference_transfer_mode ?? 'none'}
-                    >
-                      {TRANSFER_MODES.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <DsButton disabled={savingProfile} onClick={saveProfile} type="button">
-                  保存 Profile
-                </DsButton>
-                {selectedProfile ? (
-                  <DsButton disabled={savingProfile} onClick={createDraftRevision} type="button">
-                    新建 Draft Revision
+          <div className="grid gap-4">
+            {profileDraft ? (
+              <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-black">Profile</h4>
+                    <p className="ds-muted mt-1 text-sm leading-6">
+                      定义这条执行配置的用途、默认模型和参考图能力。停用后 Studio 不再选用它；
+                      取消默认或停用当前默认 Profile 可能让该模型从 `/studio` 隐藏。
+                    </p>
+                  </div>
+                  <DsButton
+                    onClick={() => setShowExpertProfileFields((current) => !current)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    {showExpertProfileFields ? '收起专家字段' : '展开专家字段'}
                   </DsButton>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {selectedProfile ? (
-            <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h4 className="font-black">模板导入</h4>
-                  <p className="ds-muted mt-1 text-sm">
-                    低频操作。需要导入官方模板或 compatible 草稿时再展开。
-                  </p>
                 </div>
-                <DsButton
-                  onClick={() => setShowTemplateImport((current) => !current)}
-                  type="button"
-                  variant="secondary"
-                >
-                  {showTemplateImport ? '收起模板导入' : '展开模板导入'}
-                </DsButton>
-              </div>
-              {showTemplateImport ? (
-                <>
-                  <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_1fr]">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <DsInput
+                    label="名称"
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({ ...(current ?? {}), name: event.target.value }))
+                    }
+                    value={profileDraft.name ?? ''}
+                  />
+                  <DsInput
+                    label="upstream_model_id"
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        upstream_model_id: event.target.value,
+                      }))
+                    }
+                    value={profileDraft.upstream_model_id ?? ''}
+                  />
+                  <DsInput
+                    label="endpoint_path"
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        upstream_endpoint_path: event.target.value || null,
+                      }))
+                    }
+                    value={profileDraft.upstream_endpoint_path ?? ''}
+                  />
+                  <DsInput
+                    label="sort_order"
+                    onChange={(event) =>
+                      setProfileDraft((current) => ({
+                        ...(current ?? {}),
+                        sort_order: Number(event.target.value),
+                      }))
+                    }
+                    type="number"
+                    value={profileDraft.sort_order ?? 0}
+                  />
+                  <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 text-sm font-black">
+                    <input
+                      checked={profileDraft.is_default === true}
+                      onChange={(event) =>
+                        setProfileDraft((current) => ({
+                          ...(current ?? {}),
+                          is_default: event.target.checked,
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    默认
+                  </label>
+                  <label className="flex items-center gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 text-sm font-black">
+                    <input
+                      checked={profileDraft.is_enabled !== false}
+                      onChange={(event) =>
+                        setProfileDraft((current) => ({
+                          ...(current ?? {}),
+                          is_enabled: event.target.checked,
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    启用
+                  </label>
+                </div>
+                {profileDraft.routing_role === 'reference_edit' ? (
+                  <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-4 py-3 text-sm font-semibold text-[var(--ds-warning)]">
+                    `Reference edit` companion 只用于有参考图时的自动切换，不能作为默认主 Profile。
+                  </p>
+                ) : null}
+                <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 md:grid-cols-3">
+                  <InfoPill label="Adapter" value={profileDraft.adapter_key ?? '-'} />
+                  <InfoPill
+                    label="Routing role"
+                    value={routingRoleLabel(profileDraft.routing_role ?? null)}
+                  />
+                  <InfoPill
+                    label="Reference mode"
+                    value={profileDraft.reference_transfer_mode ?? '-'}
+                  />
+                </div>
+                {showExpertProfileFields ? (
+                  <div className="grid gap-3 md:grid-cols-3">
                     <label className="grid gap-2 text-sm font-bold">
-                      <span>Profile template</span>
+                      <span>operation</span>
                       <select
                         className="ds-input"
-                        onChange={(event) => setSelectedTemplateId(event.target.value)}
-                        value={selectedTemplateId}
+                        onChange={(event) =>
+                          setProfileDraft((current) => ({
+                            ...(current ?? {}),
+                            operation: event.target.value as ExecutionProfileOperation,
+                          }))
+                        }
+                        value={profileDraft.operation ?? 'text_to_image'}
                       >
-                        {templates.map((template) => (
-                          <option key={template.id} value={template.id}>
-                            {template.label}
+                        {EXECUTION_OPERATIONS.map((operation) => (
+                          <option key={operation} value={operation}>
+                            {operation}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <DsInput
+                      label="adapter_key"
+                      onChange={(event) =>
+                        setProfileDraft((current) => ({
+                          ...(current ?? {}),
+                          adapter_key: event.target.value,
+                        }))
+                      }
+                      value={profileDraft.adapter_key ?? ''}
+                    />
+                    <label className="grid gap-2 text-sm font-bold">
+                      <span>routing_role</span>
+                      <select
+                        className="ds-input"
+                        onChange={(event) =>
+                          setProfileDraft((current) => ({
+                            ...(current ?? {}),
+                            routing_role:
+                              (event.target.value as ExecutionProfileRoutingRole | '') || null,
+                          }))
+                        }
+                        value={profileDraft.routing_role ?? ''}
+                      >
+                        {EXECUTION_ROUTING_ROLES.map((role) => (
+                          <option key={role || 'none'} value={role}>
+                            {routingRoleLabel(role || null)}
                           </option>
                         ))}
                       </select>
                     </label>
                     <label className="grid gap-2 text-sm font-bold">
-                      <span>导入模式</span>
+                      <span>reference_transfer_mode</span>
                       <select
                         className="ds-input"
                         onChange={(event) =>
-                          setTemplateImportMode(event.target.value as ProfileTemplateImportMode)
+                          setProfileDraft((current) => ({
+                            ...(current ?? {}),
+                            reference_transfer_mode: event.target.value as ReferenceTransferMode,
+                          }))
                         }
-                        value={templateImportMode}
+                        value={profileDraft.reference_transfer_mode ?? 'none'}
                       >
-                        <option value="template">按模板来源导入</option>
-                        <option
-                          disabled={!selectedTemplate?.compatible_copy_allowed}
-                          value="openai_compatible_copy"
-                        >
-                          复制为 compatible 草稿
-                        </option>
+                        {TRANSFER_MODES.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
                       </select>
                     </label>
-                    <DsInput
-                      label="upstream_model_id"
-                      onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
-                      value={templateUpstreamModelId}
-                    />
                   </div>
-                  {selectedTemplate ? (
-                    <div className="grid gap-2 text-sm">
-                      <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
-                      <p className="break-all font-semibold">
-                        {selectedTemplate.adapter_key} ·{' '}
-                        {selectedTemplate.source_url ?? 'no source'}
-                      </p>
-                      <p className="text-xs font-semibold">
-                        Runtime {selectedTemplate.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
-                        {selectedTemplate.publishable ? 'publishable' : 'blocked'}
-                        {selectedTemplate.blocked_reason
-                          ? ` · ${selectedTemplate.blocked_reason}`
-                          : ''}
-                      </p>
-                      <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
-                        {selectedTemplate.compatible_warning}
-                      </p>
-                    </div>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <DsButton disabled={savingProfile} onClick={saveProfile} type="button">
+                    保存 Profile
+                  </DsButton>
+                  {selectedProfile ? (
+                    <DsButton disabled={savingProfile} onClick={createDraftRevision} type="button">
+                      {activeRevision ? '基于当前 Active 新建 Draft' : '新建 Draft Revision'}
+                    </DsButton>
                   ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {selectedProfile ? (
+              <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-black">模板导入</h4>
+                    <p className="ds-muted mt-1 text-sm">
+                      低频操作。只在需要按官方模板重建 Draft 或导入 compatible 草稿时使用。
+                    </p>
+                  </div>
                   <DsButton
-                    className="w-fit"
-                    disabled={savingProfile || !selectedTemplateId}
-                    onClick={importSelectedTemplate}
+                    onClick={() => setShowTemplateImport((current) => !current)}
                     type="button"
                     variant="secondary"
                   >
-                    从模板导入 Draft
+                    {showTemplateImport ? '收起模板导入' : '展开模板导入'}
                   </DsButton>
-                </>
-              ) : (
-                <p className="rounded-[var(--ds-radius-sm)] border border-dashed border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
-                  选择现有 Profile 后，可按官方模板或 compatible copy 生成新的 Draft revision。
-                </p>
-              )}
-            </div>
-          ) : null}
+                </div>
+                {showTemplateImport ? (
+                  <>
+                    <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_1fr]">
+                      <label className="grid gap-2 text-sm font-bold">
+                        <span>Profile template</span>
+                        <select
+                          className="ds-input"
+                          onChange={(event) => setSelectedTemplateId(event.target.value)}
+                          value={selectedTemplateId}
+                        >
+                          {templates.map((template) => (
+                            <option key={template.id} value={template.id}>
+                              {template.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        <span>导入模式</span>
+                        <select
+                          className="ds-input"
+                          onChange={(event) =>
+                            setTemplateImportMode(event.target.value as ProfileTemplateImportMode)
+                          }
+                          value={templateImportMode}
+                        >
+                          <option value="template">按模板来源导入</option>
+                          <option
+                            disabled={!selectedTemplate?.compatible_copy_allowed}
+                            value="openai_compatible_copy"
+                          >
+                            复制为 compatible 草稿
+                          </option>
+                        </select>
+                      </label>
+                      <DsInput
+                        label="upstream_model_id"
+                        onChange={(event) => setTemplateUpstreamModelId(event.target.value)}
+                        value={templateUpstreamModelId}
+                      />
+                    </div>
+                    {selectedTemplate ? (
+                      <div className="grid gap-2 text-sm">
+                        <p className="ds-muted font-semibold">{selectedTemplate.description}</p>
+                        <p className="break-all font-semibold">
+                          {selectedTemplate.adapter_key} · {selectedTemplate.source_url ?? 'no source'}
+                        </p>
+                        <p className="text-xs font-semibold">
+                          Runtime {selectedTemplate.runtime_supported ? 'supported' : 'unsupported'} ·{' '}
+                          {selectedTemplate.publishable ? 'publishable' : 'blocked'}
+                          {selectedTemplate.blocked_reason
+                            ? ` · ${selectedTemplate.blocked_reason}`
+                            : ''}
+                        </p>
+                        <p className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-warning)]/30 bg-[var(--ds-surface)] px-3 py-2 text-xs font-semibold text-[var(--ds-warning)]">
+                          {selectedTemplate.compatible_warning}
+                        </p>
+                      </div>
+                    ) : null}
+                    <DsButton
+                      className="w-fit"
+                      disabled={savingProfile || !selectedTemplateId}
+                      onClick={importSelectedTemplate}
+                      type="button"
+                      variant="secondary"
+                    >
+                      从模板导入 Draft
+                    </DsButton>
+                  </>
+                ) : (
+                  <p className="rounded-[var(--ds-radius-sm)] border border-dashed border-[var(--ds-border)] bg-[var(--ds-surface)] p-4 text-sm">
+                    选择现有 Profile 后，可按官方模板或 compatible copy 生成新的 Draft revision。
+                  </p>
+                )}
+              </div>
+            ) : null}
 
-          {selectedProfile ? (
-            <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            {selectedProfile ? (
+              <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-black">Revision JSON</h4>
+                    <p className="ds-muted mt-1 text-sm">
+                      专家模式下可直接导入或导出完整 revision JSON。
+                    </p>
+                  </div>
+                  <DsButton
+                    onClick={() => setShowRevisionJson((current) => !current)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    {showRevisionJson ? '收起 JSON' : '展开 JSON'}
+                  </DsButton>
+                </div>
+                {showRevisionJson ? (
+                  <>
+                    <textarea
+                      className="ds-input min-h-52 py-3 font-mono text-xs"
+                      onChange={(event) => setRevisionJsonText(event.target.value)}
+                      value={revisionJsonText}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <DsButton
+                        disabled={savingProfile || !selectedRevision}
+                        onClick={exportSelectedRevisionJson}
+                        type="button"
+                        variant="secondary"
+                      >
+                        导出当前 Revision
+                      </DsButton>
+                      <DsButton
+                        disabled={savingProfile || !revisionJsonText.trim()}
+                        onClick={importRevisionJson}
+                        type="button"
+                        variant="secondary"
+                      >
+                        导入为 Draft
+                      </DsButton>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+
+            {selectedProfile?.revisions?.length ? (
+              <div className="grid gap-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] p-4">
                 <div>
-                  <h4 className="font-black">Revision JSON</h4>
+                  <h4 className="font-black">Revision 历史</h4>
                   <p className="ds-muted mt-1 text-sm">
-                    专家模式下可直接导入或导出完整 revision JSON。
+                    Draft 可修改或删除；Active / Archived 保留为历史记录，不直接删除。
                   </p>
                 </div>
-                <DsButton
-                  onClick={() => setShowRevisionJson((current) => !current)}
-                  type="button"
-                  variant="secondary"
-                >
-                  {showRevisionJson ? '收起 JSON' : '展开 JSON'}
-                </DsButton>
+                <div className="flex flex-wrap gap-2">
+                  {selectedProfile.revisions.map((revision) => (
+                    <button
+                      className={`rounded-[var(--ds-radius-sm)] border px-3 py-2 text-sm font-black ${
+                        revision.id === selectedRevisionId
+                          ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
+                          : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
+                      }`}
+                      key={revision.id}
+                      onClick={() => selectRevision(revision)}
+                      type="button"
+                    >
+                      r{revision.revision_no} / {revision.status}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {showRevisionJson ? (
-                <>
-                  <textarea
-                    className="ds-input min-h-52 py-3 font-mono text-xs"
-                    onChange={(event) => setRevisionJsonText(event.target.value)}
-                    value={revisionJsonText}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <DsButton
-                      disabled={savingProfile || !selectedRevision}
-                      onClick={exportSelectedRevisionJson}
-                      type="button"
-                      variant="secondary"
-                    >
-                      导出当前 Revision
-                    </DsButton>
-                    <DsButton
-                      disabled={savingProfile || !revisionJsonText.trim()}
-                      onClick={importRevisionJson}
-                      type="button"
-                      variant="secondary"
-                    >
-                      导入为 Draft
-                    </DsButton>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          ) : null}
+            ) : null}
 
-          {selectedProfile?.revisions?.length ? (
-            <div className="flex flex-wrap gap-2">
-              {selectedProfile.revisions.map((revision) => (
-                <button
-                  className={`rounded-[var(--ds-radius-sm)] border px-3 py-2 text-sm font-black ${
-                    revision.id === selectedRevisionId
-                      ? 'border-[var(--ds-accent)] bg-[var(--ds-surface-raised)]'
-                      : 'border-[var(--ds-border)] bg-[var(--ds-surface)]'
-                  }`}
-                  key={revision.id}
-                  onClick={() => selectRevision(revision)}
-                  type="button"
-                >
-                  r{revision.revision_no} / {revision.status}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {selectedRevision && revisionDraft ? (
-            <RevisionEditor
-              disabled={savingProfile}
-              draft={revisionDraft}
-              mode={mode}
-              onDiff={loadRevisionDiff}
-              onAction={runRevisionAction}
-              onChange={setRevisionDraft}
-              onSave={saveRevision}
-              preview={preview}
-              revisionDiff={revisionDiff}
-              revision={selectedRevision}
-            />
-          ) : null}
+            {selectedRevision && revisionDraft ? (
+              <RevisionEditor
+                disabled={savingProfile}
+                draft={revisionDraft}
+                mode={mode}
+                onDiff={loadRevisionDiff}
+                onAction={runRevisionAction}
+                onChange={setRevisionDraft}
+                onDeleteDraft={() =>
+                  setDeleteDraftTarget(selectedRevision.status === 'draft' ? selectedRevision : null)
+                }
+                onSave={saveRevision}
+                preview={preview}
+                revisionDiff={revisionDiff}
+                revision={selectedRevision}
+              />
+            ) : null}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {deleteDraftTarget ? (
+        <AdminConfirmDialog
+          confirmLabel={savingProfile ? '删除中...' : '删除 Draft'}
+          description={`将删除 Draft revision r${deleteDraftTarget.revision_no}。已发布历史不会受影响；删除后你仍可基于当前 Active 再新建 Draft。`}
+          disabled={savingProfile}
+          error={profileError}
+          onCancel={() => {
+            if (!savingProfile) {
+              setDeleteDraftTarget(null);
+              setProfileError(null);
+            }
+          }}
+          onConfirm={() => void removeDraftRevision(deleteDraftTarget)}
+          title="删除 Draft revision？"
+          variant="danger"
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -1926,6 +2036,7 @@ function RevisionEditor({
   onDiff,
   onAction,
   onChange,
+  onDeleteDraft,
   onSave,
   preview,
   revisionDiff,
@@ -1937,6 +2048,7 @@ function RevisionEditor({
   onDiff: () => Promise<void>;
   onAction: (kind: 'lint' | 'preview' | 'test' | 'activate') => Promise<void>;
   onChange: (draft: ExecutionProfileRevisionPayload) => void;
+  onDeleteDraft: () => void;
   onSave: () => Promise<void>;
   preview: ExecutionProfilePreviewResult | null;
   revisionDiff: ExecutionProfileRevisionDiffResult | null;
@@ -1967,7 +2079,7 @@ function RevisionEditor({
           <p className="ds-muted mt-1 text-sm">
             {mode === 'release'
               ? '优先检查 lint、请求预览、diff、dry run 和发布阻塞项。'
-              : '默认维护快捷参数和默认参数，原始 JSON 收在专家字段里。'}
+              : '默认维护快捷参数和默认参数。Draft 可修改或删除，已发布历史保留在这里供对照。'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -2013,6 +2125,16 @@ function RevisionEditor({
           <DsButton disabled={disabled} onClick={() => void onAction('activate')} type="button">
             发布
           </DsButton>
+          {revision.status === 'draft' ? (
+            <DsButton
+              disabled={disabled}
+              onClick={onDeleteDraft}
+              type="button"
+              variant="danger"
+            >
+              删除 Draft
+            </DsButton>
+          ) : null}
           <DsButton
             onClick={() => setShowExpertDraftFields((current) => !current)}
             type="button"

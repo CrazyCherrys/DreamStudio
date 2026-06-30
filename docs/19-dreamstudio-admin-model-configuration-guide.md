@@ -61,6 +61,11 @@
 - `启用`：勾选
 - `推荐`：按产品需要决定
 
+现在基础信息页会把这些字段放在“展示与兼容信息”区域里，表示：
+
+- 它们仍然要维护，但主要用于目录展示、筛选和兼容回退
+- 配置官方模型和日常修错时，优先关注默认启用 Profile 的 Active revision
+
 ### 图标区怎么用
 
 - 基础信息页不再直接显示 `图标 URL` 输入框。
@@ -112,20 +117,57 @@
 
 只要没有 `发布`，`/studio` 都不会切到新配置。
 
+### 当前配置工作区怎么理解
+
+新版执行配置区会先显示“当前配置工作区”，直接告诉你：
+
+- 当前是否已经有默认可用 Profile
+- 当前 Draft revision 是哪一个
+- 当前 Active revision 是哪一个
+- 下一步应该继续改 Draft，还是先基于 Active 新建 Draft
+
+日常维护建议按下面做：
+
+1. 先选中要维护的 Profile
+2. 如果已经有 Draft，直接继续改当前 Draft
+3. 如果只有 Active，没有 Draft，点 `基于当前 Active 新建 Draft`
+4. 完成后执行 `Lint`、`预览请求`、`Diff`、`Dry run`
+5. 确认无误再点击 `发布`
+
 ### 新版执行配置界面怎么理解
 
 - `执行配置` 步骤：
-  - 重点看 Profile 基础信息、快捷参数和默认参数
-  - 适合日常配置和官方模板维护
+  - 重点看 Profile 基础信息、当前 Draft、快捷参数和默认参数
+  - 适合日常配置、修错和官方模板维护
 - `发布检查` 步骤：
   - 重点看 `Lint / 预览请求 / Diff / Dry run / 发布`
   - 请求预览会直接显示 `runtime_supported / publishable / parser / publish_blockers`
 - `模板导入`：
   - 默认折叠
-  - 只有需要导入官方模板或 compatible 草稿时再展开
+  - 只有需要按模板重建 Draft 或导入 compatible 草稿时再展开
 - `专家字段`：
   - `Profile 专家字段`、`Revision JSON`、`request_mapping`、`capabilities`、`validation_rules`、原始 revision 字段默认折叠
   - 只在需要协议级自定义、JSON 导入导出或排障时展开
+
+### Draft / Active / 历史怎么处理
+
+- `Draft`：
+  - 可以直接修改
+  - 现在可以直接删除
+  - 删除后不会影响已发布版本
+- `Active`：
+  - 是当前 Studio 真正使用的版本
+  - 不能直接删除
+  - 修错时应该新建 Draft 或继续编辑现有 Draft，再重新发布覆盖
+- `Archived`：
+  - 只保留历史对照
+  - 不直接删除
+
+当前规则：
+
+- 只允许删除 `Draft revision`
+- 不提供 `Active revision` / `Archived revision` 删除
+- 当前版本不提供 `Profile` 删除入口，主要通过 `默认 / 启用` 来控制是否参与运行时选择
 
 ## 5. OpenAI 官方怎么配
 

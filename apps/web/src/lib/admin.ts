@@ -255,6 +255,7 @@ export function auditActionLabel(action: string) {
     admin_disable_user: '禁用用户',
     admin_soft_delete_user: '软删除用户',
     admin_reset_user_password: '重置密码',
+    admin_delete_execution_profile_revision: '删除 Draft Revision',
     admin_reveal_request_log_prompt: '查看完整 Prompt',
     admin_reveal_request_log_params: '查看完整参数',
     admin_update_system_setting: '更新系统设置',

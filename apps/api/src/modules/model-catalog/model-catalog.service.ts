@@ -849,6 +849,44 @@ export class ModelCatalogService {
     };
   }
 
+  async deleteExecutionProfileRevision(
+    revisionId: string,
+    session: SessionContext,
+    request: Request,
+  ) {
+    const existing = await this.findRevisionOrThrow(revisionId);
+    if (existing.status !== ExecutionProfileRevisionStatus.draft) {
+      throw apiError(
+        HttpStatus.CONFLICT,
+        'revision_not_deletable',
+        '只有未发布的 Draft revision 可以删除',
+      );
+    }
+
+    const revision = await prisma.aiModelExecutionProfileRevision.delete({
+      where: {
+        id: existing.id,
+      },
+    });
+
+    await this.auditLogService.write({
+      action: 'admin_delete_execution_profile_revision',
+      targetType: 'ai_model_execution_profile_revision',
+      targetId: revision.id,
+      session,
+      request,
+      metadata: {
+        execution_profile_id: revision.executionProfileId,
+        revision_no: revision.revisionNo,
+      },
+    });
+
+    return {
+      deleted: true,
+      item: this.serializeExecutionProfileRevision(revision),
+    };
+  }
+
   async lintExecutionProfileRevision(revisionId: string) {
     const revision = await this.findRevisionOrThrow(revisionId);
     return {

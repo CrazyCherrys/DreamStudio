@@ -221,6 +221,19 @@ export class AdminExecutionProfileRevisionsController {
     );
   }
 
+  @Delete(':revisionId')
+  @UseGuards(CsrfGuard)
+  deleteExecutionProfileRevision(
+    @Param('revisionId') revisionId: string,
+    @Req() request: AuthenticatedRequest & Request,
+  ) {
+    return this.modelCatalogService.deleteExecutionProfileRevision(
+      revisionId,
+      request.auth!,
+      request,
+    );
+  }
+
   @Post(':revisionId/preview-request')
   @HttpCode(200)
   @UseGuards(CsrfGuard)

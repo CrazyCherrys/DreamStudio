@@ -503,6 +503,16 @@ export function updateExecutionProfileRevision(
   );
 }
 
+export function deleteExecutionProfileRevision(revisionId: string, csrfToken: string) {
+  return apiRequest<{ deleted: boolean; item: AdminExecutionProfileRevision }>(
+    `/api/v1/admin/execution-profile-revisions/${revisionId}`,
+    {
+      method: 'DELETE',
+      csrfToken,
+    },
+  );
+}
+
 export function lintExecutionProfileRevision(revisionId: string, csrfToken: string) {
   return apiRequest<{ result: ExecutionProfileLintResult }>(
     `/api/v1/admin/execution-profile-revisions/${revisionId}/lint`,
