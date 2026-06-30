@@ -24,6 +24,16 @@ export interface PublicImageTask {
   model_record_id: string;
   model_id: string;
   endpoint_type: string;
+  execution_profile_snapshot: {
+    profile_id: string;
+    revision_id: string;
+    name: string;
+    operation: string;
+    routing_role: string | null;
+    adapter_key: string;
+    parameter_schema: unknown[];
+    default_params: Record<string, unknown>;
+  } | null;
   execution_profile_id: string | null;
   execution_profile_revision_id: string | null;
   execution_profile_name: string | null;

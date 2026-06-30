@@ -510,16 +510,27 @@ function StudioContent() {
     }
 
     const parameters = normalizeSnapshotParameters(task.sanitized_parameter_snapshot);
-    const defaultParameters = normalizeSnapshotParameters(selectedDefaultParams);
-    const expectedTileCount = resolveExpectedTileCount(quickParameters, {
-      ...defaultParameters,
+    const replayExecutionProfile =
+      resolveExecutionProfileForTaskReplay(
+        task,
+        selectedGenerationExecutionProfile,
+        selectedReferenceEditExecutionProfile,
+      ) ?? selectedExecutionProfile;
+    const replayQuickParameters = buildQuickParameters(
+      replayExecutionProfile?.parameter_schema ?? selectedParameterSchema,
+    );
+    const replayDefaultParameters = normalizeSnapshotParameters(
+      replayExecutionProfile?.default_params ?? selectedDefaultParams,
+    );
+    const expectedTileCount = resolveExpectedTileCount(replayQuickParameters, {
+      ...replayDefaultParameters,
       ...parameters,
     });
     const created = await createImageTask(
       {
         model_record_id: selectedModel.id,
         execution_profile_id:
-          selectedExecutionProfile?.id ??
+          replayExecutionProfile?.id ??
           resolveExecutionProfileIdForTaskReplay(
             task,
             selectedGenerationExecutionProfile,
@@ -1600,8 +1611,13 @@ function buildStudioBatchParameterPills(
   batch: StudioCanvasBatch,
   quickParameters: QuickParameterConfig[],
 ) {
+  const snapshotSchema = Array.isArray(batch.task.execution_profile_snapshot?.parameter_schema)
+    ? normalizeTaskSnapshotSchema(batch.task.execution_profile_snapshot.parameter_schema)
+    : [];
+  const effectiveQuickParameters =
+    snapshotSchema.length > 0 ? buildQuickParameters(snapshotSchema) : quickParameters;
   const snapshot = normalizeSnapshotParameters(batch.task.sanitized_parameter_snapshot);
-  const pills = quickParameters.map((config) => {
+  const pills = effectiveQuickParameters.map((config) => {
     if (config.kind === 'count') {
       return null;
     }
@@ -1616,6 +1632,23 @@ function buildStudioBatchParameterPills(
     };
   });
   return pills.filter(Boolean) as Array<{ key: QuickParameterKind; label: string; value: string }>;
+}
+
+function normalizeTaskSnapshotSchema(schema: unknown[]) {
+  return schema.filter(isTaskSnapshotParameterSchemaField);
+}
+
+function isTaskSnapshotParameterSchemaField(value: unknown): value is ParameterSchemaField {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.key === 'string' &&
+    typeof candidate.label === 'string' &&
+    typeof candidate.type === 'string' &&
+    typeof candidate.required === 'boolean'
+  );
 }
 
 function buildReferenceFilename(asset: PublicTaskAsset) {
@@ -1767,6 +1800,20 @@ function resolveExecutionProfileIdForTaskReplay(
     return referenceEditProfile.id;
   }
   return generationProfile?.id ?? task.execution_profile_id;
+}
+
+function resolveExecutionProfileForTaskReplay(
+  task: ImageTask,
+  generationProfile: PublicAiModel['default_execution_profile'],
+  referenceEditProfile: PublicAiModel['reference_edit_execution_profile'],
+) {
+  if (task.reference_asset_ids.length > 0 && referenceEditProfile) {
+    return referenceEditProfile;
+  }
+  if (task.reference_asset_ids.length === 0 && generationProfile) {
+    return generationProfile;
+  }
+  return null;
 }
 
 function isParameterValue(value: unknown): value is string | number | boolean | null {

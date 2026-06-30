@@ -811,6 +811,7 @@ export class ImageTasksService implements OnModuleDestroy {
       model_record_id: task.modelRecordId,
       model_id: task.modelIdSnapshot,
       endpoint_type: task.endpointTypeSnapshot,
+      execution_profile_snapshot: this.readExecutionProfileSnapshot(task.executionProfileSnapshot),
       execution_profile_id: task.executionProfileId,
       execution_profile_revision_id: task.executionProfileRevisionId,
       execution_profile_name: this.readExecutionProfileSnapshotName(task.executionProfileSnapshot),
@@ -846,6 +847,33 @@ export class ImageTasksService implements OnModuleDestroy {
         is_retryable: attempt.isRetryable,
         created_at: attempt.createdAt.toISOString(),
       })),
+    };
+  }
+
+  private readExecutionProfileSnapshot(snapshot: unknown) {
+    const record = toInputRecord(snapshot);
+    const parameterSchema = Array.isArray(record.parameter_schema)
+      ? (record.parameter_schema as unknown[])
+      : [];
+    const defaultParams = toInputRecord(record.default_params) as Record<string, unknown>;
+    if (
+      typeof record.profile_id !== 'string' ||
+      typeof record.revision_id !== 'string' ||
+      typeof record.name !== 'string' ||
+      typeof record.operation !== 'string' ||
+      typeof record.adapter_key !== 'string'
+    ) {
+      return null;
+    }
+    return {
+      profile_id: record.profile_id,
+      revision_id: record.revision_id,
+      name: record.name,
+      operation: record.operation,
+      routing_role: typeof record.routing_role === 'string' ? record.routing_role : null,
+      adapter_key: record.adapter_key,
+      parameter_schema: parameterSchema,
+      default_params: defaultParams,
     };
   }
 

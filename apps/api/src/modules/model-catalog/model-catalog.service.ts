@@ -479,6 +479,7 @@ export class ModelCatalogService {
     this.assertUuid(modelRecordId, 'model_record_id');
     await this.assertModelExists(modelRecordId);
     const input = this.validateExecutionProfileBody(body, { partial: false });
+    await this.assertExecutionProfileRoutingInvariants(modelRecordId, input);
     const data = input as Prisma.AiModelExecutionProfileUncheckedCreateInput;
 
     const profile = await prisma.$transaction(async (tx) => {
@@ -538,6 +539,7 @@ export class ModelCatalogService {
   ) {
     const existing = await this.findExecutionProfileOrThrow(profileId, false);
     const input = this.validateExecutionProfileBody(body, { partial: true });
+    await this.assertExecutionProfileRoutingInvariants(existing.aiModelId, input, existing.id);
     const data = input as Prisma.AiModelExecutionProfileUncheckedUpdateInput;
 
     const profile = await prisma.$transaction(async (tx) => {
@@ -1437,6 +1439,79 @@ export class ModelCatalogService {
       throw apiError(HttpStatus.NOT_FOUND, 'not_found', '执行配置不存在');
     }
     return profile;
+  }
+
+  private async assertExecutionProfileRoutingInvariants(
+    modelRecordId: string,
+    input:
+      | Prisma.AiModelExecutionProfileUncheckedCreateInput
+      | Prisma.AiModelExecutionProfileUncheckedUpdateInput,
+    existingProfileId?: string,
+  ) {
+    const isDefault = input.isDefault === true;
+    const routingRole = input.routingRole ?? null;
+    const adapterKey = typeof input.adapterKey === 'string' ? input.adapterKey : null;
+    const isEnabled = input.isEnabled !== false;
+
+    if (isDefault && routingRole === ExecutionProfileRoutingRole.reference_edit) {
+      throw validationFailed([
+        {
+          field: 'routing_role',
+          message: 'reference_edit 不能作为默认主 profile',
+        },
+      ]);
+    }
+
+    if (routingRole === ExecutionProfileRoutingRole.reference_edit && adapterKey !== null) {
+      if (adapterKey !== 'openai_images_edit') {
+        throw validationFailed([
+          {
+            field: 'adapter_key',
+            message: 'reference_edit 当前只支持 openai_images_edit',
+          },
+        ]);
+      }
+    }
+
+    if (
+      isDefault &&
+      routingRole === ExecutionProfileRoutingRole.primary_generation &&
+      adapterKey !== null &&
+      adapterKey !== 'openai_images_generation'
+    ) {
+      throw validationFailed([
+        {
+          field: 'adapter_key',
+          message: '默认 primary_generation 当前只支持 openai_images_generation',
+        },
+      ]);
+    }
+
+    if (routingRole === ExecutionProfileRoutingRole.reference_edit && isEnabled) {
+      const count = await prisma.aiModelExecutionProfile.count({
+        where: {
+          aiModelId: modelRecordId,
+          deletedAt: null,
+          isEnabled: true,
+          routingRole: ExecutionProfileRoutingRole.reference_edit,
+          ...(existingProfileId
+            ? {
+                id: {
+                  not: existingProfileId,
+                },
+              }
+            : {}),
+        },
+      });
+      if (count > 0) {
+        throw validationFailed([
+          {
+            field: 'routing_role',
+            message: '同一模型最多只能有一个启用的 reference_edit profile',
+          },
+        ]);
+      }
+    }
   }
 
   private async findRevisionOrThrow(revisionId: string) {

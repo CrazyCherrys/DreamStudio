@@ -69,6 +69,14 @@ async function main() {
       'default profile',
       failures,
     );
+    if (profile.routingRole === 'reference_edit') {
+      failures.push({
+        model_id: model.modelId,
+        profile_id: profile.id,
+        check: 'default_profile_routing_role',
+        message: '默认 profile 不能使用 reference_edit routing_role。',
+      });
+    }
 
     const activeRevisions = profile.revisions.filter((revision) => revision.status === 'active');
     if (activeRevisions.length !== 1) {
