@@ -131,9 +131,9 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="mt-5 grid gap-4">
               <div className="ds-mesh-panel ds-grid-trace rounded-[24px] border border-[var(--ds-border)] p-4">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
+                <div className="grid gap-4">
                   <div
                     className="rounded-[20px] border border-[var(--ds-border)] bg-[rgba(8,14,13,0.76)] p-4"
                   >
@@ -160,7 +160,7 @@ export default function HomePage() {
 
                   <div className="rounded-[20px] border border-[var(--ds-border)] bg-[rgba(255,255,255,0.035)] p-4">
                     <span className="text-sm font-black">当前任务概览</span>
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
                       {[
                         ['任务状态', 'running'],
                         ['结果批次', 'latest'],
@@ -197,7 +197,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="grid gap-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 {[
                   {
                     title: '任务追踪',
