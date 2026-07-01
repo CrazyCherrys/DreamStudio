@@ -244,6 +244,66 @@ select {
   pointer-events: none;
 }
 
+.ds-card-hover {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.ds-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--ds-border-strong);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.ds-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ds-brand-hover);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.ds-kicker::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(160deg, var(--ds-brand), var(--ds-accent));
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.3);
+  content: '';
+}
+
+.ds-grid-trace {
+  background-image:
+    linear-gradient(rgba(151, 176, 164, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(151, 176, 164, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.ds-mesh-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.ds-mesh-panel::after {
+  position: absolute;
+  inset: auto -14% -42% auto;
+  width: 240px;
+  height: 240px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.14), transparent 68%);
+  pointer-events: none;
+  content: '';
+}
+
 .ds-subtle-surface,
 .ds-info-surface {
   border: 1px solid var(--ds-border);

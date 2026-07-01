@@ -101,6 +101,40 @@ export function PublicPrimaryCta() {
   );
 }
 
+export function PublicSecondaryCta() {
+  const { loading, user } = useAuth();
+
+  if (loading) {
+    return (
+      <span aria-hidden="true" className="ds-button ds-button-secondary public-cta-placeholder">
+        请稍候
+      </span>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Link className="ds-button ds-button-secondary" href="/auth/login">
+        登录
+      </Link>
+    );
+  }
+
+  if (user.status === 'disabled') {
+    return (
+      <Link className="ds-button ds-button-secondary" href="/disabled">
+        查看账号状态
+      </Link>
+    );
+  }
+
+  return (
+    <Link className="ds-button ds-button-secondary" href="#setup-flow">
+      了解流程
+    </Link>
+  );
+}
+
 export function AuthModeSwitchLink({
   mode,
   nextPath,

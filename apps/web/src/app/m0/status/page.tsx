@@ -31,10 +31,10 @@ export default async function M0StatusPage() {
   return (
     <PublicLayout>
       <section className="ds-shell pb-20 pt-10">
-        <span className="ds-badge">M0 验证入口</span>
+        <span className="ds-badge">Runtime Status</span>
         <h1 className="ds-display mt-5 text-5xl font-black">基础进程与健康检查</h1>
         <p className="ds-muted mt-4 max-w-2xl leading-7">
-          这个页面只展示 M0 运行状态，不实现认证、密钥配置或图片生成业务。
+          这个页面用于部署验证和依赖健康检查，不作为公开首页的主入口。
         </p>
 
         <div className="mt-8 grid gap-4 lg:grid-cols-2">
@@ -53,12 +53,12 @@ export default async function M0StatusPage() {
           </article>
 
           <article className="ds-card p-6">
-            <h2 className="text-xl font-black">M0 模块</h2>
+            <h2 className="text-xl font-black">运行模块</h2>
             <div className="mt-4 grid gap-3">
               {[
-                'Next.js Web skeleton',
-                'NestJS API skeleton',
-                'NestJS Worker skeleton',
+                'Next.js Web application',
+                'NestJS API service',
+                'NestJS Worker service',
                 'Prisma + PostgreSQL',
                 'Redis + BullMQ',
               ].map((item) => (
@@ -67,7 +67,7 @@ export default async function M0StatusPage() {
                   key={item}
                 >
                   <strong>{item}</strong>
-                  <p className="ds-muted mt-1 text-sm">可运行骨架，不含提前扩展业务功能。</p>
+                  <p className="ds-muted mt-1 text-sm">当前部署中支撑 DreamStudio 运行的基础组件。</p>
                 </div>
               ))}
             </div>

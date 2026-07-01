@@ -1,17 +1,26 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Route } from 'next';
 
 import { AdminNavigation } from '@/components/admin-navigation';
 import { ConsoleNavigation } from '@/components/console-navigation';
 import { PublicAuthControls } from '@/components/public-auth-controls';
 
-function SidebarBrand({ subtitle }: { subtitle: string }) {
+function BrandLink({
+  ariaLabel,
+  href,
+  subtitle,
+}: {
+  ariaLabel: string;
+  href: '/' | '/studio';
+  subtitle?: string;
+}) {
   return (
     <div>
       <Link
-        aria-label="前往创作台"
+        aria-label={ariaLabel}
         className="group inline-flex items-center gap-3 rounded-[20px] border border-transparent p-2 -ml-2 transition hover:border-[var(--ds-border)] hover:bg-[rgba(255,255,255,0.04)]"
-        href="/studio"
+        href={href as Route}
       >
         <span className="relative flex h-12 w-12 shrink-0 overflow-hidden rounded-[18px] border border-[rgba(139,231,225,0.24)] bg-[linear-gradient(160deg,rgba(255,134,93,0.14),rgba(139,231,225,0.08))] shadow-[0_14px_28px_rgba(0,0,0,0.22)]">
           <Image
@@ -32,18 +41,20 @@ function SidebarBrand({ subtitle }: { subtitle: string }) {
           </span>
         </span>
       </Link>
-      <p className="ds-muted mt-3 hidden text-xs font-semibold lg:block">{subtitle}</p>
+      {subtitle ? <p className="ds-muted mt-3 hidden text-xs font-semibold lg:block">{subtitle}</p> : null}
     </div>
   );
+}
+
+function SidebarBrand({ subtitle }: { subtitle: string }) {
+  return <BrandLink ariaLabel="前往创作台" href="/studio" subtitle={subtitle} />;
 }
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <main>
       <header className="ds-shell flex items-center justify-between py-6">
-        <Link className="text-lg font-black tracking-tight" href="/">
-          DreamStudio
-        </Link>
+        <BrandLink ariaLabel="前往 DreamStudio 首页" href="/" />
         <PublicAuthControls />
       </header>
       {children}
@@ -55,12 +66,12 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <main className="ds-shell grid min-h-screen items-center gap-10 py-10 lg:grid-cols-[1fr_420px]">
       <section className="hidden lg:block">
-        <span className="ds-badge">连接你的 new-api 密钥</span>
+        <span className="ds-badge">DreamStudio 账号</span>
         <h1 className="ds-display mt-5 max-w-2xl text-6xl font-black leading-[0.98]">
-          把复杂的模型接口收进一个安静的创作工作室。
+          登录后继续你的图片创作工作流。
         </h1>
         <p className="ds-muted mt-6 max-w-xl text-lg leading-8">
-          M0 只建立认证页面骨架，具体注册、登录、会话和 CSRF 将在 M1 实现。
+          系统会根据你的账号状态进入创作台、new-api 接入引导或管理后台，不需要重复判断该从哪个入口开始。
         </p>
       </section>
       <section className="ds-card p-7">{children}</section>
