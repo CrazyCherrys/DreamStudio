@@ -131,7 +131,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4">
+            <div className="mt-5 grid gap-4 min-[1240px]:grid-cols-[minmax(0,1fr)_200px]">
               <div className="ds-mesh-panel ds-grid-trace rounded-[24px] border border-[var(--ds-border)] p-4">
                 <div className="grid gap-4">
                   <div
@@ -197,7 +197,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-3 min-[1240px]:grid-cols-1">
                 {[
                   {
                     title: '任务追踪',
